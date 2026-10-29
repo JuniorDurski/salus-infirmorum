@@ -22,12 +22,13 @@ unset($_SESSION['sesion_expirada']);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Iniciar sesión | Salus Infirmorum</title>
-    <link rel="stylesheet" href="css/seguridad.css">
+    <link rel="stylesheet" href="assets/css/app.css">
 </head>
-<body class="seguridad">
+<body class="auth-page">
 <main class="auth-contenedor">
     <section class="auth-panel">
         <img class="auth-logo" src="images/icono_menu.png" alt="Salus Infirmorum">
+        <span class="eyebrow">Acceso seguro</span>
         <h1>Iniciar sesión</h1>
         <p>Ingrese con su usuario, CI o correo.</p>
         <form id="formLogin" autocomplete="on">
@@ -42,7 +43,7 @@ unset($_SESSION['sesion_expirada']);
                 <input type="password" id="clave" name="clave" required autocomplete="current-password">
             </div>
             <div id="mensaje" class="mensaje"><?= $sesionExpiro ? 'La sesión expiró por inactividad.' : '' ?></div>
-            <button class="boton" type="submit">Ingresar</button>
+            <button class="boton" type="submit">Ingresar al sistema</button>
         </form>
     </section>
 </main>

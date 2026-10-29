@@ -1,209 +1,107 @@
 <?php
+
+require_once __DIR__ . '/backend/menu_service.php';
 $identidadMenu = $usuarioAutenticado ?? requerirAutenticacion($conexion);
+$menusNavegacion = obtenerMenusVisibles($conexion, (int) $identidadMenu['id_usuario']);
+$rutaActual = basename((string) parse_url($_SERVER['REQUEST_URI'] ?? 'index.php', PHP_URL_PATH));
+
+$stmtTema = $conexion->prepare('SELECT modo_oscuro FROM usuario_configuraciones WHERE id_usuario = ?');
+$idTema = (int) $identidadMenu['id_usuario'];
+$stmtTema->bind_param('i', $idTema);
+$stmtTema->execute();
+$temaOscuro = (int) ($stmtTema->get_result()->fetch_assoc()['modo_oscuro'] ?? 0) === 1;
+
+function menuContieneRuta(array $menu, string $rutaActual): bool
+{
+    $rutaMenu = $menu['url'] ? basename((string) parse_url($menu['url'], PHP_URL_PATH)) : '';
+    if ($rutaMenu !== '' && $rutaMenu === $rutaActual) return true;
+    foreach ($menu['hijos'] ?? [] as $hijo) {
+        if (menuContieneRuta($hijo, $rutaActual)) return true;
+    }
+    return false;
+}
+
+function existeUrlEnMenus(array $menus, string $ruta): bool
+{
+    foreach ($menus as $menu) {
+        $rutaMenu = $menu['url'] ? basename((string) parse_url($menu['url'], PHP_URL_PATH)) : '';
+        if ($rutaMenu === $ruta || existeUrlEnMenus($menu['hijos'] ?? [], $ruta)) return true;
+    }
+    return false;
+}
+
+function renderizarMenus(array $menus, string $rutaActual, bool $esSubmenu = false): void
+{
+    if (!$menus) return;
+    if ($esSubmenu) echo '<div class="nav-children">';
+    foreach ($menus as $menu) {
+        $etiqueta = htmlspecialchars($menu['etiqueta'], ENT_QUOTES, 'UTF-8');
+        $icono = htmlspecialchars($menu['icono'] ?: '•', ENT_QUOTES, 'UTF-8');
+        $url = $menu['url'] ? htmlspecialchars($menu['url'], ENT_QUOTES, 'UTF-8') : null;
+        $hijos = $menu['hijos'] ?? [];
+        $activo = menuContieneRuta($menu, $rutaActual);
+        if ($hijos) {
+            echo '<details' . ($activo ? ' open' : '') . '>';
+            echo '<summary><span class="nav-icon">' . $icono . '</span><span>' . $etiqueta . '</span></summary>';
+            echo '<div class="nav-children">';
+            if ($url !== null) {
+                echo '<a class="parent-link' . ($activo && basename((string) parse_url($menu['url'], PHP_URL_PATH)) === $rutaActual ? ' active' : '') . '" href="' . $url . '">Abrir ' . $etiqueta . '</a>';
+            }
+            renderizarMenus($hijos, $rutaActual, false);
+            echo '</div></details>';
+        } elseif ($url !== null) {
+            $rutaMenu = basename((string) parse_url($menu['url'], PHP_URL_PATH));
+            echo '<a' . ($rutaMenu === $rutaActual ? ' class="active" aria-current="page"' : '') . ' href="' . $url . '">';
+            echo '<span class="nav-icon">' . $icono . '</span><span>' . $etiqueta . '</span></a>';
+        }
+    }
+    if ($esSubmenu) echo '</div>';
+}
+
+$titulosRuta = [
+    'index.php' => 'Panel principal', 'designaciones.php' => 'Escuelas',
+    'pacientes.php' => 'Pacientes', 'imprimir.php' => 'Informes',
+    'usuarios.php' => 'Usuarios', 'roles.php' => 'Roles',
+    'permisos.php' => 'Permisos', 'menus.php' => 'Menús', 'perfil.php' => 'Mi perfil',
+];
+$tituloActual = $tituloPagina ?? ($titulosRuta[$rutaActual] ?? 'Salus Infirmorum');
 ?>
-<!DOCTYPE html>
-<html lang="es">
+<!doctype html>
+<html lang="es" data-csrf="<?= htmlspecialchars(tokenCsrf(), ENT_QUOTES, 'UTF-8') ?>">
 <head>
-    <meta charset="UTF-8">
-    <title> | Postulantes |</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light dark">
+    <title><?= htmlspecialchars($tituloActual, ENT_QUOTES, 'UTF-8') ?> | Salus Infirmorum</title>
+    <link rel="stylesheet" href="assets/css/app.css">
+    <script src="assets/js/app.js"></script>
 </head>
-
-<script>
-    const urlMenu = "backend/usuariosDAO.php";
-    const csrfMenu = <?= json_encode(tokenCsrf()) ?>;
-    let oscuro = false;
-
-    window.onload = function () {
-        cargarMenu();
-        fetch(urlMenu + "?q=fuente_color")
-            .then(r => r.json())
-            .then(d => {
-                oscuro = d.fuente_claro;
-                aplicarModo();
-            });
-    };
-
-    function aplicarModo() {
-        const cuerpo = document.getElementById("cuerpo");
-        const logo = document.getElementById("logo");
-        const menu = document.getElementById("menu-colores");
-
-        if (oscuro != 1) {
-                // MODO OSCURO - VERDE (MATRIX)
-            cuerpo.bgColor = "black";
-            cuerpo.text = "lime";
-            cuerpo.link = "lime";
-            cuerpo.vLink = "lime";
-            cuerpo.aLink = "lime";
-            menu.color = "lime"; // cambiar menú a verde
-
-            logo.src = "images/icono_menu_oscuro.png";
-
-            aplicarModoCampos(true);
-        } else {
-            // MODO CLARO - AZUL
-            cuerpo.bgColor = "white";
-            cuerpo.text = "black";
-            cuerpo.link = "003399";
-            cuerpo.vLink = "003399";
-            cuerpo.aLink = "003399";
-
-            menu.color = "003399"; // menú azul
-
-            logo.src = "images/icono_menu.png";
-            aplicarModoCampos(false);
-        }
-    }
-
-    function cambiarModo() {
-        const datos = new FormData();
-        datos.append('csrf_token', csrfMenu);
-        fetch(urlMenu + "?q=cambiar_fuente", { method: 'POST', body: datos })
-            .then(r => r.json())
-            .then(res => {
-                if (res.status === 'error') {
-                    alert(res.mensaje);
-                    return;
-                }
-                aplicarModo();
-                location.reload();
-            });
-    }
-
-    function cargarMenu() {
-        fetch('backend/menusDAO.php')
-            .then(r => {
-                if (r.status === 401) location.href = 'login.php';
-                return r.json();
-            })
-            .then(menus => {
-                const contenedor = document.getElementById('opciones-menu');
-                contenedor.innerHTML = menus.map(renderMenu).join('');
-            });
-    }
-
-    function renderMenu(menu) {
-        const etiqueta = escaparHtml(menu.etiqueta);
-        const principal = menu.url
-            ? `<a href="${escaparHtml(menu.url)}">${etiqueta}</a>`
-            : `<span>${etiqueta}</span>`;
-        const hijos = (menu.hijos || []).map(hijo => {
-            const texto = escaparHtml(hijo.etiqueta);
-            return hijo.url ? `<a href="${escaparHtml(hijo.url)}">${texto}</a>` : texto;
-        }).join(' &gt; ');
-
-        return `<font size="4">| ${principal}${hijos ? ` [ ${hijos} ]` : ''} | </font>`;
-    }
-
-    function escaparHtml(valor) {
-        const nodo = document.createElement('div');
-        nodo.textContent = valor ?? '';
-        return nodo.innerHTML;
-    }
-
-    function cerrarSesion() {
-        const datos = new FormData();
-        datos.append('csrf_token', csrfMenu);
-        fetch(urlMenu + '?q=logout', { method: 'POST', body: datos })
-            .then(() => location.href = 'login.php');
-    }
-
-    function aplicarModoCampos(esOscuro) {
-        const inputs = document.getElementsByTagName("input");
-        const selects = document.getElementsByTagName("select");
-        const textareas = document.getElementsByTagName("textarea");
-        const buttons = document.getElementsByTagName("button");
-
-        const bg = esOscuro ? "black" : "white";
-        const color = esOscuro ? "lime" : "black";
-        const borde = esOscuro ? "1px solid lime" : "1px solid #003399";
-
-        for (let i = 0; i < inputs.length; i++) {
-            inputs[i].style.backgroundColor = bg;
-            inputs[i].style.color = color;
-            inputs[i].style.border = borde;
-        }
-
-        for (let i = 0; i < selects.length; i++) {
-            selects[i].style.backgroundColor = bg;
-            selects[i].style.color = color;
-            selects[i].style.border = borde;
-        }
-
-        for (let i = 0; i < textareas.length; i++) {
-            textareas[i].style.backgroundColor = bg;
-            textareas[i].style.color = color;
-            textareas[i].style.border = borde;
-        }
-
-        for (let i = 0; i < buttons.length; i++) {
-            buttons[i].style.backgroundColor = bg;
-            buttons[i].style.color = color;
-            buttons[i].style.border = borde;
-        }
-    }
-
-    function formatoGrupoSanguineo(texto) {
-        if (!texto) return '';
-
-        texto = texto.toUpperCase().trim();
-
-        let grupo = '';
-
-        if (texto.startsWith('AB')) grupo = 'AB';
-        else if (texto.startsWith('A')) grupo = 'A';
-        else if (texto.startsWith('B')) grupo = 'B';
-        else if (texto.startsWith('O')) grupo = 'O';
-
-        let signo = '';
-        if (texto.includes('POSITIVO')) signo = '+';
-        else if (texto.includes('NEGATIVO')) signo = '-';
-
-        return grupo + signo;
-    }
-</script>
-
-<body id="cuerpo" bgcolor="white" text="black" link="blue" vlink="blue" alink="blue">
-
-<font face="monospace">
-
-<!-- MENÚ CONSOLA -->
-<table width="100%" border="0" cellspacing="4" cellpadding="6">
-    <tr>
-
-        <!-- LOGO -->
-        <td width="118" align="left">
-            <a href="index.php">
-                <img id="logo" src="images/icono_menu.png" alt="Logo" width="200">
-            </a>
-        </td>
-
-        <!-- OPCIONES DEL MENÚ -->
-        <td align="left">
-
-            <table id="menu-colores" border="0" cellspacing="5" cellpadding="2">
-                <tr>
-                    <td id="opciones-menu"></td>
-                    <td>
-                        <font size="4">|
-                            <a href="#" onclick="cambiarModo()">ASPECTO</a> <-> |
-                        </font>
-                    </td>
-
-                    <td>
-                        <font size="4">|
-                            <a href="#" onclick="cerrarSesion()">SALIR</a> -> |
-                        </font>
-                    </td>
-                </tr>
-            </table>
-
-        </td>
-        <td align="right" nowrap>
-            <strong><?= htmlspecialchars($identidadMenu['nombre']) ?></strong><br>
-            <small>@<?= htmlspecialchars($identidadMenu['usuario']) ?> |
-                <?= htmlspecialchars(implode(', ', $identidadMenu['roles'])) ?></small>
-        </td>
-    </tr>
-</table>
-
+<body class="<?= $temaOscuro ? 'theme-dark' : '' ?>">
+<div class="app-shell">
+    <div class="sidebar-backdrop" aria-hidden="true"></div>
+    <aside class="sidebar" aria-label="Navegación principal">
+        <a class="brand" href="index.php">
+            <img src="images/icono_menu.png" alt="">
+            <span><strong>Salus Infirmorum</strong><small>Gestión clínica</small></span>
+        </a>
+        <div class="nav-label">Navegación</div>
+        <nav class="side-nav"><?php renderizarMenus($menusNavegacion, $rutaActual); ?></nav>
+        <div class="sidebar-user">
+            <strong><?= htmlspecialchars($identidadMenu['nombre'], ENT_QUOTES, 'UTF-8') ?></strong>
+            <small>@<?= htmlspecialchars($identidadMenu['usuario'], ENT_QUOTES, 'UTF-8') ?></small>
+            <small><?= htmlspecialchars(implode(' · ', $identidadMenu['roles']), ENT_QUOTES, 'UTF-8') ?></small>
+        </div>
+    </aside>
+    <div class="app-frame">
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="icon-button mobile-menu" type="button" data-sidebar-toggle aria-label="Abrir menú">☰</button>
+                <div class="topbar-title"><strong><?= htmlspecialchars($tituloActual, ENT_QUOTES, 'UTF-8') ?></strong><small>Sistema de gestión clínica</small></div>
+            </div>
+            <div class="topbar-actions">
+                <button class="icon-button" type="button" data-theme-toggle title="Cambiar apariencia" aria-label="Cambiar apariencia"><span class="theme-label">◐</span></button>
+                <?php if (existeUrlEnMenus($menusNavegacion, 'perfil.php')): ?><a class="btn btn-secondary profile-link" href="perfil.php">Mi perfil</a><?php endif; ?>
+                <button class="btn btn-secondary" type="button" data-logout>Salir</button>
+            </div>
+        </header>
+        <div class="page-content">

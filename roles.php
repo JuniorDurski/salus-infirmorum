@@ -2,9 +2,10 @@
 include 'conexion.php';
 $usuarioAutenticado = requerirAutenticacion($conexion, 'roles.ver');
 $puedeEditar = tienePermiso($usuarioAutenticado, 'roles.editar');
+$tituloPagina = 'Roles';
 include 'menu.php';
 ?>
-<link rel="stylesheet" href="css/seguridad.css">
+<div class="page-header"><div><span class="eyebrow">Seguridad</span><h1>Roles</h1><p>Agrupe permisos funcionales y permisos de menú según cada perfil.</p></div></div>
 <main class="seguridad-grid">
     <section class="panel-seguridad">
         <h2>Rol</h2>
@@ -22,10 +23,10 @@ include 'menu.php';
     </section>
     <section class="panel-seguridad">
         <h2>Roles</h2>
-        <table class="tabla-seguridad">
+        <div class="table-wrap"><table class="tabla-seguridad">
             <thead><tr><th>Código</th><th>Nombre</th><th>Permisos</th><th>Estado</th><th>Acciones</th></tr></thead>
             <tbody id="tablaRoles"></tbody>
-        </table>
+        </table></div>
     </section>
 </main>
 <script>

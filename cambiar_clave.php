@@ -10,11 +10,12 @@ $identidad = requerirAutenticacion($conexion, null, false, true);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Cambiar contraseña | Salus Infirmorum</title>
-    <link rel="stylesheet" href="css/seguridad.css">
+    <link rel="stylesheet" href="assets/css/app.css">
 </head>
-<body class="seguridad">
+<body class="auth-page">
 <main class="auth-contenedor">
     <section class="auth-panel">
+        <span class="eyebrow">Protección de la cuenta</span>
         <h1>Cambiar contraseña</h1>
         <p>Usuario: <strong><?= htmlspecialchars($identidad['usuario']) ?></strong></p>
         <?php if ($identidad['clave_predeterminada']): ?>

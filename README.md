@@ -16,3 +16,7 @@ La configuración y la convención de versiones están documentadas en
 Después de aplicar las migraciones, el acceso inicial es con el usuario
 `admin`. La contraseña inicial es temporal y el sistema obliga a cambiarla antes
 de habilitar el resto de los módulos.
+
+La navegación se administra desde **Seguridad > Menús**. Cada padre o hijo crea
+su permiso `menu.<ruta>` y puede limitarse por rol, desactivarse o declararse
+visible para todos los usuarios autenticados.

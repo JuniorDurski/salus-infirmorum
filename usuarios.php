@@ -2,9 +2,10 @@
 include 'conexion.php';
 $usuarioAutenticado = requerirAutenticacion($conexion, 'usuarios.ver');
 $puedeEditar = tienePermiso($usuarioAutenticado, 'usuarios.editar');
+$tituloPagina = 'Usuarios';
 include 'menu.php';
 ?>
-<link rel="stylesheet" href="css/seguridad.css">
+<div class="page-header"><div><span class="eyebrow">Seguridad</span><h1>Usuarios</h1><p>Administre identidades, roles y el acceso inicial al sistema.</p></div></div>
 <main class="seguridad-grid">
     <section class="panel-seguridad">
         <h2>Usuario</h2>
@@ -24,10 +25,10 @@ include 'menu.php';
     </section>
     <section class="panel-seguridad">
         <h2>Usuarios</h2>
-        <table class="tabla-seguridad">
+        <div class="table-wrap"><table class="tabla-seguridad">
             <thead><tr><th>Usuario</th><th>Nombre</th><th>CI / correo</th><th>Roles</th><th>Estado</th><th>Acciones</th></tr></thead>
             <tbody id="tablaUsuarios"></tbody>
-        </table>
+        </table></div>
     </section>
 </main>
 <script>

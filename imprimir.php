@@ -1,242 +1,66 @@
 <?php
-include "conexion.php";
+include 'conexion.php';
 $usuarioAutenticado = requerirAutenticacion($conexion, 'reportes.imprimir');
-include "menu.php";
+$tituloPagina = 'Informes';
+include 'menu.php';
 ?>
 
-<table width="95%" align="center" cellpadding="6" border="0">
+<div class="page-header">
+    <div><span class="eyebrow">Documentos</span><h1>Imprimir informes</h1><p>Filtre pacientes y genere informes sin modificar sus plantillas PDF.</p></div>
+</div>
 
-<!-- ================= CABECERA ================= -->
-<tr>
-    <th colspan="8" align="center">
-        <h2>C:\ IMPRIMIR INFORMES ></h2>
-    </th>
-</tr>
-<tr>
-    <table width="95%" align="center" cellpadding="6" border="1">
-        <th colspan="5" align="left">
-            <b>Nombre o CI</b><br>
-            <input type="text" id="txtBuscar" size="30">
-        </th>
+<section class="card">
+    <div class="field-grid" style="grid-template-columns:2fr 1.4fr 1fr">
+        <div class="campo"><label for="txtBuscar">Nombre o documento</label><input type="search" id="txtBuscar" placeholder="Escriba para buscar…"></div>
+        <div class="campo"><label for="f_designacion">Escuela</label><select id="f_designacion"><option value="">Cargando…</option></select></div>
+        <div class="campo"><label for="f_fecha">Fecha de alta</label><input type="date" id="f_fecha"></div>
+    </div>
+    <div class="form-actions">
+        <button type="button" onclick="buscar()">Buscar pacientes</button>
+        <button type="button" class="btn-secondary" onclick="imprimirTodo()">Imprimir selección</button>
+        <button type="button" class="btn-secondary" onclick="imprimirTarjeta()">Tarjetas Rh</button>
+    </div>
+</section>
 
-        <th>
-            <b>Escuela</b><br>
-            <select id="f_designacion"></select>
-        </th>
-
-        <th>
-            <b>Fecha</b><br>
-            <input type="date" id="f_fecha">
-        </th>
-
-        <th>
-            <b>Acciones</b><br>
-            <button onclick="buscar()">Buscar</button>
-            <button onclick="imprimirTodo()">Imprimir</button>
-            <button onclick="imprimirTarjeta()">Rh</button>
-        </th>
-    </table>
-</tr>
-<tr>
-    <th>
-        &nbsp;
-    </th>
-</tr>
-
-<!-- ================= TABLA ================= -->
-<tr>
-<td colspan="9">
-<table width="95%" align="center" cellpadding="6" border="1">
-    <thead>
-        <tr>
-            <th style="width:20px">ID</th>
-            <th style="width:20px">COD</th>
-            <th>Nombre y Apellido</th>
-            <th>CI</th>
-            <th style="width:17px">Edad</th>
-            <th>Sexo</th>
-            <th style="width:150px">Escuela</th>
-            <th>Rh</th>
-            <th style="width:110px">Fecha Alta</th>
-            <th style="width:238px">Acciones</th>
-        </tr>
-    </thead>
-    <tbody id="tabla"></tbody>
-</table>
-</td>
-</tr>
-
-</table>
+<section class="card" style="margin-top:20px">
+    <div class="card-header"><div><h2>Resultados</h2><p class="help-text" id="resumen">Use los filtros para comenzar.</p></div></div>
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr><th>Paciente</th><th>Documento</th><th>Edad / sexo</th><th>Escuela</th><th>Rh</th><th>Alta</th><th></th></tr></thead>
+        <tbody id="tabla"><tr><td colspan="7" class="empty-state">No se realizó ninguna búsqueda.</td></tr></tbody>
+    </table></div>
+</section>
 
 <script>
-const url = "backend/postulantesDAO.php";
-let idsActuales = [];
-
-/* ================= ESCUELAS ================= */
-function cargarEscuelas() {
-    fetch("backend/designacionesDAO.php?q=listar")
-    .then(r => r.json())
-    .then(data => {
-        let opt = "<option value=''>-- Seleccione --</option>";
-        data.forEach(d => {
-            opt += `<option value="${d.id_escuela}">${d.nombre} - ${d.periodo}</option>`;
-        });
-        f_designacion.innerHTML = opt;
-    });
+let idsActuales=[];
+async function cargarEscuelas(){
+    try{const data=await Salus.json('backend/designacionesDAO.php?q=listar');f_designacion.innerHTML='<option value="">Todas las escuelas</option>'+data.map(d=>`<option value="${d.id_escuela}">${Salus.escape(d.nombre)} · ${Salus.escape(d.periodo)}</option>`).join('');}
+    catch(error){Salus.toast(error.message,'error');}
 }
-
-/* ================= BUSCAR ================= */
-function buscar() {
-
-    let params = new URLSearchParams({
-        q: 'buscar',
-        texto: txtBuscar.value,
-        designacion: f_designacion.value,
-        fecha: f_fecha.value
-    });
-
-    fetch(url + "?" + params.toString())
-    .then(r => r.json())
-    .then(data => {
-        let html = "";
-        idsActuales = [];
-
-        data.forEach(p => {
-            idsActuales.push(p.id_postulante);
-
-            html += `
-            <tr>
-                <td>${p.id_postulante}</td>
-                <td>${p.codigo}</td>
-                <td>${p.nombre}</td>
-                <td>${p.ci}</td>
-                <td>${p.edad}</td>
-                <td>${p.sexo}</td>
-                <td>${p.designacion}</td>
-                <td>${formatoGrupoSanguineo(p.grupo_sanguineo)}</td>
-                <td>${p.fecha}</td>
-                <td>
-                    <a href="pacientes.php">Editar</a> |
-                    <a href="examen.php?id=${p.id_postulante}">Resultado</a> |
-                    <a href="#" onclick="imprimirUno(${p.id_postulante})">Imprimir</a>
-                </td>
-            </tr>`;
-        });
-
-        tabla.innerHTML = html;
-    });
+async function buscar(){
+    const params=new URLSearchParams({q:'buscar',texto:txtBuscar.value,designacion:f_designacion.value,fecha:f_fecha.value});
+    try{
+        const data=await Salus.json('backend/postulantesDAO.php?'+params);idsActuales=data.map(p=>p.id_postulante);resumen.textContent=`${data.length} paciente(s) encontrado(s)`;
+        tabla.innerHTML=data.length?data.map(p=>`<tr>
+            <td><strong>${Salus.escape(p.nombre)}</strong><br><small>${Salus.escape(p.codigo||'Sin código')}</small></td><td>${Salus.escape(p.ci)}</td>
+            <td>${Salus.escape(p.edad)} años<br><small>${Salus.escape(p.sexo)}</small></td><td>${Salus.escape(p.escuela||'—')}</td>
+            <td><span class="badge badge-muted">${Salus.escape(formatoGrupoSanguineo(p.grupo_sanguineo)||'—')}</span></td><td>${Salus.escape(p.fecha)}</td>
+            <td><button class="btn-small btn-secondary" onclick="imprimirUno(${Number(p.id_postulante)})">Imprimir</button></td>
+        </tr>`).join(''):'<tr><td colspan="7" class="empty-state">No hay coincidencias para esos filtros.</td></tr>';
+    }catch(error){Salus.toast(error.message,'error');}
 }
-
-/* ================= IMPRIMIR TODO ================= */
-function imprimirTodo() {
-    const designacion = obtenerDesignacionTexto();
-
-    if (idsActuales.length === 0) {
-        alert("No hay datos para imprimir");
-        return;
-    }
-    if (designacion == "") {
-        alert("Seleccione una escuela");
-        return;
-    }
-
-    let form = document.createElement("form");
-    form.method = "POST";
-    form.action = "reportes/index.php";
-    form.target = "_blank";
-
-    idsActuales.forEach(id => {
-        let input = document.createElement("input");
-        input.type = "hidden";
-        input.name = "ids[]";
-        input.value = id;
-        form.appendChild(input);
-    });
-
-    // Enviar designación (solo texto)    
-    let inputDesignacion = document.createElement("input");
-    inputDesignacion.type = "hidden";
-    inputDesignacion.name = "designacion";
-    inputDesignacion.value = designacion;
-    form.appendChild(inputDesignacion);
-
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
+function obtenerDesignacionTexto(){if(!f_designacion.value)return '';return f_designacion.options[f_designacion.selectedIndex].text.split(' · ')[0].trim();}
+function enviarInforme(action,ids,exigirEscuela=true){
+    if(!ids.length){Salus.toast('No hay pacientes para imprimir.','error');return;}
+    const designacion=obtenerDesignacionTexto();if(exigirEscuela&&!designacion){Salus.toast('Seleccione una escuela.','error');return;}
+    const form=document.createElement('form');form.method='POST';form.action=action;form.target='_blank';
+    ids.forEach((id,index)=>{const input=document.createElement('input');input.type='hidden';input.name=ids.length===1?'id':'ids[]';input.value=id;form.appendChild(input);});
+    const escuela=document.createElement('input');escuela.type='hidden';escuela.name='designacion';escuela.value=designacion;form.appendChild(escuela);
+    document.body.appendChild(form);form.submit();form.remove();
 }
-
-function imprimirTarjeta() {
-    const designacion = obtenerDesignacionTexto();
-
-    if (idsActuales.length === 0) {
-        alert("No hay datos para imprimir");
-        return;
-    }
-    if (designacion == "") {
-        alert("Seleccione una escuela");
-        return;
-    }
-
-    let form = document.createElement("form");
-    form.method = "POST";
-    form.action = "reportes/informe_tipi.php";
-    form.target = "_blank";
-
-    idsActuales.forEach(id => {
-        let input = document.createElement("input");
-        input.type = "hidden";
-        input.name = "ids[]";
-        input.value = id;
-        form.appendChild(input);
-    });
-
-    // Enviar designación (solo texto)    
-    let inputDesignacion = document.createElement("input");
-    inputDesignacion.type = "hidden";
-    inputDesignacion.name = "designacion";
-    inputDesignacion.value = designacion;
-    form.appendChild(inputDesignacion);
-
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
-}
-
-function imprimirUno(id) {
-    const designacion = obtenerDesignacionTexto();
-
-    let form = document.createElement("form");
-    form.method = "POST";
-    form.action = "reportes/index.php";
-    form.target = "_blank";
-
-    let inputId = document.createElement("input");
-    inputId.type = "hidden";
-    inputId.name = "id";
-    inputId.value = id;
-    form.appendChild(inputId);
-
-    let inputDesignacion = document.createElement("input");
-    inputDesignacion.type = "hidden";
-    inputDesignacion.name = "designacion";
-    inputDesignacion.value = designacion;
-    form.appendChild(inputDesignacion);
-
-    document.body.appendChild(form);
-    form.submit();
-    document.body.removeChild(form);
-}
-
-
-function obtenerDesignacionTexto() {
-    const sel = document.getElementById("f_designacion");
-
-    if (!sel.value) return "";
-    const texto = sel.options[sel.selectedIndex].text;
-    return texto.split(" - ")[0].trim();
-}
-
+function imprimirTodo(){enviarInforme('reportes/index.php',idsActuales);}
+function imprimirTarjeta(){enviarInforme('reportes/informe_tipi.php',idsActuales);}
+function imprimirUno(id){enviarInforme('reportes/index.php',[id],false);}
+txtBuscar.addEventListener('keydown',event=>{if(event.key==='Enter')buscar();});
 cargarEscuelas();
 </script>
-
-<?php include "footer.php"; ?>
+<?php include 'footer.php'; ?>

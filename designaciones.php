@@ -1,174 +1,76 @@
 <?php
-include "conexion.php";
+include 'conexion.php';
 $usuarioAutenticado = requerirAutenticacion($conexion, 'escuelas.ver');
-include "menu.php";
+$puedeEditar = tienePermiso($usuarioAutenticado, 'escuelas.editar');
+$tituloPagina = 'Escuelas';
+include 'menu.php';
 ?>
 
+<div class="page-header">
+    <div><span class="eyebrow">Referenciales</span><h1>Escuelas</h1><p>Organice las instituciones por país y periodo académico.</p></div>
+</div>
 
+<div class="grid-2">
+    <section class="card">
+        <div class="card-header"><div><h2>Datos de la escuela</h2><p class="help-text">El periodo se almacena como año y mes.</p></div></div>
+        <form id="frmDesignacion">
+            <input type="hidden" name="id_escuela" id="id_escuela">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(tokenCsrf(), ENT_QUOTES, 'UTF-8') ?>">
+            <div class="campo"><label for="nombre">Nombre</label><input name="nombre" id="nombre" maxlength="150" required></div>
+            <div class="field-grid">
+                <div class="campo"><label for="periodo_anio">Año</label><input type="number" name="periodo_anio" id="periodo_anio" min="1900" max="2200" value="<?= date('Y') ?>" required></div>
+                <div class="campo"><label for="periodo_mes">Mes</label><select name="periodo_mes" id="periodo_mes" required>
+                    <option value="">Seleccione</option><option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option><option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option><option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
+                </select></div>
+            </div>
+            <div class="campo"><label for="id_pais">País (opcional)</label><select name="id_pais" id="id_pais"><option value="">Cargando…</option></select></div>
+            <?php if ($puedeEditar): ?><div class="form-actions"><button type="submit">Guardar</button><button type="button" class="btn-secondary" onclick="limpiar()">Cancelar</button></div><?php endif; ?>
+            <div id="mensaje" class="mensaje" role="status"></div>
+        </form>
+    </section>
 
-<!-- CONTENEDOR GENERAL -->
-<table width="95%" align="center" cellpadding="6" border="0">
-    <tr >
-        <th colspan="2"> <h2>C:\ ESCUELAS ></h2></th>
-    </tr>
-    <tr>
-        <!-- COLUMNA IZQUIERDA: FORMULARIO -->
-        <td width="30%" valign="top">
-            <table border="1" width="100%" cellpadding="5" align="left">
-                <form id="frmDesignacion">
-                    <thead>
-                        <tr>
-                            <th align="left"> <h3>CARGA DE DATOS</h3></th>
-                        </tr>
-                    </thead>
-                    
-                    <input type="hidden" name="id_escuela" id="id_escuela">
-                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(tokenCsrf(), ENT_QUOTES) ?>">
-                    <tr>
-                        <th align="left">
-                            <b>Escuela</b><br>
-                            <input type="text" name="nombre" id="nombre" size="30" required>
-                        </th>
-                    </tr>
-                    <tr>
-                        <th align="left">
-                            <b>Periodo (año y mes)</b><br>
-                            <input type="number" name="periodo_anio" id="periodo_anio" min="1900" max="2200" size="6" required>
-                            <select name="periodo_mes" id="periodo_mes" required>
-                                <option value="">Mes</option>
-                                <option value="1">Enero</option><option value="2">Febrero</option>
-                                <option value="3">Marzo</option><option value="4">Abril</option>
-                                <option value="5">Mayo</option><option value="6">Junio</option>
-                                <option value="7">Julio</option><option value="8">Agosto</option>
-                                <option value="9">Septiembre</option><option value="10">Octubre</option>
-                                <option value="11">Noviembre</option><option value="12">Diciembre</option>
-                            </select>
-                        </th>
-                    </tr>
-                    <tr>
-                        <th align="left">
-                            <b>País (opcional)</b><br>
-                            <select name="id_pais" id="id_pais" style="width: 100%;"></select>
-                        </th>
-                    </tr>
-                    <tr>
-                        <th align="left">
-                            <button type="submit">Guardar</button>
-                            <button type="button" onclick="limpiar()">Cancelar</button>
-                        </th>
-                    </tr>
-                </form>
-            </table>
-
-        </td>
-
-        <!-- COLUMNA DERECHA: TABLA -->
-        <td width="70%" valign="top">
-            <table border="1" width="100%" cellpadding="5">
-                <thead>
-                    <tr>
-                        <th colspan="4"> <h3>LOS DATOS CARGADOS</h3></th>
-                    </tr>
-                    <tr>
-                        <th align="left">ID</th>
-                        <th align="left">Escuela</th>
-                        <th align="left">Periodo</th>
-                        <th>Acciones</th>
-                    </tr>
-                </thead>
-                <tbody id="tabla"></tbody>
-            </table>
-
-        </td>
-    </tr>
-</table>
+    <section class="card">
+        <div class="card-header"><div><h2>Escuelas activas</h2><p class="help-text" id="resumen">Cargando registros…</p></div></div>
+        <div class="table-wrap"><table class="data-table">
+            <thead><tr><th>Escuela</th><th>Periodo</th><th>País</th><th>Acciones</th></tr></thead>
+            <tbody id="tabla"><tr><td colspan="4" class="empty-state">Cargando…</td></tr></tbody>
+        </table></div>
+    </section>
+</div>
 
 <script>
-const url = "backend/designacionesDAO.php";
-
-function cargar() {
-    fetch(url + "?q=listar")
-        .then(r => r.json())
-        .then(data => {
-            let html = "";
-            data.forEach(d => {
-                html += `
-                <tr>
-                    <td>${d.id_escuela}</td>
-                    <td>${d.nombre}</td>
-                    <td>${d.periodo}</td>
-                    <td style="width:150px">
-                        <button onclick='editar(${JSON.stringify(d)})'>Editar</button>
-                        <button onclick='eliminar(${d.id_escuela})'>Eliminar</button>
-                    </td>
-                </tr>`;
-            });
-            document.getElementById("tabla").innerHTML = html;
-        });
+const puedeEditarEscuelas = <?= $puedeEditar ? 'true' : 'false' ?>;
+let escuelas = [], paises = [];
+async function cargar() {
+    try {
+        escuelas = await Salus.json('backend/designacionesDAO.php?q=listar');
+        resumen.textContent = `${escuelas.length} registro(s) activo(s)`;
+        tabla.innerHTML = escuelas.length ? escuelas.map(d => `<tr>
+            <td><strong>${Salus.escape(d.nombre)}</strong></td><td><span class="badge badge-muted">${Salus.escape(d.periodo)}</span></td>
+            <td>${Salus.escape(paises.find(p => Number(p.id_pais) === Number(d.id_pais))?.nombre || '—')}</td>
+            <td><div class="table-actions">${puedeEditarEscuelas ? `<button class="btn-small btn-secondary" onclick="editar(${d.id_escuela})">Editar</button><button class="btn-small btn-danger" onclick="eliminar(${d.id_escuela})">Desactivar</button>` : ''}</div></td>
+        </tr>`).join('') : '<tr><td colspan="4" class="empty-state">Todavía no hay escuelas.</td></tr>';
+    } catch (error) { Salus.toast(error.message, 'error'); }
 }
-
-document.getElementById("frmDesignacion").onsubmit = function(e){
-    e.preventDefault();
-
-    let form = new FormData(this);
-
-    fetch(url + "?q=guardar", {
-        method: "POST",
-        body: form
-    })
-    .then(r => r.json())
-    .then(res => {
-        if (res.status == "ok") {
-            limpiar();
-            cargar();
-        } else {
-            alert(res.mensaje);
-        }
-    });
-};
-
-function editar(d) {
-    id_escuela.value = d.id_escuela;
-    nombre.value = d.nombre;
-    periodo_anio.value = d.periodo_anio;
-    periodo_mes.value = d.periodo_mes;
-    id_pais.value = d.id_pais ?? '';
+function editar(id) {
+    const d = escuelas.find(item => Number(item.id_escuela) === Number(id)); if (!d) return;
+    id_escuela.value=d.id_escuela; nombre.value=d.nombre; periodo_anio.value=d.periodo_anio; periodo_mes.value=d.periodo_mes; id_pais.value=d.id_pais||'';
+    nombre.focus();
 }
-
-function eliminar(id) {
-    if (!confirm("¿Eliminar registro?")) return;
-
-    let fd = new FormData();
-    fd.append("id", id);
-    fd.append("csrf_token", csrfMenu);
-
-    fetch(url + "?q=eliminar", {
-        method: "POST",
-        body: fd
-    })
-    .then(r => r.json())
-    .then(res => {
-        if (res.status == "ok") {
-            cargar();
-        } else {
-            alert(res.mensaje);
-        }
-    });
+async function eliminar(id) {
+    if (!confirm('¿Desactivar esta escuela?')) return;
+    try { await Salus.json('backend/designacionesDAO.php?q=eliminar', {method:'POST', body:Salus.form({id})}); Salus.toast('Escuela desactivada.'); cargar(); }
+    catch (error) { Salus.toast(error.message, 'error'); }
 }
-
-function limpiar() {
-    frmDesignacion.reset();
-    id_escuela.value = "";
-}
-
-fetch('backend/referencialesDAO.php?q=paises')
-    .then(r => r.json())
-    .then(data => {
-        id_pais.innerHTML = '<option value="">-- Sin especificar --</option>' +
-            data.map(p => `<option value="${p.id_pais}">${p.nombre}</option>`).join('');
-    });
-
-cargar();
+function limpiar() { frmDesignacion.reset(); id_escuela.value=''; periodo_anio.value=new Date().getFullYear(); mensaje.textContent=''; }
+frmDesignacion.addEventListener('submit', async event => {
+    event.preventDefault();
+    try { await Salus.json('backend/designacionesDAO.php?q=guardar', {method:'POST', body:new FormData(frmDesignacion)}); Salus.toast('Escuela guardada.'); limpiar(); cargar(); }
+    catch(error) { mensaje.textContent=error.message; }
+});
+(async function iniciar(){
+    try { paises=await Salus.json('backend/referencialesDAO.php?q=paises'); id_pais.innerHTML='<option value="">Sin especificar</option>'+paises.map(p=>`<option value="${p.id_pais}">${Salus.escape(p.nombre)}</option>`).join(''); await cargar(); }
+    catch(error){ Salus.toast(error.message,'error'); }
+})();
 </script>
-
-<?php include "footer.php"; ?>
+<?php include 'footer.php'; ?>

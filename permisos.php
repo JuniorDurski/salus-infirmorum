@@ -2,9 +2,10 @@
 include 'conexion.php';
 $usuarioAutenticado = requerirAutenticacion($conexion, 'permisos.ver');
 $puedeEditar = tienePermiso($usuarioAutenticado, 'permisos.editar');
+$tituloPagina = 'Permisos';
 include 'menu.php';
 ?>
-<link rel="stylesheet" href="css/seguridad.css">
+<div class="page-header"><div><span class="eyebrow">Seguridad</span><h1>Permisos</h1><p>Controle capacidades del sistema y la visibilidad granular de la navegación.</p></div></div>
 <main class="seguridad-grid">
     <section class="panel-seguridad">
         <h2>Permiso</h2>
@@ -21,7 +22,7 @@ include 'menu.php';
     </section>
     <section class="panel-seguridad">
         <h2>Permisos</h2>
-        <table class="tabla-seguridad"><thead><tr><th>Código</th><th>Nombre</th><th>Descripción</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="tablaPermisos"></tbody></table>
+        <div class="table-wrap"><table class="tabla-seguridad"><thead><tr><th>Código</th><th>Nombre</th><th>Descripción</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="tablaPermisos"></tbody></table></div>
     </section>
 </main>
 <script>
