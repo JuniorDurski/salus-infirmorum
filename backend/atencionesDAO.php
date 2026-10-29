@@ -102,11 +102,20 @@ function listarAsignaciones(mysqli $db, array $identidad): void
                     FROM postulantes_asignar_atencion_usuarios au
                     INNER JOIN usuarios us ON us.id_usuario = au.id_usuario
                     WHERE au.id_asignar_atencion = a.id_asignar_atencion) AS profesionales,
-                   (SELECT COUNT(*) FROM postulantes_atencion pa
+                   (SELECT COUNT(*)
+                    FROM postulantes_atencion pa
+                    INNER JOIN pacientes p_total
+                            ON p_total.id_paciente = pa.id_paciente AND p_total.activo = 1
                     WHERE pa.id_asignar_atencion = a.id_asignar_atencion) AS total,
-                   (SELECT COUNT(*) FROM postulantes_atencion pa
+                   (SELECT COUNT(*)
+                    FROM postulantes_atencion pa
+                    INNER JOIN pacientes p_atendidos
+                            ON p_atendidos.id_paciente = pa.id_paciente AND p_atendidos.activo = 1
                     WHERE pa.id_asignar_atencion = a.id_asignar_atencion AND pa.atendido = 1) AS atendidos,
-                   (SELECT COUNT(*) FROM postulantes_atencion pa
+                   (SELECT COUNT(*)
+                    FROM postulantes_atencion pa
+                    INNER JOIN pacientes p_pagados
+                            ON p_pagados.id_paciente = pa.id_paciente AND p_pagados.activo = 1
                     WHERE pa.id_asignar_atencion = a.id_asignar_atencion AND pa.pagado = 1) AS pagados
             FROM postulantes_asignar_atencion a
             INNER JOIN usuarios u ON u.id_usuario = a.creado_por" .
@@ -234,28 +243,41 @@ function atenderPostulante(mysqli $db, array $identidad): void
     if (!asignacionEditablePorProfesional($detalle)) responderJson(['status' => 'error', 'mensaje' => 'La atención ya no puede modificarse.'], 409);
     $actor = (int) $identidad['id_usuario'];
     $db->begin_transaction();
-    $stmt = $db->prepare(
-        'UPDATE postulantes_atencion
-         SET atendido = 1, atendido_en = NOW(), atendido_por = ?
-         WHERE id_postulante_atencion = ?'
-    );
-    $stmt->bind_param('ii', $actor, $id); $stmt->execute();
     $db->query("UPDATE postulantes_atencion_estudios SET realizado = 0, realizado_en = NULL, actualizado_por = {$actor} WHERE id_postulante_atencion = {$id}");
     if ($realizados) {
         $lista = implode(',', array_map('intval', $realizados));
         $db->query("UPDATE postulantes_atencion_estudios SET realizado = 1, realizado_en = NOW(), actualizado_por = {$actor} WHERE id_postulante_atencion = {$id} AND id_estudio IN ({$lista})");
     }
+    $stmt = $db->prepare(
+        'SELECT COUNT(*) AS total, COALESCE(SUM(realizado = 1), 0) AS realizados
+         FROM postulantes_atencion_estudios
+         WHERE id_postulante_atencion = ?'
+    );
+    $stmt->bind_param('i', $id); $stmt->execute();
+    $resumen = $stmt->get_result()->fetch_assoc();
+    $atendido = (int) $resumen['total'] > 0 && (int) $resumen['realizados'] === (int) $resumen['total'] ? 1 : 0;
+    $stmt = $db->prepare(
+        'UPDATE postulantes_atencion
+         SET atendido = ?,
+             atendido_en = IF(? = 1, NOW(), NULL),
+             atendido_por = IF(? = 1, ?, NULL)
+         WHERE id_postulante_atencion = ?'
+    );
+    $stmt->bind_param('iiiii', $atendido, $atendido, $atendido, $actor, $id); $stmt->execute();
     $db->commit();
-    responderJson(['status' => 'ok', 'mensaje' => 'Atención actualizada.']);
+    responderJson([
+        'status' => 'ok',
+        'atendido' => $atendido,
+        'mensaje' => $atendido ? 'Todos los estudios están completos. Postulante atendido.' : 'Estudios actualizados. La atención continúa pendiente.',
+    ]);
 }
 
 function comentarAtencion(mysqli $db, array $identidad): void
 {
     exigirPermisoAtencion($identidad, 'postulantes_atencion.comentar');
     $id = (int) ($_POST['id_postulante_atencion'] ?? 0);
-    $categoria = (string) ($_POST['categoria'] ?? 'general');
+    $categoria = 'general';
     $texto = trim((string) ($_POST['texto'] ?? ''));
-    if (!in_array($categoria, ['clinica', 'general', 'doctor'], true)) responderJson(['status' => 'error', 'mensaje' => 'Categoría no válida.'], 400);
     if ($texto === '' || mb_strlen($texto) > 1500) responderJson(['status' => 'error', 'mensaje' => 'Escriba un comentario de hasta 1500 caracteres.'], 400);
     $db->begin_transaction();
     $detalle = obtenerPostulanteAtencion($db, $id, $identidad, true);

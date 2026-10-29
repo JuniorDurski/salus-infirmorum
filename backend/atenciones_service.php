@@ -21,8 +21,9 @@ function fechaIsoValida(string $fecha): bool
 
 function esGestorAtenciones(array $identidad): bool
 {
-    foreach (['postulantes_atencion.asignar', 'postulantes_atencion.iniciar',
-              'postulantes_atencion.sincronizar', 'postulantes_atencion.pagar'] as $permiso) {
+    // Sincronizar o iniciar no concede visibilidad global. Un profesional puede
+    // ejecutar esas acciones y aun así debe ver solamente sus asignaciones.
+    foreach (['postulantes_atencion.asignar', 'postulantes_atencion.pagar'] as $permiso) {
         if (tienePermiso($identidad, $permiso)) return true;
     }
     return false;
@@ -91,7 +92,33 @@ function sincronizarAsignacion(mysqli $db, int $idAsignacion): int
     );
     $stmt->bind_param('i', $idAsignacion);
     $stmt->execute();
+    recalcularEstadosAsignacion($db, $idAsignacion);
     return max(0, $agregados);
+}
+
+function recalcularEstadosAsignacion(mysqli $db, int $idAsignacion): void
+{
+    $stmt = $db->prepare(
+        'UPDATE postulantes_atencion pa
+         LEFT JOIN (
+             SELECT id_postulante_atencion,
+                    COUNT(*) AS total_estudios,
+                    SUM(realizado = 1) AS estudios_realizados
+             FROM postulantes_atencion_estudios
+             GROUP BY id_postulante_atencion
+         ) resumen ON resumen.id_postulante_atencion = pa.id_postulante_atencion
+         SET pa.atendido = IF(resumen.total_estudios > 0
+                              AND resumen.estudios_realizados = resumen.total_estudios, 1, 0),
+             pa.atendido_en = IF(resumen.total_estudios > 0
+                                  AND resumen.estudios_realizados = resumen.total_estudios,
+                                  COALESCE(pa.atendido_en, NOW()), NULL),
+             pa.atendido_por = IF(resumen.total_estudios > 0
+                                   AND resumen.estudios_realizados = resumen.total_estudios,
+                                   pa.atendido_por, NULL)
+         WHERE pa.id_asignar_atencion = ?'
+    );
+    $stmt->bind_param('i', $idAsignacion);
+    $stmt->execute();
 }
 
 function obtenerDetalleAsignacion(mysqli $db, int $id, array $identidad): array
@@ -134,7 +161,8 @@ function obtenerDetalleAsignacion(mysqli $db, int $id, array $identidad): array
          LEFT JOIN escuelas e ON e.id_escuela = p.id_escuela
          LEFT JOIN usuarios ua ON ua.id_usuario = pa.atendido_por
          WHERE pa.id_asignar_atencion = ?
-         ORDER BY pa.atendido, pa.llamado DESC, p.nombre"
+           AND p.activo = 1
+         ORDER BY p.id_paciente ASC"
     );
     $stmt->bind_param('i', $id);
     $stmt->execute();
@@ -175,6 +203,7 @@ function obtenerPostulanteAtencion(mysqli $db, int $detalleId, array $identidad,
         'SELECT pa.*, a.fecha, a.empieza_atender, a.pago_realizado
          FROM postulantes_atencion pa
          INNER JOIN postulantes_asignar_atencion a ON a.id_asignar_atencion = pa.id_asignar_atencion
+         INNER JOIN pacientes p ON p.id_paciente = pa.id_paciente AND p.activo = 1
          WHERE pa.id_postulante_atencion = ?' . ($bloquear ? ' FOR UPDATE' : '')
     );
     $stmt->bind_param('i', $detalleId);

@@ -29,23 +29,27 @@ include 'menu.php';
 </div>
 
 <?php if ($puedeCrearAsignacion): ?>
-<section class="card" id="panelAsignacion" hidden>
-    <div class="card-header">
-        <div><h2 id="tituloForm">Nueva asignación</h2><p class="help-text">Seleccione uno o varios profesionales, escuelas y estudios.</p></div>
+<dialog class="modal modal-wide" id="modalAsignacion">
+    <div class="modal-header">
+        <div><span class="eyebrow">Configuración de jornada</span><h2 id="tituloForm">Nueva asignación</h2></div>
+        <button class="icon-button" type="button" onclick="cancelarAsignacion()" aria-label="Cerrar">×</button>
     </div>
-    <form id="formAsignacion">
+    <form id="formAsignacion" class="modal-form">
         <input type="hidden" name="id_asignar_atencion" id="id_asignar_atencion">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(tokenCsrf(), ENT_QUOTES, 'UTF-8') ?>">
-        <div class="campo"><label for="fechaAsignacion">Fecha de la jornada *</label><input type="date" name="fecha" id="fechaAsignacion" required></div>
-        <div class="attention-selector-grid">
-            <div class="campo"><label>Profesionales que atenderán *</label><input type="search" data-filtra="listaUsuarios" placeholder="Buscar profesional…"><div class="checks selection-list" id="listaUsuarios"></div></div>
-            <div class="campo"><label>Escuelas *</label><input type="search" data-filtra="listaEscuelas" placeholder="Buscar escuela…"><div class="checks selection-list" id="listaEscuelas"></div></div>
-            <div class="campo"><label>Estudios referenciales *</label><input type="search" data-filtra="listaEstudios" placeholder="Buscar estudio…"><div class="checks selection-list" id="listaEstudios"></div></div>
+        <div class="modal-body">
+            <p class="notice">Seleccione la fecha y todos los profesionales, escuelas y estudios que formarán parte de la jornada.</p>
+            <div class="campo"><label for="fechaAsignacion">Fecha de la jornada *</label><input type="date" name="fecha" id="fechaAsignacion" required></div>
+            <div class="attention-selector-grid">
+                <div class="campo"><label>Profesionales que atenderán *</label><input type="search" data-filtra="listaUsuarios" placeholder="Buscar profesional…"><div class="checks selection-list" id="listaUsuarios"></div></div>
+                <div class="campo"><label>Escuelas *</label><input type="search" data-filtra="listaEscuelas" placeholder="Buscar escuela…"><div class="checks selection-list" id="listaEscuelas"></div></div>
+                <div class="campo"><label>Estudios referenciales *</label><input type="search" data-filtra="listaEstudios" placeholder="Buscar estudio…"><div class="checks selection-list" id="listaEstudios"></div></div>
+            </div>
+            <div id="mensajeAsignacion" class="mensaje"></div>
         </div>
-        <div class="form-actions"><button type="submit">Guardar y sincronizar</button><button class="btn-secondary" type="button" onclick="cancelarAsignacion()">Cancelar</button></div>
-        <div id="mensajeAsignacion" class="mensaje"></div>
+        <div class="modal-footer"><button class="btn-secondary" type="button" onclick="cancelarAsignacion()">Cancelar</button><button type="submit">Guardar y sincronizar</button></div>
     </form>
-</section>
+</dialog>
 <?php endif; ?>
 
 <section class="card">
@@ -54,7 +58,7 @@ include 'menu.php';
         <div class="header-actions"><input type="date" id="filtroFecha" aria-label="Filtrar por fecha"><button class="btn-secondary" type="button" onclick="filtroFecha.value='';cargarAsignaciones()">Ver todas</button></div>
     </div>
     <div class="table-wrap"><table class="data-table">
-        <thead><tr><th>Fecha</th><th>Escuelas</th><th>Profesionales</th><th>Postulantes</th><th>Liquidación</th><th></th></tr></thead>
+        <thead><tr><th>Fecha</th><th>Escuelas</th><th>Profesionales</th><th>Postulantes atendidos</th><th>Liquidación</th><th></th></tr></thead>
         <tbody id="tablaAsignaciones"></tbody>
     </table></div>
 </section>
@@ -62,11 +66,14 @@ include 'menu.php';
 <section class="card attention-workspace" id="panelJornada" hidden>
     <div class="card-header">
         <div><span class="eyebrow">Jornada seleccionada</span><h2 id="detalleTitulo">Atención</h2><p class="help-text" id="detalleResumen"></p></div>
-        <button class="icon-button" type="button" onclick="cerrarDetalle()" aria-label="Cerrar">×</button>
+        <div class="attention-workspace-actions">
+            <label class="status-filter" for="filtroEstadoPostulantes"><span>Mostrar</span><select id="filtroEstadoPostulantes"><option value="todos">Todos</option><option value="pendientes">Pendientes</option><option value="atendidos">Atendidos</option></select></label>
+            <button class="icon-button" type="button" onclick="cerrarDetalle()" aria-label="Cerrar">×</button>
+        </div>
     </div>
     <div class="attention-toolbar" id="accionesJornada"></div>
     <div class="table-wrap"><table class="data-table attention-table">
-        <thead><tr><th>Postulante</th><th>Escuela</th><th>Estudios</th><th>Conversación</th><th>Liquidación</th><th>Acción</th></tr></thead>
+        <thead><tr><th class="attention-order">N.º</th><th>Postulante</th><th>Escuela</th><th>Estudios</th><th>Observaciones</th><th>Liquidación</th><th>Estado</th></tr></thead>
         <tbody id="tablaPostulantes"></tbody>
         <tfoot id="pieLiquidacion"></tfoot>
     </table></div>
@@ -78,17 +85,24 @@ include 'menu.php';
     <div class="modal-footer"><button class="btn-secondary" type="button" onclick="modalEstudios.close()">Cancelar</button><button id="btnGuardarEstudios" type="button" onclick="guardarEstudiosMultiples()">Guardar atención</button></div>
 </dialog>
 
-<dialog class="modal" id="modalConversacion">
-    <div class="modal-header"><div><span class="eyebrow">Observaciones</span><h2 id="conversacionTitulo">Conversación</h2></div><button class="icon-button" type="button" onclick="modalConversacion.close()" aria-label="Cerrar">×</button></div>
-    <div class="modal-body"><div class="comments" id="conversacionContenido"></div><div id="formComentarioModal" class="comment-form" hidden><select id="categoriaComentario"><option value="general">General</option><option value="clinica">Clínica</option><option value="doctor">Doctor</option></select><textarea id="textoComentario" maxlength="1500" placeholder="Escriba una observación…"></textarea></div></div>
-    <div class="modal-footer"><button class="btn-secondary" type="button" onclick="modalConversacion.close()">Cerrar</button><button id="btnAgregarComentario" type="button" onclick="agregarComentarioModal()" hidden>Agregar comentario</button></div>
+<dialog class="modal observation-modal" id="modalObservaciones">
+    <div class="modal-header"><div><span class="eyebrow">Historial del postulante</span><h2 id="observacionesTitulo">Observaciones</h2></div><button class="icon-button" type="button" onclick="modalObservaciones.close()" aria-label="Cerrar">×</button></div>
+    <div class="modal-body observation-body">
+        <div class="observation-list" id="observacionesContenido"></div>
+        <div id="formObservacionModal" class="observation-compose" hidden>
+            <label for="textoObservacion">Nueva observación</label>
+            <textarea id="textoObservacion" maxlength="1500" placeholder="Escriba una observación sobre el postulante…"></textarea>
+            <small>El sistema registrará automáticamente su nombre y la fecha.</small>
+        </div>
+    </div>
+    <div class="modal-footer"><button class="btn-secondary" type="button" onclick="modalObservaciones.close()">Cerrar</button><button id="btnAgregarObservacion" type="button" onclick="agregarObservacionModal()" hidden>Guardar observación</button></div>
 </dialog>
 
 <script>
 const puedeCrearAsignacion = <?= $puedeCrearAsignacion ? 'true' : 'false' ?>;
 const puedeSincronizarAsignaciones = <?= $puedeSincronizar ? 'true' : 'false' ?>;
 let catalogos={escuelas:[],usuarios:[],estudios:[],permisos:{},hoy:''};
-let asignaciones=[], detalleActual=null, postulanteEstudiosActual=null, postulanteConversacionActual=null;
+let asignaciones=[], detalleActual=null, postulanteEstudiosActual=null, postulanteObservacionActual=null;
 const esc=v=>Salus.escape(v??'');
 
 async function iniciarAtenciones(){
@@ -123,24 +137,25 @@ async function cargarAsignaciones(){
 
 function renderAsignaciones(){
     resumenAsignaciones.textContent=`${asignaciones.length} jornada(s)`;
-    tablaAsignaciones.innerHTML=asignaciones.length?asignaciones.map(a=>`<tr class="${detalleActual&&Number(detalleActual.id_asignar_atencion)===Number(a.id_asignar_atencion)?'selected-row':''}"><td><strong>${esc(a.fecha)}</strong><br><small>#${a.id_asignar_atencion}</small></td><td>${esc(a.escuelas||'—')}</td><td>${esc(a.profesionales||'—')}</td><td><strong>${a.total}</strong></td><td>${a.pago_realizado?'<span class="badge badge-success">Pago total realizado</span>':`<span class="badge badge-muted">${a.pagados}/${a.total} pagados</span>`}</td><td><button class="btn-small btn-secondary" onclick="abrirDetalle(${a.id_asignar_atencion})">Abrir jornada</button></td></tr>`).join(''):'<tr><td colspan="6" class="empty-state">No hay asignaciones para este filtro.</td></tr>';
+    tablaAsignaciones.innerHTML=asignaciones.length?asignaciones.map(a=>`<tr class="${detalleActual&&Number(detalleActual.id_asignar_atencion)===Number(a.id_asignar_atencion)?'selected-row':''}"><td><strong>${esc(a.fecha)}</strong><br><small>#${a.id_asignar_atencion}</small></td><td>${esc(a.escuelas||'—')}</td><td>${esc(a.profesionales||'—')}</td><td><strong>${a.atendidos}/${a.total}</strong><br><small>atendidos / total</small></td><td>${a.pago_realizado?'<span class="badge badge-success">Pago total realizado</span>':`<span class="badge badge-muted">${a.pagados}/${a.total} pagados</span>`}</td><td><button class="btn-small btn-secondary" onclick="abrirDetalle(${a.id_asignar_atencion})">Abrir jornada</button></td></tr>`).join(''):'<tr><td colspan="6" class="empty-state">No hay asignaciones para este filtro.</td></tr>';
 }
 
 function nuevaAsignacion(){
     if(!puedeCrearAsignacion)return;
-    panelAsignacion.hidden=false;formAsignacion.reset();id_asignar_atencion.value='';fechaAsignacion.value=catalogos.hoy;tituloForm.textContent='Nueva asignación';renderSelectores();panelAsignacion.scrollIntoView({behavior:'smooth'});
+    formAsignacion.reset();id_asignar_atencion.value='';fechaAsignacion.value=catalogos.hoy;tituloForm.textContent='Nueva asignación';mensajeAsignacion.textContent='';renderSelectores();modalAsignacion.showModal();
 }
-function cancelarAsignacion(){if(!puedeCrearAsignacion)return;panelAsignacion.hidden=true;mensajeAsignacion.textContent='';}
+function cancelarAsignacion(){if(!puedeCrearAsignacion)return;modalAsignacion.close();mensajeAsignacion.textContent='';}
 
 if(puedeCrearAsignacion)formAsignacion.addEventListener('submit',async evento=>{
     evento.preventDefault();mensajeAsignacion.textContent='';
     try{
         const respuesta=await Salus.json('backend/atencionesDAO.php?q=guardar',{method:'POST',body:new FormData(formAsignacion)});
-        Salus.toast(respuesta.mensaje);const fechaGuardada=fechaAsignacion.value;cancelarAsignacion();filtroFecha.value=fechaGuardada||catalogos.hoy;await cargarAsignaciones();await abrirDetalle(respuesta.id_asignar_atencion);
+        Salus.toast(respuesta.mensaje);const fechaGuardada=fechaAsignacion.value;modalAsignacion.close();filtroFecha.value=fechaGuardada||catalogos.hoy;await cargarAsignaciones();await abrirDetalle(respuesta.id_asignar_atencion);
     }catch(e){mensajeAsignacion.textContent=e.message;}
 });
 
 filtroFecha.addEventListener('change',cargarAsignaciones);
+filtroEstadoPostulantes.addEventListener('change',renderTablaPostulantes);
 
 async function sincronizarTodoHoy(){
     if(!puedeSincronizarAsignaciones)return;
@@ -152,8 +167,9 @@ async function sincronizarTodoHoy(){
 
 async function abrirDetalle(id,desplazar=true){
     try{
+        const cambiaJornada=Number(detalleActual?.id_asignar_atencion||0)!==Number(id);
         const respuesta=await Salus.json(`backend/atencionesDAO.php?q=detalle&id=${id}`);
-        detalleActual=respuesta.asignacion;renderAsignaciones();renderDetalle();panelJornada.hidden=false;
+        detalleActual=respuesta.asignacion;if(cambiaJornada)filtroEstadoPostulantes.value='todos';renderAsignaciones();renderDetalle();panelJornada.hidden=false;
         if(desplazar)panelJornada.scrollIntoView({behavior:'smooth',block:'start'});
     }catch(e){Salus.toast(e.message,'error');}
 }
@@ -169,13 +185,24 @@ function renderDetalle(){
     ['xls','csv','txt','json'].forEach(formato=>acciones+=`<a class="btn btn-secondary btn-small" href="backend/atencionesExportar.php?id=${a.id_asignar_atencion}&formato=${formato}">${formato==='xls'?'Excel':formato.toUpperCase()}</a>`);
     acciones+=a.pago_realizado?'<span class="badge badge-success">Jornada pagada · solo lectura</span>':a.empieza_atender?'<span class="badge badge-success">Atención habilitada</span>':'<span class="badge badge-muted">En espera</span>';
     accionesJornada.innerHTML=acciones;
-    tablaPostulantes.innerHTML=a.postulantes.length?a.postulantes.map(renderFilaPostulante).join(''):'<tr><td colspan="6" class="empty-state">No hay postulantes creados hoy para las escuelas seleccionadas.</td></tr>';
+    renderTablaPostulantes();
     renderPieLiquidacion();
+}
+
+function renderTablaPostulantes(){
+    if(!detalleActual)return;
+    const estado=filtroEstadoPostulantes.value;
+    const postulantes=[...detalleActual.postulantes]
+        .sort((a,b)=>Number(a.id_paciente)-Number(b.id_paciente))
+        .filter(postulante=>estado==='todos'||(estado==='atendidos'&&Number(postulante.atendido)===1)||(estado==='pendientes'&&Number(postulante.atendido)===0));
+    tablaPostulantes.innerHTML=postulantes.length
+        ?postulantes.map((postulante,indice)=>renderFilaPostulante(postulante,indice+1)).join('')
+        :'<tr><td colspan="7" class="empty-state">No hay postulantes para el estado seleccionado.</td></tr>';
 }
 
 function comentariosDe(postulante){
     const comentarios=[];
-    Object.entries(postulante.observacion||{}).forEach(([categoria,items])=>(items||[]).forEach(item=>comentarios.push({...item,categoria})));
+    Object.values(postulante.observacion||{}).forEach(items=>(items||[]).forEach(item=>comentarios.push(item)));
     return comentarios.sort((a,b)=>String(a.fecha).localeCompare(String(b.fecha)));
 }
 
@@ -188,33 +215,33 @@ function renderEstudiosFila(postulante,puedeAtender){
     if(!estudios.length)return '<span class="help-text">Sin estudios</span>';
     if(estudios.length===1){
         const estudio=estudios[0];
-        return `<label class="inline-study"><input type="checkbox" class="estudio-${postulante.id_postulante_atencion}" value="${estudio.id_estudio}" ${estudio.realizado?'checked':''} ${puedeAtender?'':'disabled'}><span>${esc(estudio.estudio_referencial)}</span></label>`;
+        return `<div class="single-study"><label class="inline-study"><input type="checkbox" class="estudio-${postulante.id_postulante_atencion}" value="${estudio.id_estudio}" ${estudio.realizado?'checked':''} ${puedeAtender?'':'disabled'}><span>${esc(estudio.estudio_referencial)}</span></label>${puedeAtender?`<button class="btn-small" type="button" onclick="guardarAtencionDirecta(${postulante.id_postulante_atencion})">Guardar</button>`:''}</div>`;
     }
     const realizados=estudios.filter(e=>Number(e.realizado)).length;
     return `<button class="btn-small btn-secondary" type="button" onclick="abrirEstudios(${postulante.id_postulante_atencion})">Seleccionar estudios (${realizados}/${estudios.length})</button>`;
 }
 
-function renderFilaPostulante(postulante){
+function renderFilaPostulante(postulante,orden){
     const puedeAtender=detalleActual.editable_profesional&&!detalleActual.pago_realizado&&catalogos.permisos.atender;
     const comentarios=comentariosDe(postulante);
-    let conversacion='';
-    if(comentarios.length)conversacion+=`<button class="btn-small btn-secondary" type="button" onclick="abrirConversacion(${postulante.id_postulante_atencion})">Ver (${comentarios.length})</button>`;
-    if(puedeComentarActual())conversacion+=` <button class="btn-small btn-secondary" type="button" onclick="abrirConversacion(${postulante.id_postulante_atencion},true)">+ Comentario</button>`;
-    if(!conversacion)conversacion='<span class="help-text">—</span>';
+    let observaciones='';
+    if(comentarios.length)observaciones+=`<button class="btn-small btn-secondary" type="button" onclick="abrirObservaciones(${postulante.id_postulante_atencion})">Observaciones (${comentarios.length})</button>`;
+    if(puedeComentarActual())observaciones+=` <button class="btn-small btn-secondary" type="button" onclick="abrirObservaciones(${postulante.id_postulante_atencion},true)">+ Agregar</button>`;
+    if(!observaciones)observaciones='<span class="help-text">—</span>';
     const pago=catalogos.permisos.pagar?`<label class="inline-check"><input type="checkbox" class="pago-detalle" value="${postulante.id_postulante_atencion}" ${postulante.pagado?'checked':''}> Pagado</label>`:(postulante.pagado?'<span class="badge badge-success">Pagado</span>':'<span class="help-text">Pendiente</span>');
-    const accion=puedeAtender?(postulante.estudios.length>1?'<span class="help-text">Guardar desde Estudios</span>':`<button class="btn-small" onclick="guardarAtencionDirecta(${postulante.id_postulante_atencion})">Guardar atención</button>`):'<span class="help-text">Solo lectura</span>';
-    return `<tr><td><strong>${esc(postulante.nombre)}</strong><br><small>${esc(postulante.documento)}</small></td><td>${esc(postulante.escuela||'—')}</td><td>${renderEstudiosFila(postulante,puedeAtender)}</td><td><div class="table-actions">${conversacion}</div></td><td>${pago}</td><td>${accion}</td></tr>`;
+    const estado=Number(postulante.atendido)?'<span class="badge badge-success">Atendido</span>':'<span class="badge badge-danger">Pendiente</span>';
+    return `<tr><td class="attention-order"><strong>${orden}</strong></td><td><strong>${esc(postulante.nombre)}</strong><br><small>${esc(postulante.documento)}</small></td><td>${esc(postulante.escuela||'—')}</td><td>${renderEstudiosFila(postulante,puedeAtender)}</td><td><div class="table-actions">${observaciones}</div></td><td>${pago}</td><td>${estado}</td></tr>`;
 }
 
 function renderPieLiquidacion(){
     if(!catalogos.permisos.pagar){pieLiquidacion.innerHTML='';return;}
-    pieLiquidacion.innerHTML=`<tr><td colspan="4"><strong>Liquidación total de la jornada</strong><br><small>Al marcarla como realizada, la atención queda en modo de solo lectura.</small></td><td><label class="inline-check"><input type="checkbox" id="pagoCabecera" ${detalleActual.pago_realizado?'checked':''}> Pago total realizado</label></td><td><button class="btn-small" onclick="guardarPago()">Guardar liquidación</button></td></tr>`;
+    pieLiquidacion.innerHTML=`<tr><td colspan="5"><strong>Liquidación total de la jornada</strong><br><small>Al marcarla como realizada, la atención queda en modo de solo lectura.</small></td><td><label class="inline-check"><input type="checkbox" id="pagoCabecera" ${detalleActual.pago_realizado?'checked':''}> Pago total realizado</label></td><td><button class="btn-small" onclick="guardarPago()">Guardar liquidación</button></td></tr>`;
 }
 
 function editarCabecera(){
     if(!puedeCrearAsignacion)return;
-    const a=detalleActual;panelAsignacion.hidden=false;id_asignar_atencion.value=a.id_asignar_atencion;fechaAsignacion.value=a.fecha;tituloForm.textContent=`Editar asignación #${a.id_asignar_atencion}`;
-    renderSelectores({usuarios:a.usuarios.map(x=>x.id_usuario),escuelas:a.escuelas.map(x=>x.id_escuela),estudios:a.estudios.map(x=>x.id_estudio)});panelAsignacion.scrollIntoView({behavior:'smooth'});
+    const a=detalleActual;formAsignacion.reset();id_asignar_atencion.value=a.id_asignar_atencion;fechaAsignacion.value=a.fecha;tituloForm.textContent=`Editar asignación #${a.id_asignar_atencion}`;mensajeAsignacion.textContent='';
+    renderSelectores({usuarios:a.usuarios.map(x=>x.id_usuario),escuelas:a.escuelas.map(x=>x.id_escuela),estudios:a.estudios.map(x=>x.id_estudio)});modalAsignacion.showModal();
 }
 
 async function accionCabecera(accion,extra={}){
@@ -250,25 +277,32 @@ async function guardarEstudiosMultiples(){
     try{await enviarAtencion(postulanteEstudiosActual.id_postulante_atencion,estudios);modalEstudios.close();}catch(e){Salus.toast(e.message,'error');}
 }
 
-function abrirConversacion(id,enfocar=false){
-    const postulante=detalleActual.postulantes.find(p=>Number(p.id_postulante_atencion)===Number(id));if(!postulante)return;
-    postulanteConversacionActual=postulante;conversacionTitulo.textContent=postulante.nombre;
-    const comentarios=comentariosDe(postulante);
-    conversacionContenido.innerHTML=comentarios.map(c=>`<div class="comment"><span class="badge badge-muted">${esc(c.categoria)}</span><strong>${esc(c.usuario)}</strong><small>${esc(new Date(c.fecha).toLocaleString())}</small><p>${esc(c.texto)}</p></div>`).join('');
-    const puede=puedeComentarActual();formComentarioModal.hidden=!puede;btnAgregarComentario.hidden=!puede;textoComentario.value='';modalConversacion.showModal();if(enfocar&&puede)textoComentario.focus();
+function inicialesUsuario(nombre){
+    return String(nombre||'?').trim().split(/\s+/).slice(0,2).map(parte=>parte.charAt(0)).join('').toUpperCase();
 }
 
-async function agregarComentarioModal(){
-    if(!postulanteConversacionActual)return;
+function abrirObservaciones(id,enfocar=false){
+    const postulante=detalleActual.postulantes.find(p=>Number(p.id_postulante_atencion)===Number(id));if(!postulante)return;
+    postulanteObservacionActual=postulante;observacionesTitulo.textContent=postulante.nombre;
+    const comentarios=comentariosDe(postulante);
+    observacionesContenido.innerHTML=comentarios.map(c=>`<article class="observation-message"><div class="observation-avatar">${esc(inicialesUsuario(c.usuario))}</div><div class="observation-content"><header><strong>${esc(c.usuario)}</strong><time>${esc(new Date(c.fecha).toLocaleString())}</time></header><p>${esc(c.texto)}</p></div></article>`).join('');
+    const puede=puedeComentarActual();formObservacionModal.hidden=!puede;btnAgregarObservacion.hidden=!puede;textoObservacion.value='';modalObservaciones.showModal();if(enfocar&&puede)textoObservacion.focus();
+}
+
+async function agregarObservacionModal(){
+    if(!postulanteObservacionActual)return;
     try{
-        const respuesta=await Salus.json('backend/atencionesDAO.php?q=comentar',{method:'POST',body:Salus.form({id_postulante_atencion:postulanteConversacionActual.id_postulante_atencion,categoria:categoriaComentario.value,texto:textoComentario.value})});
-        Salus.toast(respuesta.mensaje);modalConversacion.close();await abrirDetalle(detalleActual.id_asignar_atencion,false);
+        const respuesta=await Salus.json('backend/atencionesDAO.php?q=comentar',{method:'POST',body:Salus.form({id_postulante_atencion:postulanteObservacionActual.id_postulante_atencion,texto:textoObservacion.value})});
+        Salus.toast(respuesta.mensaje);modalObservaciones.close();await abrirDetalle(detalleActual.id_asignar_atencion,false);
     }catch(e){Salus.toast(e.message,'error');}
 }
 
 async function guardarPago(){
     const body=Salus.form({id_asignar_atencion:detalleActual.id_asignar_atencion,pago_realizado:pagoCabecera.checked?1:0});
-    document.querySelectorAll('.pago-detalle:checked').forEach(input=>body.append('postulantes[]',input.value));
+    detalleActual.postulantes.forEach(postulante=>{
+        const input=document.querySelector(`.pago-detalle[value="${postulante.id_postulante_atencion}"]`);
+        if(input?input.checked:Number(postulante.pagado)===1)body.append('postulantes[]',postulante.id_postulante_atencion);
+    });
     try{
         const respuesta=await Salus.json('backend/atencionesDAO.php?q=pagar',{method:'POST',body});Salus.toast(respuesta.mensaje);await cargarAsignaciones();await abrirDetalle(detalleActual.id_asignar_atencion,false);
     }catch(e){Salus.toast(e.message,'error');}

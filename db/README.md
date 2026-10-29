@@ -98,8 +98,10 @@ exportación queda disponible para cualquier usuario que pueda acceder a la
 jornada, sin exigir un permiso adicional. Las columnas históricas de llamado se
 conservan para no destruir información existente.
 
-`postulantes_atencion.observacion` es un JSON con conversaciones `clinica`,
-`general` y `doctor`. El estado de cada estudio se conserva normalizado en
+`postulantes_atencion.observacion` conserva en JSON las claves históricas
+`clinica`, `general` y `doctor` por compatibilidad. La interfaz las presenta
+como un único historial de observaciones identificado solamente por usuario y
+fecha. El estado de cada estudio se conserva normalizado en
 `postulantes_atencion_estudios`, lo que permite la consulta pública de solo
 lectura mediante documento y escuela.
 
@@ -110,3 +112,10 @@ escuelas, universidades y derivadores, además del nombre de institución del
 derivador. Disparadores de base de datos mantienen la regla para inserciones y
 actualizaciones realizadas fuera de la aplicación. Los formularios aplican la
 misma normalización mientras el usuario escribe.
+
+## Estado de atención
+
+Desde `V13`, `postulantes_atencion.atendido` es un estado derivado: vale `1`
+solamente cuando el postulante tiene al menos un estudio y todos sus checks
+están realizados. Al desmarcar cualquier estudio vuelve a `0`. La migración
+también corrige los registros históricos para aplicar la misma regla.

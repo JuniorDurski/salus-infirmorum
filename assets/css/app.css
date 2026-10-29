@@ -174,6 +174,7 @@ table { border-collapse: collapse; }
 .modal > .campo { margin: 18px 22px 12px; }
 .modal-body { padding: 18px 22px; overflow-y: auto; }
 .modal-wide { width: min(1180px, calc(100vw - 30px)); max-height: 92vh; }
+.modal-form { margin: 0; }
 .attention-detail { padding: 20px 22px; overflow-y: auto; }
 .attention-selector-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .selection-list { min-height: 170px; }
@@ -196,11 +197,31 @@ table { border-collapse: collapse; }
 .payment-panel { margin-top: 18px; padding: 17px; border: 1px solid var(--border); border-radius: 12px; background: var(--primary-soft); }
 .payment-panel h3 { margin-top: 0; }
 .attention-workspace { margin-top: 20px; }
-.attention-table { min-width: 980px; }
+.attention-workspace-actions { display: flex; align-items: end; gap: 10px; }
+.status-filter { display: grid; gap: 4px; min-width: 150px; }
+.status-filter span { color: var(--muted); font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.status-filter select { min-height: 40px; }
+.attention-table { min-width: 1040px; }
 .attention-table tfoot td { background: var(--surface-2); border-top: 2px solid var(--border); }
+.attention-order { width: 58px; text-align: center !important; }
 .attention-table .inline-study { display: flex; align-items: flex-start; gap: 7px; min-width: 190px; font-weight: 650; }
+.single-study { display: grid; grid-template-columns: minmax(190px, 1fr) auto; align-items: center; gap: 10px; }
 .selected-row { background: color-mix(in srgb, var(--primary-soft) 70%, transparent) !important; }
 .modal-body .comment-form { grid-template-columns: 150px minmax(0, 1fr); }
+.observation-modal { width: min(740px, calc(100vw - 30px)); }
+.observation-body { display: grid; gap: 18px; padding: 22px; background: color-mix(in srgb, var(--surface-2) 55%, var(--surface)); }
+.observation-list { display: grid; gap: 12px; max-height: 420px; overflow-y: auto; padding-right: 4px; }
+.observation-list:empty { display: none; }
+.observation-message { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 11px; align-items: start; }
+.observation-avatar { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: var(--primary); color: #fff; font-size: .78rem; font-weight: 850; letter-spacing: .04em; }
+.observation-content { padding: 12px 14px; border: 1px solid var(--border); border-radius: 4px 13px 13px 13px; background: var(--surface); box-shadow: 0 5px 18px rgba(17, 49, 45, .05); }
+.observation-content header { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.observation-content time { color: var(--muted); font-size: .75rem; white-space: nowrap; }
+.observation-content p { margin: 8px 0 0; line-height: 1.55; white-space: pre-wrap; }
+.observation-compose { display: grid; gap: 8px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.observation-list:not(:empty) + .observation-compose { border-top: 3px solid var(--primary); }
+.observation-compose textarea { min-height: 110px; }
+.observation-compose[hidden] { display: none; }
 .modal-footer { position: sticky; bottom: 0; display: flex; justify-content: flex-end; padding: 14px 22px; background: var(--surface); border-top: 1px solid var(--border); }
 .permission-list { display: grid; gap: 8px; padding: 4px 22px 20px; overflow-y: auto; }
 .permission-item { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
