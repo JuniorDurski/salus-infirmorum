@@ -51,7 +51,7 @@ foreach ($pacientes as $index => $p) {
 
     // En mujeres Especiales incluye BHCG (más largo): arranca en página nueva
     if ($esMujer) {
-        $examenesConSalto[] = "CITOQUÍMICO URINARIO";
+        $examenesConSalto[] = "HECES SIMPLES";
     }
 
     /* ===========================
@@ -166,6 +166,14 @@ foreach ($pacientes as $index => $p) {
                 ["MUCUS",                           "( - )", "", ""],
                 ["TRICHOMONAS",                     "( - )", "", ""],
                 ["PIOCITOS",                        "Negativo", "", ""]
+            ]
+        ],
+        "HECES SIMPLES" => [
+            "EXAMEN PARASITOLOGICO" => [
+                ["VERMES",   "NO SE OBSERVARON FORMAS PARASITARIAS EN LA MUESTRA ANALIZADA",
+                    "", ""],
+                ["PROTOZOARIOS",    "NO SE OBSERVARON FORMAS PARASITARIAS EN LA MUESTRA ANALIZADA",
+                    "", "POR CAMPO"]
             ]
         ],
         "ESPECIALES" => [
