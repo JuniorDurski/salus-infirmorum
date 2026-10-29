@@ -143,3 +143,13 @@ La migración `V17` incorpora **POSTULANTES > INFORME ECO** y la tabla
 ecografía, y conserva sus resultados editables como JSON. El módulo incluye
 plantillas abdominal, mamaria, testicular y ginecológica, impresión individual
 o masiva, y permisos independientes para imprimir y editar.
+
+La migración `V18` asigna explícitamente al rol `PROFESIONAL` los permisos para
+ver, imprimir y editar INFORME ECO. También reemplaza los símbolos genéricos de
+la navegación por emojis descriptivos para cada menú.
+
+## Escuelas de informes LAB
+
+La migración `V19` registra como escuelas activas todas las designaciones que
+seleccionan plantillas en `reportes/index.php`. Incluye por separado ACADEPOL,
+COLEPOL e ISEPOL aunque compartan informe, y las tres variantes de LICEMIL.

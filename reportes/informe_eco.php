@@ -19,6 +19,14 @@ $id = $_POST['id'] ?? null;
 $ids = $_POST['ids'] ?? [];
 include __DIR__ . '/../backend/header_pacientes.php';
 
+if ($plantilla['sexo'] !== null) {
+    $pacientes = array_values(array_filter(
+        $pacientes,
+        static fn(array $paciente): bool => $paciente['sexo'] === $plantilla['sexo']
+    ));
+}
+if ($pacientes === []) exit('No hay postulantes compatibles con el estudio seleccionado');
+
 $configuracion = [
     'mode' => 'utf-8',
     'format' => $plantilla['formato'],
@@ -66,12 +74,14 @@ $mpdf->SetAuthor('Clínica Médica Florentín');
 
 $color = htmlspecialchars($plantilla['color'], ENT_QUOTES, 'UTF-8');
 $css = '<style>
-    body { font-family: timesnewroman, freeserif, serif; }
+    body { color: #000; font-family: timesnewroman, freeserif, serif; }
     .eco-page { color: ' . $color . '; font-family: timesnewroman, freeserif, serif; font-size: 11pt; line-height: 1.1; }
     .eco-letterhead-space { height: 18mm; }
     .eco-patient { border-collapse: collapse; font-size: 11pt; font-weight: bold; line-height: 1.08; width: 100%; }
     .eco-patient td { padding: 0 0 1.2mm; vertical-align: top; }
     .eco-patient .right { text-align: left; width: 31%; }
+    .eco-ci-age { border-collapse: collapse; table-layout: fixed; width: 66%; }
+    .eco-ci-age td { padding: 0; width: 50%; }
     .eco-label { text-decoration: underline; }
     .eco-reason { font-weight: bold; margin-top: 1mm; }
     .eco-title { border: 1mm solid #000; border-radius: 4mm; color: ' . $color . '; font-size: 14pt; font-weight: bold; margin: 10mm auto 8mm; padding: 4mm 5mm; text-align: center; width: 72%; }
@@ -88,6 +98,10 @@ $css = '<style>
     .eco-signoff { margin-top: 6mm; text-align: center; }
     .eco-signature { font-size: 11pt; font-style: italic; font-weight: bold; margin: 6mm 4mm 0 auto; page-break-inside: avoid; text-align: center; width: 48%; }
     .eco-signature .registration { font-size: 10pt; font-style: normal; font-weight: normal; }
+    .eco-photo-row { border-collapse: collapse; page-break-inside: avoid; table-layout: fixed; width: 100%; }
+    .eco-photo-space { height: 38mm; width: 56%; }
+    .eco-photo-signature { font-size: 11pt; font-style: italic; font-weight: bold; text-align: center; vertical-align: bottom; width: 44%; }
+    .eco-photo-signature .registration { font-size: 10pt; font-style: normal; font-weight: normal; }
 </style>';
 $mpdf->WriteHTML($css);
 
@@ -106,7 +120,10 @@ foreach ($pacientes as $indice => $paciente) {
     $html = '<div class="eco-page"><div class="eco-letterhead-space"></div>
         <table class="eco-patient">
             <tr><td><span class="eco-label">PACIENTE:</span> ' . $nombre . '</td><td class="right"><span class="eco-label">FECHA:</span> ' . $fecha . '</td></tr>
-            <tr><td><span class="eco-label">CI:</span> ' . $ci . '</td><td class="right"><span class="eco-label">EDAD:</span> ' . $edad . ' AÑOS</td></tr>
+            <tr><td colspan="2"><table class="eco-ci-age"><tr>
+                <td><span class="eco-label">CI:</span> ' . $ci . '</td>
+                <td><span class="eco-label">EDAD:</span> ' . $edad . ' AÑOS</td>
+            </tr></table></td></tr>
         </table>
         <div class="eco-reason"><span class="eco-label">MOTIVO DEL PRESENTE ESTUDIO:</span>&nbsp;&nbsp;&nbsp; ' . $motivo . '</div>
         <div class="eco-title">' . ecoHtml($plantilla['titulo']) . '</div>
@@ -140,7 +157,12 @@ foreach ($pacientes as $indice => $paciente) {
 
     $html .= '<div class="eco-signoff">Atentamente.</div>';
     if (!empty($plantilla['mostrar_firma'])) {
-        $html .= '<div class="eco-signature">Dr. CARLOS FLORENTIN<br>ECOGRAFIA FATESA S/P<br><span class="registration">Reg. Prof. N° 12713</span></div>';
+        $firma = 'Dr. CARLOS FLORENTIN<br>ECOGRAFIA FATESA S/P<br><span class="registration">Reg. Prof. N° 12713</span>';
+        if (!empty($plantilla['espacio_foto'])) {
+            $html .= '<table class="eco-photo-row"><tr><td class="eco-photo-space">&nbsp;</td><td class="eco-photo-signature">' . $firma . '</td></tr></table>';
+        } else {
+            $html .= '<div class="eco-signature">' . $firma . '</div>';
+        }
     }
     $html .= '</div>';
     $mpdf->WriteHTML($html);

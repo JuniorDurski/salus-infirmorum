@@ -39,7 +39,11 @@ function listarPlantillasEco(): void
 {
     $respuesta = [];
     foreach (plantillasInformeEco() as $codigo => $plantilla) {
-        $respuesta[] = ['codigo' => $codigo, 'nombre' => $plantilla['nombre']];
+        $respuesta[] = [
+            'codigo' => $codigo,
+            'nombre' => $plantilla['nombre'],
+            'sexo' => $plantilla['sexo'],
+        ];
     }
     responderJson(['status' => 'ok', 'plantillas' => $respuesta]);
 }
@@ -71,7 +75,7 @@ function obtenerDetalleEco(mysqli $db): void
 {
     $plantilla = exigirPlantillaEco($_GET['estudio'] ?? '');
     $id = (int) ($_GET['id_postulante'] ?? 0);
-    exigirPostulanteActivoEco($db, $id);
+    exigirPostulanteActivoEco($db, $id, $plantilla);
 
     $stmt = $db->prepare(
         'SELECT resultados, actualizado_en
@@ -107,7 +111,7 @@ function guardarResultadoEco(mysqli $db, array $identidad): void
 {
     $plantilla = exigirPlantillaEco($_POST['estudio'] ?? '');
     $id = (int) ($_POST['id_postulante'] ?? 0);
-    exigirPostulanteActivoEco($db, $id);
+    exigirPostulanteActivoEco($db, $id, $plantilla);
     $json = (string) ($_POST['resultado'] ?? '');
     if ($json === '' || strlen($json) > 100000) {
         responderJson(['status' => 'error', 'mensaje' => 'Los resultados están vacíos o exceden el tamaño permitido.'], 400);
@@ -141,14 +145,22 @@ function exigirPlantillaEco($codigo): array
     return $plantilla;
 }
 
-function exigirPostulanteActivoEco(mysqli $db, int $id): void
+function exigirPostulanteActivoEco(mysqli $db, int $id, array $plantilla): void
 {
     if ($id <= 0) responderJson(['status' => 'error', 'mensaje' => 'Postulante no válido.'], 400);
-    $stmt = $db->prepare('SELECT 1 FROM pacientes WHERE id_paciente = ? AND activo = 1');
+    $stmt = $db->prepare('SELECT es_femenino FROM pacientes WHERE id_paciente = ? AND activo = 1');
     $stmt->bind_param('i', $id);
     $stmt->execute();
-    if ($stmt->get_result()->fetch_row() === null) {
+    $fila = $stmt->get_result()->fetch_assoc();
+    if ($fila === null) {
         responderJson(['status' => 'error', 'mensaje' => 'No se encontró el postulante activo.'], 404);
+    }
+    $sexo = (int) $fila['es_femenino'] === 1 ? 'FEMENINO' : 'MASCULINO';
+    if ($plantilla['sexo'] !== null && $plantilla['sexo'] !== $sexo) {
+        responderJson([
+            'status' => 'error',
+            'mensaje' => 'El estudio ' . $plantilla['nombre'] . ' no corresponde al sexo del postulante.',
+        ], 422);
     }
 }
 
