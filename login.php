@@ -45,6 +45,7 @@ unset($_SESSION['sesion_expirada']);
             <div id="mensaje" class="mensaje"><?= $sesionExpiro ? 'La sesión expiró por inactividad.' : '' ?></div>
             <button class="boton" type="submit">Ingresar al sistema</button>
         </form>
+        <p style="margin:18px 0 0;text-align:center"><a href="consulta_estudios.php">Consultar mis estudios de postulación</a></p>
     </section>
 </main>
 <script>

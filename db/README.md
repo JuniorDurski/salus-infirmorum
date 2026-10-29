@@ -78,3 +78,21 @@ La migración `V9` carga los 249 códigos ISO 3166-1 asignados, sus nombres en
 español y prefijos telefónicos internacionales. También incorpora la nómina de
 57 universidades paraguayas publicada por ANEAES y crea los módulos protegidos
 `universidades.php` y `titulos.php` bajo el menú Referenciales.
+
+## Asignaciones de atención
+
+La migración `V10` implementa el DER de atención de postulantes. Una cabecera
+puede asociar varios profesionales, escuelas y estudios referenciales. Al
+guardarla o sincronizarla se incorporan únicamente los pacientes activos cuya
+escuela coincide y cuya fecha de creación es la fecha de la jornada.
+
+Los permisos funcionales `postulantes_atencion.*` separan creación, inicio,
+sincronización, atención, llamado, comentarios, pagos y exportación. Solo
+`ADMIN` los recibe inicialmente; los demás roles se configuran desde el módulo
+de roles. Cuando `pago_realizado = 1`, la atención queda en modo de solo lectura
+para el profesional.
+
+`postulantes_atencion.observacion` es un JSON con conversaciones `clinica`,
+`general` y `doctor`. El estado de cada estudio se conserva normalizado en
+`postulantes_atencion_estudios`, lo que permite la consulta pública de solo
+lectura mediante documento y escuela.

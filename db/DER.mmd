@@ -32,6 +32,18 @@ erDiagram
     USUARIOS o|--o{ ESTUDIOS : "solicita"
     ESTUDIOS ||--o| RESULTADOS_ESTUDIO : "produce"
 
+    USUARIOS ||--o{ POSTULANTES_ASIGNAR_ATENCION : "crea"
+    POSTULANTES_ASIGNAR_ATENCION ||--o{ POSTULANTES_ASIGNAR_ATENCION_USUARIOS : "asigna"
+    USUARIOS ||--o{ POSTULANTES_ASIGNAR_ATENCION_USUARIOS : "atiende"
+    POSTULANTES_ASIGNAR_ATENCION ||--o{ POSTULANTES_ASIGNAR_ATENCION_ESCUELAS : "incluye"
+    ESCUELAS ||--o{ POSTULANTES_ASIGNAR_ATENCION_ESCUELAS : "participa"
+    POSTULANTES_ASIGNAR_ATENCION ||--o{ POSTULANTES_ASIGNAR_ATENCION_ESTUDIOS : "requiere"
+    POSTULANTES_ESTUDIOS_REFERENCIALES ||--o{ POSTULANTES_ASIGNAR_ATENCION_ESTUDIOS : "seleccionado"
+    POSTULANTES_ASIGNAR_ATENCION ||--o{ POSTULANTES_ATENCION : "sincroniza"
+    PACIENTES ||--o{ POSTULANTES_ATENCION : "recibe"
+    POSTULANTES_ATENCION ||--o{ POSTULANTES_ATENCION_ESTUDIOS : "controla"
+    POSTULANTES_ESTUDIOS_REFERENCIALES ||--o{ POSTULANTES_ATENCION_ESTUDIOS : "verifica"
+
     SCHEMA_MIGRATIONS {
         INT installed_rank PK
         VARCHAR version UK
@@ -241,4 +253,61 @@ erDiagram
         BIGINT id_estudio FK, UK
         JSON resultado
         DATETIME fecha
+    }
+
+    POSTULANTES_ESTUDIOS_REFERENCIALES {
+        INT id_estudio PK
+        VARCHAR estudio_referencial UK
+        BOOLEAN activo
+        DATETIME creado_en
+        DATETIME actualizado_en
+    }
+
+    POSTULANTES_ASIGNAR_ATENCION {
+        BIGINT id_asignar_atencion PK
+        DATE fecha
+        BOOLEAN empieza_atender
+        BOOLEAN pago_realizado
+        INT creado_por FK
+        DATETIME creado_en
+        DATETIME actualizado_en
+    }
+
+    POSTULANTES_ASIGNAR_ATENCION_USUARIOS {
+        BIGINT id_asignar_atencion PK, FK
+        INT id_usuario PK, FK
+    }
+
+    POSTULANTES_ASIGNAR_ATENCION_ESCUELAS {
+        BIGINT id_asignar_atencion PK, FK
+        INT id_escuela PK, FK
+    }
+
+    POSTULANTES_ASIGNAR_ATENCION_ESTUDIOS {
+        BIGINT id_asignar_atencion PK, FK
+        INT id_estudio PK, FK
+    }
+
+    POSTULANTES_ATENCION {
+        BIGINT id_postulante_atencion PK
+        BIGINT id_asignar_atencion FK, UK
+        INT id_paciente FK, UK
+        BOOLEAN llamado
+        DATETIME llamado_en
+        INT llamado_por FK
+        BOOLEAN atendido
+        DATETIME atendido_en
+        INT atendido_por FK
+        JSON observacion
+        BOOLEAN pagado
+        DATETIME creado_en
+        DATETIME actualizado_en
+    }
+
+    POSTULANTES_ATENCION_ESTUDIOS {
+        BIGINT id_postulante_atencion PK, FK
+        INT id_estudio PK, FK
+        BOOLEAN realizado
+        DATETIME realizado_en
+        INT actualizado_por FK
     }

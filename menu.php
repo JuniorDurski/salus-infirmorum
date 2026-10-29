@@ -64,6 +64,8 @@ $titulosRuta = [
     'usuarios.php' => 'Usuarios', 'roles.php' => 'Roles',
     'permisos.php' => 'Permisos', 'menus.php' => 'Menús',
     'universidades.php' => 'Universidades', 'titulos.php' => 'Títulos profesionales',
+    'atenciones.php' => 'Asignaciones de atención',
+    'estudios_referenciales.php' => 'Estudios referenciales',
     'perfil.php' => 'Mi perfil',
 ];
 $tituloActual = $tituloPagina ?? ($titulosRuta[$rutaActual] ?? 'Salus Infirmorum');

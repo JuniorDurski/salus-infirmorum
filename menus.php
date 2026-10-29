@@ -28,13 +28,13 @@ include 'menu.php';
                 <label for="id_menu_padre">Menú padre</label>
                 <select name="id_menu_padre" id="id_menu_padre"><option value="">Sin padre (nivel principal)</option></select>
             </div>
-            <div class="form-stack">
-                <div class="campo">
+            <div class="field-grid">
+                <div class="campo full">
                     <label for="segmento">Segmento de ruta</label>
                     <input name="segmento" id="segmento" maxlength="40" pattern="[a-z0-9_-]{2,40}" placeholder="usuarios" required>
                     <small>El permiso se arma automáticamente.</small>
                 </div>
-                <div class="campo">
+                <div class="campo full">
                     <label for="etiqueta">Texto visible</label>
                     <input name="etiqueta" id="etiqueta" maxlength="100" placeholder="USUARIOS" required>
                 </div>
