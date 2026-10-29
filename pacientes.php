@@ -23,7 +23,13 @@ include 'menu.php';
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(tokenCsrf(), ENT_QUOTES, 'UTF-8') ?>">
             <div class="campo"><label for="nombre">Nombre y apellido *</label><input name="nombre" id="nombre" data-uppercase maxlength="250" required></div>
             <div class="field-grid">
-                <div class="campo"><label for="ci">Documento *</label><input name="ci" id="ci" maxlength="30" required></div>
+                <div class="campo"><label for="ci">Documento *</label>
+                    <div style="display:flex; gap:6px">
+                        <input name="ci" id="ci" maxlength="30" required>
+                        <button type="button" class="btn-secondary" id="btnBuscarCedula" style="flex-shrink:0" onclick="buscarCedula()" title="Buscar en el padrón de cédulas y autocompletar">Buscar</button>
+                    </div>
+                    <small id="estadoCedula" class="help-text"></small>
+                </div>
                 <div class="campo"><label for="codigo">Código</label><input name="codigo" id="codigo" maxlength="20" placeholder="Automático: orden-id"></div>
                 <div class="campo"><label for="fecha_nacimiento">Fecha de nacimiento *</label><input type="date" name="fecha_nacimiento" id="fecha_nacimiento" max="<?= date('Y-m-d') ?>" required></div>
                 <div class="campo"><label for="es_femenino">Sexo *</label><select name="es_femenino" id="es_femenino" required><option value="">Seleccione</option><option value="0">Masculino</option><option value="1">Femenino</option></select></div>
@@ -98,6 +104,7 @@ function renderPacientes() {
 }
 function editar(id) {
     const p=pacientes.find(item=>Number(item.id_paciente)===Number(id)); if(!p)return;
+    estadoCedula.textContent='';
     id_paciente.value=p.id_paciente; nombre.value=p.nombre; codigo.value=p.codigo||''; ci.value=p.ci;
     fecha_nacimiento.value=p.fecha_nacimiento; es_femenino.value=p.es_femenino; grupo_sanguineo.value=p.grupo_sanguineo||'';
     id_escuela.value=p.id_escuela||''; telefono.value=p.telefono||''; url_foto.value=p.url_foto||'';
@@ -105,8 +112,28 @@ function editar(id) {
     // Foto oculta por ahora: vista_foto.src=p.url_foto||''; vista_foto.hidden=!p.url_foto;
     nombre.focus();
 }
+// Busca la cédula en el padrón y completa solo los datos que vengan bien.
+// Lo que falta en el padrón no se toca, y todo se puede corregir a mano después.
+async function buscarCedula(){
+    const cedula=ci.value.trim();
+    if(!cedula){estadoCedula.textContent='Ingrese un número de cédula.';ci.focus();return;}
+    btnBuscarCedula.disabled=true; estadoCedula.textContent='Buscando…';
+    try{
+        const r=await Salus.json('backend/cedulasDAO.php?q=buscar&cedula='+encodeURIComponent(cedula));
+        if(!r.encontrado){estadoCedula.textContent='No se encontró en el padrón. Cargue los datos a mano.';return;}
+        const completados=[], faltantes=[];
+        if(r.nombre){nombre.value=r.nombre;completados.push('nombre');} else faltantes.push('nombre');
+        if(r.fecha_nacimiento){fecha_nacimiento.value=r.fecha_nacimiento;completados.push('fecha de nacimiento');} else faltantes.push('fecha de nacimiento');
+        if(r.sexo){es_femenino.value=r.sexo==='F'?'1':'0';completados.push('sexo');} else faltantes.push('sexo');
+        let texto=completados.length?'Se completó: '+completados.join(', ')+'.':'El padrón no tiene datos útiles para esta cédula.';
+        if(completados.length&&faltantes.length) texto+=' Falta: '+faltantes.join(', ')+'.';
+        if(r.origen&&r.origen!=='principal') texto+=' (Registrado como '+({padre:'padre',madre:'madre',conyuge:'cónyuge'}[r.origen]||r.origen)+' de otra persona: revise los datos.)';
+        estadoCedula.textContent=texto;
+    }catch(error){estadoCedula.textContent=error.message;}
+    finally{btnBuscarCedula.disabled=false;}
+}
 function limpiar(){
-    frmPostulante.reset();id_paciente.value='';url_foto.value='';mensaje.textContent='';
+    frmPostulante.reset();id_paciente.value='';url_foto.value='';mensaje.textContent='';estadoCedula.textContent='';
     seleccionarParaguay();
     // Foto oculta por ahora: vista_foto.src='';vista_foto.hidden=true;
 }
@@ -126,6 +153,10 @@ if (puedeEditarPacientes) frmPostulante.addEventListener('submit',async event=>{
         // }
         Salus.toast('Paciente guardado.');limpiar();cargar();
     }catch(error){mensaje.textContent=error.message;}
+});
+// Enter en Documento busca en el padrón en vez de guardar el formulario.
+if (puedeEditarPacientes) ci.addEventListener('keydown',event=>{
+    if(event.key==='Enter'){event.preventDefault();buscarCedula();}
 });
 filtroPacientes.addEventListener('input',renderPacientes);
 filtroFecha.addEventListener('change',renderPacientes);

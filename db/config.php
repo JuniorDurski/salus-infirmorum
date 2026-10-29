@@ -19,4 +19,7 @@ return [
     'user' => $dbEnv('DB_USER', 'root'),
     'password' => $dbEnv('DB_PASSWORD', ''),
     'charset' => 'utf8mb4',
+    // Padrón de cédulas (solo lectura, para autocompletar pacientes).
+    // Usa el mismo servidor y usuario que la base principal.
+    'cedulas_database' => $dbEnv('DB_CEDULAS_NAME', 'cedulas_db'),
 ];

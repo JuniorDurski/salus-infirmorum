@@ -1,0 +1,2 @@
+# Dumps del padrón de cédulas (varios GB). El script de migración sí se versiona.
+db/cedulas/datos_db_*.sql

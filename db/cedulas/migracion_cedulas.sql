@@ -26,10 +26,14 @@
 --   espacios o no tiene ningún carácter alfanumérico. No tienen fecha de
 --   nacimiento (NULL).
 -- * Normalización de cédulas de familiares (las principales ya son números):
---     - se quitan espacios al inicio y al final;
---     - '4.085.254' (puntos de miles) -> '4085254';
+--     - se quitan espacios y signos sueltos al inicio y al final
+--       ('-1527119', '.2137023', '5905228-', '1476362|' -> solo el número);
+--     - dígitos con puntos ('4.085.254', '3.509559') -> sin puntos;
 --     - solo dígitos con ceros a la izquierda -> sin ceros ('0123' -> '123').
+--   Así coinciden con el nrodoc de la persona principal cuando corresponde.
 --   Cualquier otro valor (p. ej. 'L485819', '3.121.740-8') se guarda tal cual.
+--   Ojo: el padrón tiene algunas "cédulas" de familiares que en realidad son
+--   texto (p. ej. 'ADRIANA'); como tienen letras, la regla las acepta.
 -- * fechanac viene como texto 'YYYY-MM-DD'. Se convierte a DATE; queda NULL
 --   si está vacía, no es una fecha válida o cae fuera de 1850-01-01..hoy
 --   (en el padrón hay valores de relleno como 1777-07-07 y fechas futuras).
@@ -73,8 +77,8 @@ CREATE FUNCTION fn_mig_cedula_valida(c TEXT) RETURNS TINYINT DETERMINISTIC
 -- Normaliza la cédula de un familiar (ver reglas arriba)
 CREATE FUNCTION fn_mig_cedula_norm(c TEXT) RETURNS VARCHAR(20) DETERMINISTIC
 BEGIN
-  DECLARE v TEXT DEFAULT REGEXP_REPLACE(c, '^[[:space:]]+|[[:space:]]+$', '');
-  IF v REGEXP '^[0-9]{1,3}([.][0-9]{3})+$' THEN
+  DECLARE v TEXT DEFAULT REGEXP_REPLACE(c, '^[^[:alnum:]]+|[^[:alnum:]]+$', '');
+  IF v REGEXP '^[0-9.]+$' THEN
     SET v = REPLACE(v, '.', '');
   END IF;
   IF v REGEXP '^[0-9]+$' THEN
