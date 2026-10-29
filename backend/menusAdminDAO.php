@@ -63,7 +63,6 @@ function guardarMenu(mysqli $db, array $identidad): void
     $orden = max(0, min(65535, (int) ($_POST['orden'] ?? 0)));
     $visibleTodos = !empty($_POST['visible_todos']) ? 1 : 0;
     $activo = !empty($_POST['activo']) ? 1 : 0;
-    $permisoActivo = !empty($_POST['permiso_activo']) ? 1 : 0;
     $roles = array_values(array_unique(array_filter(array_map('intval', $_POST['roles'] ?? []))));
 
     if (!preg_match('/^[a-z0-9_-]{2,40}$/', $segmento)) {
@@ -98,13 +97,14 @@ function guardarMenu(mysqli $db, array $identidad): void
         if ($menuActual !== null) {
             $idPermiso = (int) $menuActual['id_permiso'];
             if ($idPermiso > 0) {
-                $stmt = $db->prepare('UPDATE permisos SET codigo = ?, nombre = ?, descripcion = ?, activo = ? WHERE id_permiso = ?');
+                // El estado global se administra exclusivamente desde el módulo Permisos.
+                $stmt = $db->prepare('UPDATE permisos SET codigo = ?, nombre = ?, descripcion = ? WHERE id_permiso = ?');
                 $nombrePermiso = 'Ver menú ' . $etiqueta;
                 $descripcion = 'Permite visualizar el menú ' . $codigo;
-                $stmt->bind_param('sssii', $codigoPermiso, $nombrePermiso, $descripcion, $permisoActivo, $idPermiso);
+                $stmt->bind_param('sssi', $codigoPermiso, $nombrePermiso, $descripcion, $idPermiso);
                 $stmt->execute();
             } else {
-                $idPermiso = crearPermisoMenu($db, $codigoPermiso, $etiqueta, $permisoActivo);
+                $idPermiso = crearPermisoMenu($db, $codigoPermiso, $etiqueta);
             }
             $stmt = $db->prepare(
                 'UPDATE menus SET id_menu_padre = ?, id_permiso = ?, codigo = ?, etiqueta = ?, url = ?, icono = ?, orden = ?, visible_todos = ?, activo = ? WHERE id_menu = ?'
@@ -113,7 +113,7 @@ function guardarMenu(mysqli $db, array $identidad): void
             $stmt->execute();
             actualizarDescendientes($db, $id, $codigo);
         } else {
-            $idPermiso = crearPermisoMenu($db, $codigoPermiso, $etiqueta, $permisoActivo);
+            $idPermiso = crearPermisoMenu($db, $codigoPermiso, $etiqueta);
             $stmt = $db->prepare(
                 'INSERT INTO menus (id_menu_padre, id_permiso, codigo, etiqueta, url, icono, orden, visible_todos, activo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
             );
@@ -161,12 +161,12 @@ function esDescendienteDe(mysqli $db, int $posibleDescendiente, int $ancestro): 
     return false;
 }
 
-function crearPermisoMenu(mysqli $db, string $codigo, string $etiqueta, int $activo): int
+function crearPermisoMenu(mysqli $db, string $codigo, string $etiqueta): int
 {
     $nombre = 'Ver menú ' . $etiqueta;
     $descripcion = 'Permite visualizar el menú ' . substr($codigo, 5);
-    $stmt = $db->prepare('INSERT INTO permisos (codigo, nombre, descripcion, activo) VALUES (?, ?, ?, ?)');
-    $stmt->bind_param('sssi', $codigo, $nombre, $descripcion, $activo);
+    $stmt = $db->prepare('INSERT INTO permisos (codigo, nombre, descripcion, activo) VALUES (?, ?, ?, 1)');
+    $stmt->bind_param('sss', $codigo, $nombre, $descripcion);
     $stmt->execute();
     return $db->insert_id;
 }

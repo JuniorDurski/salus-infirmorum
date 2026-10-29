@@ -5,7 +5,10 @@ $puedeEditar = tienePermiso($usuarioAutenticado, 'usuarios.editar');
 $tituloPagina = 'Usuarios';
 include 'menu.php';
 ?>
-<div class="page-header"><div><span class="eyebrow">Seguridad</span><h1>Usuarios</h1><p>Administre identidades, roles y el acceso inicial al sistema.</p></div></div>
+<div class="page-header">
+    <div><span class="eyebrow">Seguridad</span><h1>Usuarios</h1><p>Administre identidades, roles y el acceso inicial al sistema.</p></div>
+    <div class="search-box"><input type="search" id="buscarUsuarios" placeholder="Buscar usuario, nombre, CI, correo o rol…" aria-label="Buscar usuarios"></div>
+</div>
 <main class="seguridad-grid">
     <section class="panel-seguridad">
         <h2>Usuario</h2>
@@ -24,7 +27,7 @@ include 'menu.php';
         </form>
     </section>
     <section class="panel-seguridad">
-        <h2>Usuarios</h2>
+        <div class="card-header"><div><h2>Usuarios</h2><p class="help-text" id="resumenUsuarios">Cargando…</p></div></div>
         <div class="table-wrap"><table class="tabla-seguridad">
             <thead><tr><th>Usuario</th><th>Nombre</th><th>CI / correo</th><th>Roles</th><th>Estado</th><th>Acciones</th></tr></thead>
             <tbody id="tablaUsuarios"></tbody>
@@ -45,13 +48,20 @@ async function cargarUsuarios() {
     usuariosDatos = usuarios;
     rolesDatos = roles.filter(r => Number(r.activo) === 1);
     listaRoles.innerHTML = rolesDatos.map(r => `<label><input type="checkbox" name="roles[]" value="${r.id_rol}"> ${esc(r.nombre)}</label>`).join('');
-    tablaUsuarios.innerHTML = usuariosDatos.map(u => `<tr>
+    renderUsuarios();
+}
+
+function renderUsuarios() {
+    const termino = buscarUsuarios.value.trim().toLowerCase();
+    const datos = usuariosDatos.filter(u => !termino || `${u.usuario} ${u.nombre} ${u.ci} ${u.correo || ''} ${u.roles || ''}`.toLowerCase().includes(termino));
+    resumenUsuarios.textContent = `${datos.length} de ${usuariosDatos.length} usuario(s)`;
+    tablaUsuarios.innerHTML = datos.length ? datos.map(u => `<tr>
         <td>${esc(u.usuario)}</td><td>${esc(u.nombre)}</td>
         <td>${esc(u.ci)}<br><small>${esc(u.correo || '')}</small></td>
         <td>${esc(u.roles || '')}</td>
-        <td class="${Number(u.activo) ? 'estado-activo' : 'estado-inactivo'}">${Number(u.activo) ? 'ACTIVO' : 'INACTIVO'}${Number(u.clave_predeterminada) ? '<br><small>Clave temporal</small>' : ''}</td>
-        <td>${puedeEditarUsuarios ? `<button onclick="editarUsuario(${u.id_usuario})">Editar</button> <button onclick="estadoUsuario(${u.id_usuario}, ${Number(u.activo) ? 0 : 1})">${Number(u.activo) ? 'Desactivar' : 'Activar'}</button> <button onclick="resetClave(${u.id_usuario})">Restablecer clave</button>` : ''}</td>
-    </tr>`).join('');
+        <td>${Number(u.activo) ? '<span class="badge badge-success">Activo</span>' : '<span class="badge badge-danger">Inactivo</span>'}${Number(u.clave_predeterminada) ? '<br><small>Clave temporal</small>' : ''}</td>
+        <td><div class="table-actions">${puedeEditarUsuarios ? `<button class="btn-small btn-secondary" onclick="editarUsuario(${u.id_usuario})">Editar</button><button class="btn-small ${Number(u.activo) ? 'btn-danger' : 'btn-secondary'}" onclick="estadoUsuario(${u.id_usuario}, ${Number(u.activo) ? 0 : 1})">${Number(u.activo) ? 'Desactivar' : 'Activar'}</button><button class="btn-small btn-secondary" onclick="resetClave(${u.id_usuario})">Restablecer clave</button>` : ''}</div></td>
+    </tr>`).join('') : '<tr><td colspan="6" class="empty-state">No se encontraron usuarios.</td></tr>';
 }
 
 function editarUsuario(id) {
@@ -80,6 +90,7 @@ async function resetClave(id) {
     alert(d.mensaje || (d.status === 'ok' ? 'Contraseña restablecida.' : 'Error')); if(d.status==='ok') cargarUsuarios();
 }
 function esc(v){const d=document.createElement('div');d.textContent=v??'';return d.innerHTML;}
+buscarUsuarios.addEventListener('input', renderUsuarios);
 cargarUsuarios();
 </script>
 <?php include 'footer.php'; ?>

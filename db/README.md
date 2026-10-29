@@ -66,3 +66,8 @@ El módulo `menus.php` permite crear cualquier cantidad de niveles, mover nodos,
 configurar una URL interna tanto en padres como en hijos y asignar los roles que
 pueden verlos. Al mover o renombrar un padre, se actualizan de forma atómica las
 rutas y permisos de todos sus descendientes.
+
+El rol es el control habitual de acceso. El estado de un permiso se administra
+desde `permisos.php` y funciona como un bloqueo global: si un permiso `menu.*`
+está inactivo, el nodo se oculta para todos los roles. La migración `V8` deja
+como universales solamente Inicio y Mi perfil; el resto exige asignación por rol.

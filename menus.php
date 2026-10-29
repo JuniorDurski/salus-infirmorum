@@ -12,7 +12,10 @@ include 'menu.php';
         <h1>Menús y submenús</h1>
         <p>Cada nodo genera su propio permiso <span class="code">menu.padre.hijo</span>.</p>
     </div>
-    <?php if ($puedeEditar): ?><button type="button" onclick="nuevoMenu()">+ Nuevo menú</button><?php endif; ?>
+    <div class="header-actions">
+        <div class="search-box"><input type="search" id="buscarMenus" placeholder="Buscar menú, ruta o URL…" aria-label="Buscar menús"></div>
+        <?php if ($puedeEditar): ?><button type="button" onclick="nuevoMenu()">+ Nuevo menú</button><?php endif; ?>
+    </div>
 </div>
 
 <div class="grid-2">
@@ -57,10 +60,10 @@ include 'menu.php';
                 <div id="listaRoles" class="checks"></div>
                 <small>ADMIN se conserva siempre. Si es visible para todos, los roles dejan de ser necesarios para mostrarlo.</small>
             </div>
+            <div class="notice"><strong>Regla de visibilidad:</strong> si no marca “visible para todos”, solamente verán este nodo los usuarios con un rol que tenga su permiso <span class="code">menu.*</span>.</div>
             <div class="checks">
                 <label><input type="checkbox" name="visible_todos" id="visible_todos" value="1"> Visible para todos los usuarios autenticados</label>
                 <label><input type="checkbox" name="activo" id="activo" value="1" checked> Menú activo</label>
-                <label><input type="checkbox" name="permiso_activo" id="permiso_activo" value="1" checked> Permiso activo</label>
             </div>
             <?php if ($puedeEditar): ?>
                 <div class="form-actions"><button type="submit">Guardar menú</button><button class="btn-secondary" type="button" onclick="limpiarMenu()">Cancelar</button></div>
@@ -70,7 +73,7 @@ include 'menu.php';
     </section>
 
     <section class="card">
-        <div class="card-header"><div><h2>Árbol configurado</h2><p class="help-text">Los nodos inactivos permanecen guardados, pero no se muestran.</p></div></div>
+        <div class="card-header"><div><h2>Árbol configurado</h2><p class="help-text" id="resumenMenus">Cargando menús…</p></div></div>
         <div class="table-wrap">
             <table class="data-table">
                 <thead><tr><th>Ruta / etiqueta</th><th>Destino</th><th>Acceso</th><th>Estado</th><th></th></tr></thead>
@@ -108,15 +111,18 @@ function renderRoles(seleccionados = []) {
 }
 
 function renderTabla() {
-    if (!menus.length) {
-        tablaMenus.innerHTML = '<tr><td colspan="5" class="empty-state">No hay menús configurados.</td></tr>'; return;
+    const termino = buscarMenus.value.trim().toLowerCase();
+    const datos = menus.filter(m => !termino || `${m.codigo} ${m.etiqueta} ${m.url || ''} ${m.permiso_codigo || ''}`.toLowerCase().includes(termino));
+    resumenMenus.textContent = `${datos.length} de ${menus.length} menú(s)`;
+    if (!datos.length) {
+        tablaMenus.innerHTML = '<tr><td colspan="5" class="empty-state">No se encontraron menús.</td></tr>'; return;
     }
-    tablaMenus.innerHTML = menus.map(m => {
+    tablaMenus.innerHTML = datos.map(m => {
         const nivel = (m.codigo.match(/\./g) || []).length;
         const acceso = Number(m.visible_todos) ? '<span class="badge badge-success">Todos</span>' : `${m.rol_ids.length} rol(es)`;
-        const estado = Number(m.activo) && Number(m.permiso_activo)
-            ? '<span class="badge badge-success">Visible</span>'
-            : '<span class="badge badge-danger">Inactivo</span>';
+        let estado = '<span class="badge badge-success">Disponible</span>';
+        if (!Number(m.activo)) estado = '<span class="badge badge-danger">Menú inactivo</span>';
+        else if (!Number(m.permiso_activo)) estado = '<span class="badge badge-danger">Permiso bloqueado globalmente</span><br><small>Actívelo desde Permisos</small>';
         return `<tr>
             <td style="padding-left:${13 + nivel * 20}px"><strong>${nivel ? '↳ ' : ''}${Salus.escape(m.etiqueta)}</strong><br><span class="code">${Salus.escape(m.permiso_codigo || '')}</span></td>
             <td>${m.url ? `<a href="${Salus.escape(m.url)}">${Salus.escape(m.url)}</a>` : '<span class="help-text">Solo contenedor</span>'}</td>
@@ -133,12 +139,12 @@ function editarMenu(id) {
     segmento.value = m.segmento; etiqueta.value = m.etiqueta; url.value = m.url || '';
     icono.value = m.icono || ''; orden.value = m.orden;
     visible_todos.checked = Number(m.visible_todos) === 1; activo.checked = Number(m.activo) === 1;
-    permiso_activo.checked = Number(m.permiso_activo) === 1; renderRoles(m.rol_ids);
+    renderRoles(m.rol_ids);
     actualizarPermisoPrevio(); document.getElementById('panelFormulario').scrollIntoView({behavior:'smooth'});
 }
 
 function limpiarMenu() {
-    formMenu.reset(); id_menu.value = ''; activo.checked = true; permiso_activo.checked = true;
+    formMenu.reset(); id_menu.value = ''; activo.checked = true;
     renderPadres(); renderRoles(); actualizarPermisoPrevio(); mensaje.textContent = '';
 }
 function nuevoMenu() { limpiarMenu(); segmento.focus(); }
@@ -149,6 +155,7 @@ function actualizarPermisoPrevio() {
 }
 id_menu_padre.addEventListener('change', actualizarPermisoPrevio);
 segmento.addEventListener('input', actualizarPermisoPrevio);
+buscarMenus.addEventListener('input', renderTabla);
 formMenu.addEventListener('submit', async event => {
     event.preventDefault(); mensaje.textContent = '';
     const data = new FormData(formMenu);
