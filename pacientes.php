@@ -121,14 +121,16 @@ async function buscarCedula(){
     try{
         const r=await Salus.json('backend/cedulasDAO.php?q=buscar&cedula='+encodeURIComponent(cedula));
         if(!r.encontrado){estadoCedula.textContent='No se encontró en el padrón. Cargue los datos a mano.';return;}
-        const completados=[], faltantes=[];
-        if(r.nombre){nombre.value=r.nombre;completados.push('nombre');} else faltantes.push('nombre');
-        if(r.fecha_nacimiento){fecha_nacimiento.value=r.fecha_nacimiento;completados.push('fecha de nacimiento');} else faltantes.push('fecha de nacimiento');
-        if(r.sexo){es_femenino.value=r.sexo==='F'?'1':'0';completados.push('sexo');} else faltantes.push('sexo');
-        let texto=completados.length?'Se completó: '+completados.join(', ')+'.':'El padrón no tiene datos útiles para esta cédula.';
-        if(completados.length&&faltantes.length) texto+=' Falta: '+faltantes.join(', ')+'.';
+        const faltantes=[];
+        if(r.nombre) nombre.value=r.nombre; else faltantes.push('nombre');
+        if(r.fecha_nacimiento) fecha_nacimiento.value=r.fecha_nacimiento; else faltantes.push('fecha de nacimiento');
+        if(r.sexo) es_femenino.value=r.sexo==='F'?'1':'0'; else faltantes.push('sexo');
+        // Si se completó todo no se muestra nada; solo se avisa lo que falta.
+        let texto='';
+        if(faltantes.length===3) texto='El padrón no tiene datos útiles para esta cédula.';
+        else if(faltantes.length) texto='Falta: '+faltantes.join(', ')+'.';
         if(r.origen&&r.origen!=='principal') texto+=' (Registrado como '+({padre:'padre',madre:'madre',conyuge:'cónyuge'}[r.origen]||r.origen)+' de otra persona: revise los datos.)';
-        estadoCedula.textContent=texto;
+        estadoCedula.textContent=texto.trim();
     }catch(error){estadoCedula.textContent=error.message;}
     finally{btnBuscarCedula.disabled=false;}
 }
