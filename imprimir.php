@@ -19,7 +19,7 @@ include "menu.php";
         </th>
 
         <th>
-            <b>Designación</b><br>
+            <b>Escuela</b><br>
             <select id="f_designacion"></select>
         </th>
 
@@ -54,7 +54,7 @@ include "menu.php";
             <th>CI</th>
             <th style="width:17px">Edad</th>
             <th>Sexo</th>
-            <th style="width:150px">Designación</th>
+            <th style="width:150px">Escuela</th>
             <th>Rh</th>
             <th style="width:110px">Fecha Alta</th>
             <th style="width:238px">Acciones</th>
@@ -71,14 +71,14 @@ include "menu.php";
 const url = "backend/postulantesDAO.php";
 let idsActuales = [];
 
-/* ================= DESIGNACIONES ================= */
-function cargarDesignaciones() {
+/* ================= ESCUELAS ================= */
+function cargarEscuelas() {
     fetch("backend/designacionesDAO.php?q=listar")
     .then(r => r.json())
     .then(data => {
         let opt = "<option value=''>-- Seleccione --</option>";
         data.forEach(d => {
-            opt += `<option value="${d.id_designacion}">${d.designacion} - ${d.periodo}</option>`;
+            opt += `<option value="${d.id_escuela}">${d.nombre} - ${d.periodo}</option>`;
         });
         f_designacion.innerHTML = opt;
     });
@@ -135,7 +135,7 @@ function imprimirTodo() {
         return;
     }
     if (designacion == "") {
-        alert("Seleccione una Designacion");
+        alert("Seleccione una escuela");
         return;
     }
 
@@ -172,7 +172,7 @@ function imprimirTarjeta() {
         return;
     }
     if (designacion == "") {
-        alert("Seleccione una Designacion");
+        alert("Seleccione una escuela");
         return;
     }
 
@@ -235,7 +235,7 @@ function obtenerDesignacionTexto() {
     return texto.split(" - ")[0].trim();
 }
 
-cargarDesignaciones();
+cargarEscuelas();
 </script>
 
 <?php include "footer.php"; ?>

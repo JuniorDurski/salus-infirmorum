@@ -19,7 +19,7 @@ include "menu.php";
                 </tr>
             </thead>
 
-            <input type="hidden" name="id_postulante" id="id_postulante">
+            <input type="hidden" name="id_paciente" id="id_paciente">
 
             <tr>
                 <th align="left" colspan="3">
@@ -35,23 +35,24 @@ include "menu.php";
                 </th>
 
                 <th align="left">
-                    <b>Edad</b><br>
-                    <input type="text" name="edad" id="edad" size="2" style="width: 54px;" required>
+                    <b>Fecha de nacimiento</b><br>
+                    <input type="date" name="fecha_nacimiento" id="fecha_nacimiento" required>
                 </th>
             
                 <th align="left">
                     <b>Sexo</b><br>
-                    <select name="sexo" id="sexo" required>
+                    <select name="es_femenino" id="es_femenino" required>
                         <option value="">-- Seleccione --</option>
-                        <option value="MASCULINO">MASCULINO</option>
-                        <option value="FEMENINO">FEMENINO</option>
+                        <option value="0">MASCULINO</option>
+                        <option value="1">FEMENINO</option>
                     </select>
                 </th>
-            
+            </tr>
+
             <tr>
                 <th align="left" colspan="2">
-                    <b>Designación</b><br>
-                    <select name="id_designacion" id="id_designacion" style="width: 100%;" required></select>
+                    <b>Escuela</b><br>
+                    <select name="id_escuela" id="id_escuela" style="width: 100%;" required></select>
                 </th>               
            
                 <th align="left" >
@@ -72,7 +73,21 @@ include "menu.php";
             <tr>
                 <th align="left" colspan="3">
                     <b>COD</b><br>
-                    <input type="text" name="codigo" id="codigo" size="3" maxlength="3">
+                    <input type="text" name="codigo" id="codigo" size="20" maxlength="20">
+                </th>
+            </tr>
+            <tr>
+                <th align="left">
+                    <b>País</b><br>
+                    <select name="id_pais" id="id_pais" style="width: 100%;"></select>
+                </th>
+                <th align="left">
+                    <b>Teléfono internacional</b><br>
+                    <input type="tel" name="telefono" id="telefono" placeholder="+595981123456">
+                </th>
+                <th align="left">
+                    <b>URL de foto</b><br>
+                    <input type="url" name="url_foto" id="url_foto">
                 </th>
             </tr>
 
@@ -100,7 +115,7 @@ include "menu.php";
                 <th style="width:50px">CI</th>
                 <th style="width:30px">Edad</th>
                 <th style="width:50px">Sexo</th>
-                <th style="width:150px">Designación</th>
+                <th style="width:150px">Escuela</th>
                 <th style="width:10px ">Rh</th>
                 <th style="width:110px">Fecha de Alta</th>
                 <th style="width:150px">Acciones</th>
@@ -115,16 +130,25 @@ include "menu.php";
 <script>
 const url = "backend/postulantesDAO.php";
 
-/* ================= CARGAR DESIGNACIONES ================= */
-function cargarDesignaciones() {
+/* ================= CARGAR ESCUELAS ================= */
+function cargarEscuelas() {
     fetch("backend/designacionesDAO.php?q=listar")
         .then(r => r.json())
         .then(data => {
             let opt = "<option value=''>-- Seleccione --</option>";
             data.forEach(d => {
-                opt += `<option value="${d.id_designacion}">${d.designacion} - ${d.periodo} </option>`;
+                opt += `<option value="${d.id_escuela}">${d.nombre} - ${d.periodo} </option>`;
             });
-            id_designacion.innerHTML = opt;
+            id_escuela.innerHTML = opt;
+        });
+}
+
+function cargarPaises() {
+    fetch("backend/referencialesDAO.php?q=paises")
+        .then(r => r.json())
+        .then(data => {
+            id_pais.innerHTML = '<option value="">-- Sin especificar --</option>' +
+                data.map(p => `<option value="${p.id_pais}">${p.nombre} (${p.prefijo_telefonico})</option>`).join('');
         });
 }
 
@@ -178,20 +202,23 @@ frmPostulante.onsubmit = function(e){
 
 /* ================= EDITAR ================= */
 function editar(p) {
-    id_postulante.value = p.id_postulante;
+    id_paciente.value = p.id_paciente;
     nombre.value = p.nombre;
     codigo.value = p.codigo ?? '';
     ci.value = p.ci;
-    edad.value = p.edad;
-    sexo.value = p.sexo;
+    fecha_nacimiento.value = p.fecha_nacimiento;
+    es_femenino.value = p.es_femenino;
     grupo_sanguineo.value = p.grupo_sanguineo;
-    id_designacion.value = p.id_designacion;
+    id_escuela.value = p.id_escuela;
+    id_pais.value = p.id_pais ?? '';
+    telefono.value = p.telefono ?? '';
+    url_foto.value = p.url_foto ?? '';
 }
 
 
 /* ================= ELIMINAR ================= */
 function eliminar(id) {
-    if (!confirm("¿Eliminar postulante?")) return;
+    if (!confirm("¿Desactivar paciente?")) return;
 
     let fd = new FormData();
     fd.append("id", id);
@@ -209,12 +236,13 @@ function eliminar(id) {
 
 function limpiar() {
     frmPostulante.reset();
-    id_postulante.value = "";
+    id_paciente.value = "";
     codigo.value = "";
 }
 
 
-cargarDesignaciones();
+cargarEscuelas();
+cargarPaises();
 cargar();
 </script>
 

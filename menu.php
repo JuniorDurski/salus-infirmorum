@@ -10,6 +10,7 @@
     let oscuro = false;
 
     window.onload = function () {
+        cargarMenu();
         fetch(urlMenu + "?q=fuente_color")
             .then(r => r.json())
             .then(d => {
@@ -54,10 +55,48 @@
 
     function cambiarModo() {
         fetch(urlMenu + "?q=cambiar_fuente")
-            .then(() => {
+            .then(r => r.json())
+            .then(res => {
+                if (res.status === 'error') {
+                    alert(res.mensaje);
+                    return;
+                }
                 aplicarModo();
                 location.reload();
             });
+    }
+
+    function cargarMenu() {
+        fetch('backend/menusDAO.php')
+            .then(r => r.json())
+            .then(menus => {
+                const contenedor = document.getElementById('opciones-menu');
+                contenedor.innerHTML = menus.map(renderMenu).join('');
+            });
+    }
+
+    function renderMenu(menu) {
+        const etiqueta = escaparHtml(menu.etiqueta);
+        const principal = menu.url
+            ? `<a href="${escaparHtml(menu.url)}">${etiqueta}</a>`
+            : `<span>${etiqueta}</span>`;
+        const hijos = (menu.hijos || []).map(hijo => {
+            const texto = escaparHtml(hijo.etiqueta);
+            return hijo.url ? `<a href="${escaparHtml(hijo.url)}">${texto}</a>` : texto;
+        }).join(' &gt; ');
+
+        return `<font size="4">| ${principal}${hijos ? ` [ ${hijos} ]` : ''} | </font>`;
+    }
+
+    function escaparHtml(valor) {
+        const nodo = document.createElement('div');
+        nodo.textContent = valor ?? '';
+        return nodo.innerHTML;
+    }
+
+    function cerrarSesion() {
+        fetch(urlMenu + '?q=logout')
+            .then(() => location.href = 'index.php');
     }
 
     function aplicarModoCampos(esOscuro) {
@@ -135,23 +174,7 @@
 
             <table id="menu-colores" border="0" cellspacing="5" cellpadding="2">
                 <tr>
-                    <td>
-                        <font size="4">|
-                            <a href="designaciones.php">DESIGNACIONES </a>|
-                        </font>
-                    </td>
-                    <td>
-                        <font size="4">|
-                            <a href="pacientes.php">PACIENTES </a>|
-                        </font>
-                    </td>
-                    <td>
-                        <font size="4">|
-                            <a href="imprimir.php">IMPRIMIR INFORMES </a>|
-                        </font>
-                    </td>
-                    
-
+                    <td id="opciones-menu"></td>
                     <td>
                         <font size="4">|
                             <a href="#" onclick="cambiarModo()">ASPECTO</a> <-> |
@@ -160,7 +183,7 @@
 
                     <td>
                         <font size="4">|
-                            <a href="imprimir.php">SALIR</a> -> |
+                            <a href="#" onclick="cerrarSesion()">SALIR</a> -> |
                         </font>
                     </td>
                 </tr>

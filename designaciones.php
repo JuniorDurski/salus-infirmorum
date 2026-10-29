@@ -8,7 +8,7 @@ include "menu.php";
 <!-- CONTENEDOR GENERAL -->
 <table width="95%" align="center" cellpadding="6" border="0">
     <tr >
-        <th colspan="2"> <h2>C:\ DESIGNACIONES ><h2></th>
+        <th colspan="2"> <h2>C:\ ESCUELAS ></h2></th>
     </tr>
     <tr>
         <!-- COLUMNA IZQUIERDA: FORMULARIO -->
@@ -21,17 +21,32 @@ include "menu.php";
                         </tr>
                     </thead>
                     
-                    <input type="hidden" name="id_designacion" id="id_designacion">
+                    <input type="hidden" name="id_escuela" id="id_escuela">
                     <tr>
                         <th align="left">
-                            <b>Designación</b><br>
-                            <input type="text" name="designacion" id="designacion" size="30" required>
+                            <b>Escuela</b><br>
+                            <input type="text" name="nombre" id="nombre" size="30" required>
                         </th>
                     </tr>
                     <tr>
                         <th align="left">
-                            <b>Periodo</b><br>
-                            <input type="text" name="periodo" id="periodo" size="30" required>
+                            <b>Periodo (año y mes)</b><br>
+                            <input type="number" name="periodo_anio" id="periodo_anio" min="1900" max="2200" size="6" required>
+                            <select name="periodo_mes" id="periodo_mes" required>
+                                <option value="">Mes</option>
+                                <option value="1">Enero</option><option value="2">Febrero</option>
+                                <option value="3">Marzo</option><option value="4">Abril</option>
+                                <option value="5">Mayo</option><option value="6">Junio</option>
+                                <option value="7">Julio</option><option value="8">Agosto</option>
+                                <option value="9">Septiembre</option><option value="10">Octubre</option>
+                                <option value="11">Noviembre</option><option value="12">Diciembre</option>
+                            </select>
+                        </th>
+                    </tr>
+                    <tr>
+                        <th align="left">
+                            <b>País (opcional)</b><br>
+                            <select name="id_pais" id="id_pais" style="width: 100%;"></select>
                         </th>
                     </tr>
                     <tr>
@@ -54,7 +69,7 @@ include "menu.php";
                     </tr>
                     <tr>
                         <th align="left">ID</th>
-                        <th align="left">Designación</th>
+                        <th align="left">Escuela</th>
                         <th align="left">Periodo</th>
                         <th>Acciones</th>
                     </tr>
@@ -63,7 +78,7 @@ include "menu.php";
             </table>
 
         </td>
-    </tz>
+    </tr>
 </table>
 
 <script>
@@ -77,12 +92,12 @@ function cargar() {
             data.forEach(d => {
                 html += `
                 <tr>
-                    <td>${d.id_designacion}</td>
-                    <td>${d.designacion}</td>
+                    <td>${d.id_escuela}</td>
+                    <td>${d.nombre}</td>
                     <td>${d.periodo}</td>
                     <td style="width:150px">
                         <button onclick='editar(${JSON.stringify(d)})'>Editar</button>
-                        <button onclick='eliminar(${d.id_designacion})'>Eliminar</button>
+                        <button onclick='eliminar(${d.id_escuela})'>Eliminar</button>
                     </td>
                 </tr>`;
             });
@@ -111,9 +126,11 @@ document.getElementById("frmDesignacion").onsubmit = function(e){
 };
 
 function editar(d) {
-    id_designacion.value = d.id_designacion;
-    designacion.value    = d.designacion;
-    periodo.value        = d.periodo;
+    id_escuela.value = d.id_escuela;
+    nombre.value = d.nombre;
+    periodo_anio.value = d.periodo_anio;
+    periodo_mes.value = d.periodo_mes;
+    id_pais.value = d.id_pais ?? '';
 }
 
 function eliminar(id) {
@@ -138,8 +155,15 @@ function eliminar(id) {
 
 function limpiar() {
     frmDesignacion.reset();
-    id_designacion.value = "";
+    id_escuela.value = "";
 }
+
+fetch('backend/referencialesDAO.php?q=paises')
+    .then(r => r.json())
+    .then(data => {
+        id_pais.innerHTML = '<option value="">-- Sin especificar --</option>' +
+            data.map(p => `<option value="${p.id_pais}">${p.nombre}</option>`).join('');
+    });
 
 cargar();
 </script>

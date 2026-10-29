@@ -1,0 +1,240 @@
+%%{init: {"theme":"base","themeVariables":{"primaryColor":"#ecfdf5","primaryTextColor":"#102a23","primaryBorderColor":"#0f766e","lineColor":"#64748b","secondaryColor":"#eff6ff","tertiaryColor":"#fff7ed","fontFamily":"Arial"}}}%%
+erDiagram
+    PAISES ||--o{ UNIVERSIDADES : "pertenece"
+    PAISES o|--o{ ESCUELAS : "ubica"
+    PAISES o|--o{ PACIENTES : "nacionalidad"
+    PAISES o|--o{ DERIVADORES : "ubica"
+
+    TITULOS o|--o{ USUARIO_CONFIGURACIONES : "titulo"
+    UNIVERSIDADES o|--o{ USUARIO_CONFIGURACIONES : "universidad"
+    USUARIOS ||--o| USUARIO_CONFIGURACIONES : "configura"
+    USUARIOS o|--o{ USUARIOS : "elimina"
+
+    USUARIOS ||--o{ USUARIO_ROL : "posee"
+    ROLES ||--o{ USUARIO_ROL : "asignado"
+    USUARIOS o|--o{ USUARIO_ROL : "asigna"
+    ROLES ||--o{ ROL_PERMISOS : "contiene"
+    PERMISOS ||--o{ ROL_PERMISOS : "otorgado"
+    USUARIOS o|--o{ ROL_PERMISOS : "asigna"
+    PERMISOS o|--o{ MENUS : "habilita"
+    MENUS o|--o{ MENUS : "submenu"
+    USUARIOS o|--o{ LOGUEOS : "intenta"
+
+    ESCUELAS o|--o{ PACIENTES : "agrupa"
+    USUARIOS o|--o{ PACIENTES : "desactiva"
+    DERIVADORES ||--o{ DERIVADOR_PACIENTE : "deriva"
+    PACIENTES ||--o{ DERIVADOR_PACIENTE : "recibe"
+    USUARIOS o|--o{ DERIVADOR_PACIENTE : "registra"
+
+    TIPOS_ESTUDIO ||--o{ PLANTILLAS_ESTUDIO : "clasifica"
+    PACIENTES ||--o{ ESTUDIOS : "realiza"
+    PLANTILLAS_ESTUDIO ||--o{ ESTUDIOS : "instancia"
+    USUARIOS o|--o{ ESTUDIOS : "solicita"
+    ESTUDIOS ||--o| RESULTADOS_ESTUDIO : "produce"
+
+    SCHEMA_MIGRATIONS {
+        INT installed_rank PK
+        VARCHAR version UK
+        VARCHAR description
+        VARCHAR script
+        CHAR checksum
+        VARCHAR installed_by
+        DATETIME installed_on
+        INT execution_time_ms
+        BOOLEAN success
+    }
+
+    PAISES {
+        SMALLINT id_pais PK
+        CHAR codigo_iso2 UK
+        CHAR codigo_iso3 UK
+        VARCHAR nombre
+        VARCHAR prefijo_telefonico
+        BOOLEAN activo
+    }
+
+    UNIVERSIDADES {
+        INT id_universidad PK
+        SMALLINT id_pais FK, UK
+        VARCHAR nombre UK
+        VARCHAR abreviatura
+        BOOLEAN activo
+    }
+
+    TITULOS {
+        SMALLINT id_titulo PK
+        VARCHAR titulo UK
+        VARCHAR abreviatura
+        BOOLEAN es_femenino UK
+        BOOLEAN activo
+    }
+
+    USUARIOS {
+        INT id_usuario PK
+        VARCHAR nombre
+        VARCHAR ci UK
+        VARCHAR correo UK
+        VARCHAR clave_hash
+        BOOLEAN activo
+        DATETIME creado_en
+        DATETIME actualizado_en
+        DATETIME eliminado_en
+        INT eliminado_por FK
+    }
+
+    USUARIO_CONFIGURACIONES {
+        INT id_usuario PK, FK
+        SMALLINT id_titulo FK
+        INT id_universidad FK
+        VARCHAR numero_registro
+        VARCHAR url_firma
+        VARCHAR url_firma_sello
+        VARCHAR url_sello
+        BOOLEAN modo_oscuro
+        DATETIME actualizado_en
+    }
+
+    ROLES {
+        SMALLINT id_rol PK
+        VARCHAR codigo UK
+        VARCHAR nombre
+        VARCHAR descripcion
+        BOOLEAN activo
+    }
+
+    PERMISOS {
+        SMALLINT id_permiso PK
+        VARCHAR codigo UK
+        VARCHAR nombre
+        VARCHAR descripcion
+        BOOLEAN activo
+    }
+
+    USUARIO_ROL {
+        INT id_usuario PK, FK
+        SMALLINT id_rol PK, FK
+        INT asignado_por FK
+        DATETIME asignado_en
+    }
+
+    ROL_PERMISOS {
+        SMALLINT id_rol PK, FK
+        SMALLINT id_permiso PK, FK
+        INT asignado_por FK
+        DATETIME asignado_en
+    }
+
+    MENUS {
+        SMALLINT id_menu PK
+        SMALLINT id_menu_padre FK
+        SMALLINT id_permiso FK
+        VARCHAR codigo UK
+        VARCHAR etiqueta
+        VARCHAR url
+        VARCHAR icono
+        SMALLINT orden
+        BOOLEAN visible_todos
+        BOOLEAN activo
+    }
+
+    LOGUEOS {
+        BIGINT id_logueo PK
+        INT id_usuario FK
+        VARCHAR identificador
+        BOOLEAN exitoso
+        VARCHAR ip
+        VARCHAR agente_usuario
+        VARCHAR motivo_fallo
+        DATETIME fecha
+    }
+
+    AUDITORIAS {
+        BIGINT id_auditoria PK
+        JSON datos
+        DATETIME fecha
+    }
+
+    ESCUELAS {
+        INT id_escuela PK
+        SMALLINT id_pais FK
+        VARCHAR nombre
+        JSON periodo
+        BOOLEAN activo
+        DATETIME creado_en
+        DATETIME actualizado_en
+    }
+
+    PACIENTES {
+        INT id_paciente PK
+        INT id_escuela FK
+        SMALLINT id_pais FK, UK
+        VARCHAR codigo
+        VARCHAR nombre
+        VARCHAR documento UK
+        DATE fecha_nacimiento
+        BOOLEAN es_femenino
+        VARCHAR grupo_sanguineo
+        VARCHAR telefono
+        VARCHAR url_foto
+        BOOLEAN activo
+        DATETIME creado_en
+        DATETIME actualizado_en
+        DATETIME eliminado_en
+        INT eliminado_por FK
+    }
+
+    DERIVADORES {
+        INT id_derivador PK
+        SMALLINT id_pais FK
+        VARCHAR nombre
+        VARCHAR institucion
+        VARCHAR telefono
+        VARCHAR correo
+        BOOLEAN activo
+    }
+
+    DERIVADOR_PACIENTE {
+        INT id_derivador PK, FK
+        INT id_paciente PK, FK
+        DATETIME derivado_en
+        VARCHAR observacion
+        INT registrado_por FK
+    }
+
+    TIPOS_ESTUDIO {
+        SMALLINT id_tipo_estudio PK
+        VARCHAR codigo UK
+        VARCHAR nombre
+        BOOLEAN activo
+    }
+
+    PLANTILLAS_ESTUDIO {
+        INT id_plantilla PK
+        SMALLINT id_tipo_estudio FK
+        VARCHAR codigo UK
+        VARCHAR nombre
+        SMALLINT version UK
+        JSON cabecera
+        JSON plantilla
+        VARCHAR calculador
+        BOOLEAN activo
+        DATETIME creado_en
+    }
+
+    ESTUDIOS {
+        BIGINT id_estudio PK
+        INT id_paciente FK, UK
+        INT id_plantilla FK, UK
+        INT solicitado_por FK
+        JSON cabecera
+        VARCHAR estado
+        DATETIME fecha
+        DATETIME actualizado_en
+    }
+
+    RESULTADOS_ESTUDIO {
+        BIGINT id_resultado PK
+        BIGINT id_estudio FK, UK
+        JSON resultado
+        DATETIME fecha
+    }

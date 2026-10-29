@@ -1,95 +1,91 @@
 <?php
+
 header('Content-Type: application/json; charset=utf-8');
-require_once "conexion.php";
+require_once __DIR__ . '/conexion.php';
 
 $q = $_GET['q'] ?? '';
 
-switch ($q) {
+try {
+    switch ($q) {
+        case 'listar':
+            $sql = "SELECT
+                        id_escuela,
+                        id_pais,
+                        id_escuela AS id_designacion,
+                        nombre,
+                        nombre AS designacion,
+                        CAST(JSON_UNQUOTE(JSON_EXTRACT(periodo, '$.anio')) AS UNSIGNED) AS periodo_anio,
+                        CAST(JSON_UNQUOTE(JSON_EXTRACT(periodo, '$.mes')) AS UNSIGNED) AS periodo_mes,
+                        CONCAT(
+                            JSON_UNQUOTE(JSON_EXTRACT(periodo, '$.anio')),
+                            '-',
+                            LPAD(JSON_UNQUOTE(JSON_EXTRACT(periodo, '$.mes')), 2, '0')
+                        ) AS periodo
+                    FROM escuelas
+                    WHERE activo = 1
+                    ORDER BY periodo_anio DESC, periodo_mes DESC, nombre";
+            $rs = $conexion->query($sql);
+            echo json_encode($rs->fetch_all(MYSQLI_ASSOC), JSON_UNESCAPED_UNICODE);
+            break;
 
-    // ===================== LISTAR =====================
-    case 'listar':
+        case 'guardar':
+            $id = (int) ($_POST['id_escuela'] ?? $_POST['id_designacion'] ?? 0);
+            $nombre = mb_strtoupper(trim($_POST['nombre'] ?? $_POST['designacion'] ?? ''), 'UTF-8');
+            $anio = (int) ($_POST['periodo_anio'] ?? 0);
+            $mes = (int) ($_POST['periodo_mes'] ?? 0);
+            $idPais = ($_POST['id_pais'] ?? '') !== '' ? (int) $_POST['id_pais'] : null;
 
-        $sql = "SELECT id_designacion, designacion, periodo 
-                FROM designaciones 
-                ORDER BY periodo, designacion";
+            // Compatibilidad con clientes que todavía envían periodo=AAAA-MM.
+            if (($anio === 0 || $mes === 0) && preg_match('/^(\d{4})-(\d{1,2})$/', $_POST['periodo'] ?? '', $partes)) {
+                $anio = (int) $partes[1];
+                $mes = (int) $partes[2];
+            }
 
-        $rs = $conexion->query($sql);
+            if ($nombre === '' || $anio < 1900 || $anio > 2200 || $mes < 1 || $mes > 12) {
+                responderError('Nombre, año o mes no válidos.');
+            }
 
-        if (!$rs) {
-            echo json_encode(["status"=>"error","mensaje"=>$conexion->error]);
-            exit;
-        }
+            $periodo = json_encode(['anio' => $anio, 'mes' => $mes], JSON_UNESCAPED_UNICODE);
 
-        $data = [];
-        while ($row = $rs->fetch_assoc()) {
-            $data[] = $row;
-        }
+            if ($id > 0) {
+                $stmt = $conexion->prepare(
+                    'UPDATE escuelas SET nombre = ?, periodo = ?, id_pais = ? WHERE id_escuela = ?'
+                );
+                $stmt->bind_param('ssii', $nombre, $periodo, $idPais, $id);
+            } else {
+                $stmt = $conexion->prepare(
+                    'INSERT INTO escuelas (nombre, periodo, id_pais) VALUES (?, ?, ?)'
+                );
+                $stmt->bind_param('ssi', $nombre, $periodo, $idPais);
+            }
 
-        echo json_encode($data);
-        break;
+            $stmt->execute();
+            echo json_encode(['status' => 'ok']);
+            break;
 
-    // ===================== GUARDAR =====================
-    case 'guardar':
+        case 'eliminar':
+            $id = (int) ($_POST['id'] ?? 0);
+            if ($id <= 0) {
+                responderError('ID no recibido.');
+            }
 
-        $id       = $_POST['id_designacion'] ?? '';
-        $des      = mb_strtoupper(trim($_POST['designacion'] ?? ''), 'UTF-8');
-        $periodo  = mb_strtoupper(trim($_POST['periodo'] ?? ''), 'UTF-8');
+            $stmt = $conexion->prepare('UPDATE escuelas SET activo = 0 WHERE id_escuela = ?');
+            $stmt->bind_param('i', $id);
+            $stmt->execute();
+            echo json_encode(['status' => 'ok']);
+            break;
 
-        if ($des == '' || $periodo == '') {
-            echo json_encode(["status"=>"error","mensaje"=>"Datos incompletos"]);
-            exit;
-        }
+        default:
+            responderError('Operación no válida.');
+    }
+} catch (mysqli_sql_exception $e) {
+    http_response_code(422);
+    echo json_encode(['status' => 'error', 'mensaje' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+}
 
-        // EDITAR
-        if ($id != '') {
-
-            $sql = "UPDATE designaciones 
-                    SET designacion=?, periodo=? 
-                    WHERE id_designacion=?";
-
-            $stmt = $conexion->prepare($sql);
-            $stmt->bind_param("ssi", $des, $periodo, $id);
-
-        } else {
-        // INSERTAR
-
-            $sql = "INSERT INTO designaciones (designacion, periodo)
-                    VALUES (?, ?)";
-
-            $stmt = $conexion->prepare($sql);
-            $stmt->bind_param("ss", $des, $periodo);
-        }
-
-        if ($stmt->execute()) {
-            echo json_encode(["status"=>"ok"]);
-        } else {
-            echo json_encode(["status"=>"error","mensaje"=>$stmt->error]);
-        }
-
-        break;
-
-    // ===================== ELIMINAR =====================
-    case 'eliminar':
-
-        $id = $_POST['id'] ?? '';
-
-        if ($id == '') {
-            echo json_encode(["status"=>"error","mensaje"=>"ID no recibido"]);
-            exit;
-        }
-
-        $sql = "DELETE FROM designaciones WHERE id_designacion=?";
-        $stmt = $conexion->prepare($sql);
-        $stmt->bind_param("i", $id);
-
-        if ($stmt->execute()) {
-            echo json_encode(["status"=>"ok"]);
-        } else {
-            echo json_encode(["status"=>"error","mensaje"=>$stmt->error]);
-        }
-
-        break;
-
-    default:
-        echo json_encode(["status"=>"error","mensaje"=>"Operación no válida"]);
+function responderError(string $mensaje): void
+{
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'mensaje' => $mensaje], JSON_UNESCAPED_UNICODE);
+    exit;
 }

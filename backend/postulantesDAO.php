@@ -1,166 +1,229 @@
 <?php
+
 header('Content-Type: application/json; charset=utf-8');
-require_once "conexion.php";
+require_once __DIR__ . '/conexion.php';
 
 $q = $_GET['q'] ?? '';
 
-switch ($q) {
+try {
+    switch ($q) {
+        case 'listar':
+            listarPacientes($conexion);
+            break;
 
-/* ================= LISTAR ================= */
-case 'listar':
+        case 'guardar':
+            guardarPaciente($conexion);
+            break;
 
-    $sql = "SELECT p.*,
+        case 'eliminar':
+            cambiarEstadoPaciente($conexion, false);
+            break;
+
+        case 'activar':
+            cambiarEstadoPaciente($conexion, true);
+            break;
+
+        case 'buscar':
+            buscarPacientes($conexion);
+            break;
+
+        default:
+            responderPacienteError('Operación no válida.');
+    }
+} catch (mysqli_sql_exception $e) {
+    http_response_code(422);
+    echo json_encode(['status' => 'error', 'mensaje' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+}
+
+function camposPacienteSql(): string
+{
+    return "p.id_paciente,
+            p.id_paciente AS id_postulante,
+            p.id_escuela,
+            p.id_escuela AS id_designacion,
+            p.id_pais,
+            p.codigo,
+            p.nombre,
+            p.documento,
+            p.documento AS ci,
+            p.fecha_nacimiento,
+            TIMESTAMPDIFF(YEAR, p.fecha_nacimiento, CURDATE()) AS edad,
+            p.es_femenino,
+            IF(p.es_femenino = 1, 'FEMENINO', 'MASCULINO') AS sexo,
             p.grupo_sanguineo,
-            DATE_FORMAT(p.fecha, 'Dia:%d-%m-%Y Hora:%H:%i') AS fecha, 
-            CONCAT(d.designacion , ' <br> ', d.periodo) AS designacion
-            FROM postulantes p
-            INNER JOIN designaciones d ON d.id_designacion = p.id_designacion
-            ORDER BY p.id_postulante DESC";
+            p.telefono,
+            p.url_foto,
+            DATE_FORMAT(p.creado_en, 'Dia:%d-%m-%Y Hora:%H:%i') AS fecha,
+            CONCAT(
+                e.nombre,
+                ' <br> ',
+                JSON_UNQUOTE(JSON_EXTRACT(e.periodo, '$.anio')),
+                '-',
+                LPAD(JSON_UNQUOTE(JSON_EXTRACT(e.periodo, '$.mes')), 2, '0')
+            ) AS designacion,
+            e.nombre AS escuela";
+}
 
+function listarPacientes(mysqli $conexion): void
+{
+    $sql = 'SELECT ' . camposPacienteSql() . '
+            FROM pacientes p
+            LEFT JOIN escuelas e ON e.id_escuela = p.id_escuela
+            WHERE p.activo = 1
+            ORDER BY p.id_paciente DESC';
     $rs = $conexion->query($sql);
-    $data = [];
+    echo json_encode($rs->fetch_all(MYSQLI_ASSOC), JSON_UNESCAPED_UNICODE);
+}
 
-    while ($row = $rs->fetch_assoc()) {
-        $data[] = $row;
+function guardarPaciente(mysqli $conexion): void
+{
+    $id = (int) ($_POST['id_paciente'] ?? $_POST['id_postulante'] ?? 0);
+    $codigo = valorNullable($_POST['codigo'] ?? null);
+    $nombre = mb_strtoupper(trim($_POST['nombre'] ?? ''), 'UTF-8');
+    $documento = mb_strtoupper(trim($_POST['documento'] ?? $_POST['ci'] ?? ''), 'UTF-8');
+    $grupo = valorNullable($_POST['grupo_sanguineo'] ?? null);
+    $fechaNacimiento = trim($_POST['fecha_nacimiento'] ?? '');
+    $sexoRecibido = $_POST['es_femenino'] ?? $_POST['sexo'] ?? '';
+    $idEscuelaRecibida = $_POST['id_escuela'] ?? $_POST['id_designacion'] ?? '';
+    $idEscuela = $idEscuelaRecibida !== '' ? (int) $idEscuelaRecibida : null;
+    $idPais = ($_POST['id_pais'] ?? '') !== '' ? (int) $_POST['id_pais'] : null;
+    $telefono = valorNullable($_POST['telefono'] ?? null);
+    $urlFoto = valorNullable($_POST['url_foto'] ?? null);
+
+    if ($sexoRecibido === 'FEMENINO') {
+        $esFemenino = 1;
+    } elseif ($sexoRecibido === 'MASCULINO') {
+        $esFemenino = 0;
+    } elseif ((string) $sexoRecibido === '1' || (string) $sexoRecibido === '0') {
+        $esFemenino = (int) $sexoRecibido;
+    } else {
+        responderPacienteError('Sexo no válido.');
     }
 
-    echo json_encode($data);
-    break;
-
-/* ================= GUARDAR ================= */
-case 'guardar':
-
-    $id     = $_POST['id_postulante'] ?? '';
-    $codigo = $_POST['codigo'] ?? null;
-    $nom    = mb_strtoupper(trim($_POST['nombre'] ?? ''), 'UTF-8');
-    $ci     = mb_strtoupper(trim($_POST['ci'] ?? ''), 'UTF-8');
-    $grupo  = $_POST['grupo_sanguineo'] ?? '';
-    $sexo   = mb_strtoupper(trim($_POST['sexo'] ?? ''), 'UTF-8');
-    $edad   = $_POST['edad'] ?? 0;
-    $des    = $_POST['id_designacion'] ?? 0;
-
-    if ($grupo === '') {
-        $grupo = null;
+    if ($nombre === '' || $documento === '' || !fechaValida($fechaNacimiento)) {
+        responderPacienteError('Nombre, documento y fecha de nacimiento son obligatorios.');
+    }
+    if ($fechaNacimiento > date('Y-m-d')) {
+        responderPacienteError('La fecha de nacimiento no puede estar en el futuro.');
+    }
+    if ($telefono !== null && !preg_match('/^\+[1-9][0-9]{7,14}$/', $telefono)) {
+        responderPacienteError('El teléfono debe usar formato internacional, por ejemplo +595981123456.');
+    }
+    if ($urlFoto !== null && filter_var($urlFoto, FILTER_VALIDATE_URL) === false) {
+        responderPacienteError('La URL de la foto no es válida.');
     }
 
-
-    if ($id != '') {
-        $sql = "UPDATE postulantes
-                SET codigo=?, nombre=?, ci=?, grupo_sanguineo=?, edad=?, sexo=?, id_designacion=?
-                WHERE id_postulante=?";
-
+    if ($id > 0) {
+        $sql = 'UPDATE pacientes
+                SET codigo = ?, nombre = ?, documento = ?, grupo_sanguineo = ?,
+                    fecha_nacimiento = ?, es_femenino = ?, id_escuela = ?, id_pais = ?,
+                    telefono = ?, url_foto = ?
+                WHERE id_paciente = ?';
         $stmt = $conexion->prepare($sql);
         $stmt->bind_param(
-            "ssssissi",
-            $codigo, $nom, $ci, $grupo, $edad, $sexo, $des, $id
+            'sssssiiissi',
+            $codigo, $nombre, $documento, $grupo, $fechaNacimiento,
+            $esFemenino, $idEscuela, $idPais, $telefono, $urlFoto, $id
         );
-
     } else {
-        $sql = "INSERT INTO postulantes
-                (codigo, nombre, ci, grupo_sanguineo, edad, sexo, fecha, id_designacion)
-                VALUES (?,?,?,?,?,?,NOW(),?)";
-
+        $sql = 'INSERT INTO pacientes
+                    (codigo, nombre, documento, grupo_sanguineo, fecha_nacimiento,
+                     es_femenino, id_escuela, id_pais, telefono, url_foto)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
         $stmt = $conexion->prepare($sql);
         $stmt->bind_param(
-            "ssssisi",
-            $codigo, $nom, $ci, $grupo, $edad, $sexo, $des
+            'sssssiiiss',
+            $codigo, $nombre, $documento, $grupo, $fechaNacimiento,
+            $esFemenino, $idEscuela, $idPais, $telefono, $urlFoto
         );
-
-    }
-
-    echo json_encode($stmt->execute()
-        ? ["status"=>"ok"]
-        : ["status"=>"error"]);
-    break;
-
-
-/* ================= ELIMINAR ================= */
-case 'eliminar':
-
-    $id = $_POST['id'] ?? '';
-
-    if ($id == '') {
-        echo json_encode(["status"=>"error","mensaje"=>"ID no recibido"]);
-        exit;
-    }
-
-    $stmt = $conexion->prepare("DELETE FROM postulantes WHERE id_postulante=?");
-    $stmt->bind_param("i", $id);
-
-    if ($stmt->execute()) {
-        echo json_encode(["status"=>"ok"]);
-    } else {
-        echo json_encode(["status"=>"error","mensaje"=>$stmt->error]);
-    }
-
-    break;
-
-/* ================= BUSCAR ================= */  
-case 'buscar':
-
-    $texto = $_GET['texto'] ?? '';
-    $des   = $_GET['designacion'] ?? '';
-    $fecha = $_GET['fecha'] ?? '';
-
-    $where = [];
-    $params = [];
-    $types = "";
-
-    if ($texto != '') {
-        $where[] = "(p.nombre LIKE ? OR p.ci LIKE ?)";
-        $params[] = "%$texto%";
-        $params[] = "%$texto%";
-        $types .= "ss";
-    }
-
-    if ($des != '') {
-        $where[] = "p.id_designacion = ?";
-        $params[] = $des;
-        $types .= "i";
-    }
-
-    if ($fecha != '') {
-        $where[] = "DATE(p.fecha) = ?";
-        $params[] = $fecha;
-        $types .= "s";
-    }
-
-    $sql = "SELECT p.id_postulante,
-                   p.nombre,
-                   p.ci,
-                   p.edad,
-                   p.sexo,
-                   p.codigo,
-                   DATE_FORMAT(p.fecha, 'Dia:%d-%m-%Y Hora:%H:%i') AS fecha, 
-                   CONCAT(d.designacion , ' <br> ', d.periodo) AS designacion,
-                   p.grupo_sanguineo
-            FROM postulantes p
-            INNER JOIN designaciones d ON d.id_designacion = p.id_designacion";
-
-    if ($where) {
-        $sql .= " WHERE " . implode(" AND ", $where);
-    }
-
-    $sql .= " ORDER BY p.id_postulante DESC";
-
-    $stmt = $conexion->prepare($sql);
-
-    if ($params) {
-        $stmt->bind_param($types, ...$params);
     }
 
     $stmt->execute();
-    $rs = $stmt->get_result();
+    echo json_encode(['status' => 'ok']);
+}
 
-    $data = [];
-    while ($row = $rs->fetch_assoc()) {
-        $data[] = $row;
+function cambiarEstadoPaciente(mysqli $conexion, bool $activar): void
+{
+    $id = (int) ($_POST['id'] ?? 0);
+    if ($id <= 0) {
+        responderPacienteError('ID no recibido.');
     }
 
-    echo json_encode($data);
-    break;
+    $actor = isset($_SESSION['usuario']['id_usuario'])
+        ? (int) $_SESSION['usuario']['id_usuario']
+        : null;
+    $estado = $activar ? 1 : 0;
+    $sql = $activar
+        ? 'UPDATE pacientes SET activo = 1, eliminado_en = NULL, eliminado_por = NULL WHERE id_paciente = ?'
+        : 'UPDATE pacientes SET activo = 0, eliminado_en = NOW(), eliminado_por = ? WHERE id_paciente = ?';
+    $stmt = $conexion->prepare($sql);
 
+    if ($activar) {
+        $stmt->bind_param('i', $id);
+    } else {
+        $stmt->bind_param('ii', $actor, $id);
+    }
 
-default:
-    echo json_encode(["status"=>"error","mensaje"=>"Operación no válida"]);
+    $stmt->execute();
+    echo json_encode(['status' => 'ok', 'activo' => $estado]);
+}
+
+function buscarPacientes(mysqli $conexion): void
+{
+    $texto = trim($_GET['texto'] ?? '');
+    $idEscuela = (int) ($_GET['escuela'] ?? $_GET['designacion'] ?? 0);
+    $fecha = trim($_GET['fecha'] ?? '');
+    $where = ['p.activo = 1'];
+    $params = [];
+    $types = '';
+
+    if ($texto !== '') {
+        $where[] = '(p.nombre LIKE ? OR p.documento LIKE ?)';
+        $params[] = "%{$texto}%";
+        $params[] = "%{$texto}%";
+        $types .= 'ss';
+    }
+    if ($idEscuela > 0) {
+        $where[] = 'p.id_escuela = ?';
+        $params[] = $idEscuela;
+        $types .= 'i';
+    }
+    if ($fecha !== '') {
+        $where[] = 'DATE(p.creado_en) = ?';
+        $params[] = $fecha;
+        $types .= 's';
+    }
+
+    $sql = 'SELECT ' . camposPacienteSql() . '
+            FROM pacientes p
+            LEFT JOIN escuelas e ON e.id_escuela = p.id_escuela
+            WHERE ' . implode(' AND ', $where) . '
+            ORDER BY p.id_paciente DESC';
+    $stmt = $conexion->prepare($sql);
+    if ($params !== []) {
+        $stmt->bind_param($types, ...$params);
+    }
+    $stmt->execute();
+    echo json_encode($stmt->get_result()->fetch_all(MYSQLI_ASSOC), JSON_UNESCAPED_UNICODE);
+}
+
+function fechaValida(string $fecha): bool
+{
+    $valor = DateTimeImmutable::createFromFormat('!Y-m-d', $fecha);
+
+    return $valor !== false && $valor->format('Y-m-d') === $fecha;
+}
+
+function valorNullable($valor): ?string
+{
+    $normalizado = trim((string) ($valor ?? ''));
+
+    return $normalizado === '' ? null : $normalizado;
+}
+
+function responderPacienteError(string $mensaje): void
+{
+    http_response_code(400);
+    echo json_encode(['status' => 'error', 'mensaje' => $mensaje], JSON_UNESCAPED_UNICODE);
+    exit;
 }
