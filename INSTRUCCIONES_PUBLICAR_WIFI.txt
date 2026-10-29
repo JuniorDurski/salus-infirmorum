@@ -1,0 +1,137 @@
+SALUS INFIRMORUM - PUBLICAR EL SISTEMA EN EL WIFI
+==================================================
+
+OBJETIVO
+--------
+Permitir que celulares y computadoras conectados al mismo WiFi puedan abrir
+este proyecto. Esto no lo publica en Internet: solamente queda disponible
+dentro de la red local.
+
+Dirección recomendada:
+http://capsa-mechanicae.local:8080/
+
+Dirección alternativa por nombre:
+http://capsa-mechanicae:8080/
+
+Dirección IP actual (puede cambiar):
+http://192.168.0.11:8080/
+
+
+PASO 1 - ABRIR POWERSHELL COMO ADMINISTRADOR
+---------------------------------------------
+1. Presione la tecla Windows.
+2. Escriba: PowerShell
+3. Haga clic derecho sobre Windows PowerShell.
+4. Seleccione "Ejecutar como administrador".
+5. Acepte la confirmación de Windows.
+
+Para comprobar que realmente es administrador, ejecute:
+
+([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+El resultado debe ser:
+
+True
+
+Si muestra False, cierre esa ventana y repita el paso 1.
+
+
+PASO 2 - PERMITIR EL PUERTO 8080 EN EL FIREWALL
+------------------------------------------------
+En la ventana de PowerShell que muestra privilegios de administrador ejecute:
+
+New-NetFirewallRule `
+  -DisplayName "Salus Infirmorum - WiFi" `
+  -Direction Inbound `
+  -Action Allow `
+  -Protocol TCP `
+  -LocalPort 8080 `
+  -Profile Public `
+  -RemoteAddress 192.168.0.0/24
+
+Este comando permite el acceso solamente desde dispositivos de la red local
+192.168.0.x. No es necesario cambiar el perfil del WiFi a privado.
+
+Para verificar que la regla existe:
+
+Get-NetFirewallRule -DisplayName "Salus Infirmorum - WiFi"
+
+Debe indicar Enabled = True y Action = Allow.
+
+Si la regla ya existe, no vuelva a crearla. Para habilitarla ejecute:
+
+Enable-NetFirewallRule -DisplayName "Salus Infirmorum - WiFi"
+
+
+PASO 3 - INICIAR MYSQL
+----------------------
+1. Abra el panel de control de XAMPP.
+2. Presione Start en MySQL.
+3. Apache no es obligatorio para el comando del paso 4.
+
+
+PASO 4 - INICIAR EL SERVIDOR DEL PROYECTO
+------------------------------------------
+Abra una ventana normal de PowerShell y ejecute:
+
+cd C:\xampp\htdocs\salus-infirmorum
+C:\xampp\php\php.exe -S 0.0.0.0:8080 -t .
+
+Debe aparecer un mensaje similar a:
+
+PHP Development Server (http://0.0.0.0:8080) started
+
+IMPORTANTE:
+- No escriba 0.0.0.0 en el navegador. Es solamente la dirección de escucha.
+- Mantenga abierta esta ventana mientras otras personas utilizan el sistema.
+- Para detener el servidor presione Ctrl+C en esta ventana.
+- La computadora y MySQL deben permanecer encendidos.
+
+
+PASO 5 - ENTRAR DESDE UN CELULAR O OTRA COMPUTADORA
+----------------------------------------------------
+1. Conecte el dispositivo al mismo WiFi "Laboratorio Florentin".
+2. Desactive temporalmente los datos móviles y cualquier VPN durante la prueba.
+3. Abra el navegador.
+4. Pruebe primero esta dirección:
+
+http://192.168.0.11:8080/
+
+5. Cuando funcione, pruebe el nombre que no depende de la IP:
+
+http://capsa-mechanicae.local:8080/
+
+También puede probar:
+
+http://capsa-mechanicae:8080/
+
+Use http:// y no https://.
+
+
+SI LA IP CAMBIA
+---------------
+El nombre capsa-mechanicae no cambia aunque cambie la IP. Si el celular no
+resuelve los nombres .local, consulte la nueva IP con este comando:
+
+(Get-NetIPAddress -InterfaceAlias "Wi-Fi" -AddressFamily IPv4 | Where-Object {$_.IPAddress -notlike "169.254*"}).IPAddress
+
+Para que la dirección IP tampoco cambie, configure en el router una reserva
+DHCP para esta computadora. La opción suele llamarse "DHCP Reservation",
+"Static Lease" o "Reserva de dirección".
+
+
+SOLUCIÓN DE PROBLEMAS
+---------------------
+1. Si PowerShell muestra "Acceso denegado", no está abierto como administrador.
+2. Compruebe que la ventana del servidor PHP continúa abierta.
+3. Compruebe que MySQL está iniciado en XAMPP.
+4. Verifique que ambos dispositivos estén conectados al mismo WiFi.
+5. No utilice una red de invitados.
+6. En el router, desactive "AP Isolation", "Client Isolation" o
+   "Aislamiento de clientes" si estuviera habilitado.
+7. Pruebe siempre primero mediante la IP antes de probar el nombre .local.
+8. Desde la computadora servidor puede comprobar el sistema con:
+
+Invoke-WebRequest http://127.0.0.1:8080/ -UseBasicParsing
+
+Una respuesta StatusCode 200 indica que el servidor PHP está funcionando.

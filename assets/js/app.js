@@ -62,6 +62,20 @@
                 campo.setSelectionRange(inicio, fin);
             }
         });
+        document.addEventListener('change', event => {
+            const control = event.target.closest?.('[data-password-toggle]');
+            if (!control) return;
+            document.querySelectorAll(control.dataset.passwordToggle).forEach(campo => {
+                if (campo.matches('[data-password-field]')) {
+                    campo.type = control.checked ? 'text' : 'password';
+                }
+            });
+        });
+        document.addEventListener('reset', event => {
+            setTimeout(() => {
+                event.target.querySelectorAll?.('[data-password-field]').forEach(campo => { campo.type = 'password'; });
+            }, 0);
+        });
         document.querySelectorAll('[data-sidebar-toggle]').forEach(button => {
             button.addEventListener('click', () => document.body.classList.toggle('sidebar-open'));
         });

@@ -11,6 +11,7 @@ $identidad = requerirAutenticacion($conexion, null, false, true);
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Cambiar contraseña | Salus Infirmorum</title>
     <link rel="stylesheet" href="assets/css/app.css">
+    <script src="assets/js/app.js"></script>
 </head>
 <body class="auth-page">
 <main class="auth-contenedor">
@@ -25,17 +26,18 @@ $identidad = requerirAutenticacion($conexion, null, false, true);
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(tokenCsrf(), ENT_QUOTES) ?>">
             <div class="campo">
                 <label for="clave_actual">Contraseña actual</label>
-                <input type="password" id="clave_actual" name="clave_actual" required autocomplete="current-password">
+                <input type="password" id="clave_actual" name="clave_actual" required autocomplete="current-password" data-password-field>
             </div>
             <div class="campo">
                 <label for="clave_nueva">Nueva contraseña</label>
-                <input type="password" id="clave_nueva" name="clave_nueva" required autocomplete="new-password">
+                <input type="password" id="clave_nueva" name="clave_nueva" required autocomplete="new-password" data-password-field>
                 <small>Puede utilizar cualquier contraseña que no esté vacía.</small>
             </div>
             <div class="campo">
                 <label for="clave_confirmacion">Confirmar nueva contraseña</label>
-                <input type="password" id="clave_confirmacion" name="clave_confirmacion" required autocomplete="new-password">
+                <input type="password" id="clave_confirmacion" name="clave_confirmacion" required autocomplete="new-password" data-password-field>
             </div>
+            <label class="password-visibility"><input type="checkbox" data-password-toggle="#formClave [data-password-field]"> Mostrar contraseñas</label>
             <div id="mensaje" class="mensaje"></div>
             <button class="boton" type="submit">Guardar contraseña</button>
         </form>

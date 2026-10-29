@@ -147,6 +147,8 @@ small, .help-text { color: var(--muted); }
 .checks label[hidden] { display: none; }
 .permission-checks { max-height: 360px; }
 .inline-check { display: flex; align-items: center; gap: 8px; }
+.password-visibility { display: inline-flex; align-items: center; gap: 8px; width: fit-content; margin-top: -5px; color: var(--muted); font-size: .86rem; font-weight: 650; cursor: pointer; }
+.password-visibility input { flex: 0 0 auto; }
 .notice { margin: 0 0 16px; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--primary) 26%, var(--border)); border-radius: 10px; background: var(--primary-soft); color: var(--text); font-size: .88rem; line-height: 1.5; }
 .mensaje { min-height: 1.35em; margin-top: 10px; color: var(--danger); font-weight: 650; }
 .mensaje.ok { color: var(--success); }
