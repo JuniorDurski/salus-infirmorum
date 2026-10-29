@@ -4,7 +4,7 @@
 $host       = "localhost";
 $usuario    = "root";
 $clave      = "";
-$base_datos = "postulaciones";
+$base_datos = "salus_infirmorum_db_01";
 
 $conexion = new mysqli($host, $usuario, $clave, $base_datos);
 
