@@ -63,6 +63,7 @@ $titulosRuta = [
     'pacientes.php' => 'Pacientes', 'imprimir.php' => 'Informe LAB',
     'informe_rx.php' => 'Informe RX',
     'informe_eco.php' => 'Informe ECO',
+    'informe_audiometria.php' => 'Informe audiometría',
     'usuarios.php' => 'Usuarios', 'roles.php' => 'Roles',
     'permisos.php' => 'Permisos', 'menus.php' => 'Menús',
     'universidades.php' => 'Universidades', 'titulos.php' => 'Títulos profesionales',

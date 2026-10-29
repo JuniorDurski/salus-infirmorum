@@ -159,3 +159,9 @@ COLEPOL e ISEPOL aunque compartan informe, y las tres variantes de LICEMIL.
 La migración `V21` permite asociar hasta dos imágenes opcionales a cada informe
 ECO. Las rutas se almacenan por separado de los resultados JSON y la impresión
 puede incluirlas u omitirlas sin eliminar los archivos guardados.
+
+## Informe de audiometría
+
+La migración `V22` crea `postulantes_informes_audiometria` (un DX por postulante),
+los permisos `reportes.audiometria.*` y el menú INFORME AUDIOMETRÍA. Se otorgan a
+los mismos roles que INFORME RX, además de ADMIN y PROFESIONAL.

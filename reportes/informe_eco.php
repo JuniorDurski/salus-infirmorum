@@ -4,6 +4,7 @@ error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 require_once __DIR__ . '/../mpdf/vendor/autoload.php';
 require_once __DIR__ . '/../backend/conexion.php';
 require_once __DIR__ . '/../backend/informes_eco_service.php';
+require_once __DIR__ . '/membrete_clinica.php';
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     http_response_code(405);
@@ -32,30 +33,13 @@ if ($pacientes === []) exit('No hay postulantes compatibles con el estudio selec
 $configuracion = [
     'mode' => 'utf-8',
     'format' => $plantilla['formato'],
-    'margin_top' => 14,
+    'margin_top' => 4,
     'margin_right' => 15,
     'margin_bottom' => 20,
     'margin_left' => 15,
 ];
 
-$fuentesWindows = 'C:/Windows/Fonts';
-if (is_file($fuentesWindows . '/times.ttf')) {
-    $variables = (new \Mpdf\Config\ConfigVariables())->getDefaults();
-    $variablesFuentes = (new \Mpdf\Config\FontVariables())->getDefaults();
-    $configuracion['fontDir'] = array_merge($variables['fontDir'], [$fuentesWindows]);
-    $configuracion['fontdata'] = $variablesFuentes['fontdata'] + [
-        'timesnewroman' => [
-            'R' => 'times.ttf', 'B' => 'timesbd.ttf',
-            'I' => 'timesi.ttf', 'BI' => 'timesbi.ttf',
-        ],
-    ];
-    if (is_file($fuentesWindows . '/calibri.ttf')) {
-        $configuracion['fontdata']['calibri'] = [
-            'R' => 'calibri.ttf', 'B' => 'calibrib.ttf',
-            'I' => 'calibrii.ttf', 'BI' => 'calibriz.ttf',
-        ];
-    }
-}
+$configuracion = configurarFuentesInforme($configuracion);
 
 $guardados = [];
 $imagenesGuardadas = [];
@@ -89,7 +73,6 @@ $color = htmlspecialchars($plantilla['color'], ENT_QUOTES, 'UTF-8');
 $css = '<style>
     body { color: #000; font-family: timesnewroman, freeserif, serif; }
     .eco-page { color: ' . $color . '; font-family: timesnewroman, freeserif, serif; font-size: 11pt; line-height: 1.1; }
-    .eco-letterhead-space { height: 18mm; }
     .eco-patient { border-collapse: collapse; font-size: 11pt; font-weight: bold; line-height: 1.08; width: 100%; }
     .eco-patient td { padding: 0 0 1.2mm; vertical-align: top; }
     .eco-patient .right { text-align: left; width: 31%; }
@@ -114,12 +97,13 @@ $css = '<style>
     .eco-photo-row td { padding: 0; }
     .eco-photo-space { height: 38mm; width: 62%; }
     .eco-photo-signature { text-align: center; vertical-align: bottom; width: 34%; }
-    .eco-images { border-collapse: collapse; margin: 0 auto; page-break-inside: avoid; }
-    .eco-images td { padding: 0 2mm; text-align: center; vertical-align: middle; }
+    .eco-images { border-collapse: collapse; margin-top: 4mm; page-break-inside: avoid; table-layout: fixed; width: 100%; }
+    .eco-images td { padding: 0 2mm; text-align: center; vertical-align: top; width: 50%; }
     .eco-images img { border: 0.2mm solid #555; }
-    .eco-images-full { margin: 5mm auto 0; }
 </style>';
 $mpdf->WriteHTML($css);
+
+$membrete = membreteClinicaHtml();
 
 foreach ($pacientes as $indice => $paciente) {
     if ($indice > 0) $mpdf->AddPage();
@@ -140,7 +124,7 @@ foreach ($pacientes as $indice => $paciente) {
         }
     }
 
-    $html = '<div class="eco-page"><div class="eco-letterhead-space"></div>
+    $html = '<div class="eco-page">' . $membrete . '
         <table class="eco-patient">
             <tr><td><span class="eco-label">PACIENTE:</span> ' . $nombre . '</td><td class="right"><span class="eco-label">FECHA:</span> ' . $fecha . '</td></tr>
             <tr><td colspan="2"><table class="eco-ci-age"><tr>
@@ -203,20 +187,21 @@ foreach ($pacientes as $indice => $paciente) {
             $mpdf->AddPage();
             $disponible = $mpdf->h - $mpdf->bMargin - $mpdf->y - $margenSuperior - 2;
         }
-        $mpdf->WriteHTML(htmlImagenesEco($imagenesPaciente, $mpdf->pgwidth, min($disponible, 90), 130, 'eco-images-full'));
+        $mpdf->WriteHTML(htmlImagenesEco($imagenesPaciente, $mpdf->pgwidth, min($disponible, 100)));
     }
 }
 
 $mpdf->Output('Informes_ECO.pdf', 'I');
 
 /**
- * Arma una fila con 1 o 2 imágenes ajustadas a un área de $anchoTotal x $altoMax mm,
- * respetando la proporción original de cada imagen. $anchoMax limita cada imagen.
+ * Arma una fila de dos celdas con 1 o 2 imágenes, cada una ajustada a media hoja
+ * ($anchoTotal / 2) y a $altoMax mm de alto, respetando su proporción original.
  */
-function htmlImagenesEco(array $rutas, float $anchoTotal, float $altoMax, float $anchoMax, string $clase = ''): string
+function htmlImagenesEco(array $rutas, float $anchoTotal, float $altoMax): string
 {
+    // Siempre dos celdas de igual ancho: cada imagen en la suya (con una sola, la derecha queda vacía).
     $rutas = array_slice($rutas, 0, 2);
-    $anchoCaja = min(($anchoTotal / count($rutas)) - 5, $anchoMax);
+    $anchoCaja = ($anchoTotal / 2) - 5;
     $celdas = '';
     foreach ($rutas as $ruta) {
         $info = @getimagesize($ruta);
@@ -234,7 +219,8 @@ function htmlImagenesEco(array $rutas, float $anchoTotal, float $altoMax, float 
             $alto
         );
     }
-    return '<table class="eco-images ' . $clase . '"><tr>' . $celdas . '</tr></table>';
+    if (count($rutas) === 1) $celdas .= '<td>&nbsp;</td>';
+    return '<table class="eco-images"><tr>' . $celdas . '</tr></table>';
 }
 
 function rutaLocalImagenEco($rutaRelativa): ?string

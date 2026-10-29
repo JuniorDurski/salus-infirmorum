@@ -20,7 +20,12 @@ include 'menu.php';
 .eco-image-editor { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .eco-image-slot { border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
 .eco-image-slot > strong { display: block; margin-bottom: 8px; }
-.eco-image-preview { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; display: block; height: 180px; margin-bottom: 10px; object-fit: contain; width: 100%; }
+.eco-image-preview { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; cursor: zoom-in; display: block; height: 180px; margin-bottom: 10px; object-fit: contain; width: 100%; }
+.eco-image-zoom { margin-bottom: 10px; }
+.eco-viewer { background: #0b0f14; border: 0; max-height: 96vh; max-width: 96vw; padding: 0; width: auto; }
+.eco-viewer::backdrop { background: rgba(0, 0, 0, .8); }
+.eco-viewer img { display: block; max-height: 90vh; max-width: 94vw; object-fit: contain; }
+.eco-viewer-close { position: absolute; right: 10px; top: 10px; }
 .eco-image-remove { align-items: center; display: flex; font-size: .9rem; gap: 7px; margin-top: 9px; }
 .eco-print-option { align-items: flex-start; border: 1px solid var(--border); border-radius: 12px; display: flex; gap: 10px; padding: 14px; }
 .eco-print-option input { margin-top: 3px; }
@@ -110,6 +115,11 @@ include 'menu.php';
             <button type="submit">Guardar resultado</button>
         </div>
     </form>
+</dialog>
+
+<dialog class="eco-viewer" id="visorImagenEco" onclick="if (event.target === this) this.close()">
+    <button class="icon-button eco-viewer-close" type="button" onclick="visorImagenEco.close()" aria-label="Cerrar">×</button>
+    <img id="visorImagenEcoImg" alt="Imagen ampliada">
 </dialog>
 
 <dialog class="modal eco-modal" id="modalImagenesEco">
@@ -281,7 +291,8 @@ function bloqueImagenEco(posicion, url) {
     const existente = Boolean(url);
     return `<div class="eco-image-slot">
         <strong>Imagen ${posicion}</strong>
-        <img class="eco-image-preview" id="ecoVistaImagen${posicion}" src="${Salus.escape(url)}" alt="Vista previa de imagen ${posicion}" ${existente ? '' : 'hidden'}>
+        <img class="eco-image-preview" id="ecoVistaImagen${posicion}" src="${Salus.escape(url)}" alt="Vista previa de imagen ${posicion}" title="Clic para ver en grande" ${existente ? '' : 'hidden'}>
+        <button class="btn-small btn-secondary eco-image-zoom" type="button" id="ecoVerImagen${posicion}" ${existente ? '' : 'hidden'}>🔍 Ver en grande</button>
         <input type="file" id="ecoImagen${posicion}" accept="image/jpeg,image/png,image/webp">
         <label class="eco-image-remove" id="ecoQuitarLabel${posicion}" ${existente ? '' : 'hidden'}>
             <input type="checkbox" id="ecoQuitarImagen${posicion}"> Quitar la imagen guardada
@@ -294,12 +305,20 @@ function configurarControlesImagenEco(imagenes) {
         const archivo = document.getElementById(`ecoImagen${posicion}`);
         const quitar = document.getElementById(`ecoQuitarImagen${posicion}`);
         const vista = document.getElementById(`ecoVistaImagen${posicion}`);
+        const ver = document.getElementById(`ecoVerImagen${posicion}`);
         const urlGuardada = imagenes[posicion - 1] || '';
+        const mostrar = (src, visible) => {
+            vista.src = src;
+            vista.hidden = !visible;
+            ver.hidden = !visible;
+        };
+        const ampliar = () => { if (!vista.hidden) verImagenEco(vista.src); };
+        vista.addEventListener('click', ampliar);
+        ver.addEventListener('click', ampliar);
         archivo.addEventListener('change', () => {
             const seleccionado = archivo.files[0];
             if (!seleccionado) {
-                vista.src = urlGuardada;
-                vista.hidden = !urlGuardada || quitar.checked;
+                mostrar(urlGuardada, Boolean(urlGuardada) && !quitar.checked);
                 return;
             }
             if (seleccionado.size > 15 * 1024 * 1024) {
@@ -310,19 +329,22 @@ function configurarControlesImagenEco(imagenes) {
             const temporal = URL.createObjectURL(seleccionado);
             urlsTemporalesEco.push(temporal);
             quitar.checked = false;
-            vista.src = temporal;
-            vista.hidden = false;
+            mostrar(temporal, true);
         });
         quitar.addEventListener('change', () => {
             if (quitar.checked) {
                 archivo.value = '';
-                vista.hidden = true;
+                mostrar(urlGuardada, false);
             } else {
-                vista.src = urlGuardada;
-                vista.hidden = !urlGuardada;
+                mostrar(urlGuardada, Boolean(urlGuardada));
             }
         });
     });
+}
+
+function verImagenEco(src) {
+    visorImagenEcoImg.src = src;
+    visorImagenEco.showModal();
 }
 
 function liberarVistasImagenEco() {
