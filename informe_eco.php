@@ -112,6 +112,23 @@ include 'menu.php';
     </form>
 </dialog>
 
+<dialog class="modal eco-modal" id="modalImagenesEco">
+    <form id="frmImagenesEco" class="modal-form">
+        <div class="modal-header">
+            <div><span class="eyebrow" id="imagenesEstudioTitulo">Imágenes ECO</span><h2 id="imagenesPostulanteTitulo">Imágenes</h2></div>
+            <button class="icon-button" type="button" onclick="modalImagenesEco.close()" aria-label="Cerrar">×</button>
+        </div>
+        <div class="modal-body">
+            <p class="help-text" style="margin-top:0">Puede cargar hasta dos imágenes (JPG, PNG o WEBP, máximo 15 MB cada una). Elegir un archivo reemplaza la imagen de esa posición. Al imprimir se ajustan solas al espacio libre de la hoja.</p>
+            <div class="eco-image-editor" id="ecoImagenesSlots"></div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn-secondary" type="button" onclick="modalImagenesEco.close()">Cancelar</button>
+            <button type="submit">Guardar imágenes</button>
+        </div>
+    </form>
+</dialog>
+
 <script>
 const puedeEditarEco = <?= $puedeEditarEco ? 'true' : 'false' ?>;
 let pacientesEco = [];
@@ -165,7 +182,8 @@ function renderEco() {
     tabla.innerHTML = pacientesEco.map(paciente => {
         const id = Number(paciente.id_postulante);
         const editar = puedeEditarEco
-            ? `<button class="btn-small btn-secondary" type="button" onclick="abrirSeleccionEco(${id}, 'editar')">Editar resultado</button>`
+            ? `<button class="btn-small btn-secondary" type="button" onclick="abrirSeleccionEco(${id}, 'editar')">Editar resultado</button>
+               <button class="btn-small btn-secondary" type="button" onclick="abrirSeleccionEco(${id}, 'imagenes')">Imágenes</button>`
             : '';
         return `<tr>
             <td><strong>${Salus.escape(paciente.nombre)}</strong><br><small>${Salus.escape(paciente.codigo || 'Sin código')}</small></td>
@@ -183,13 +201,16 @@ function estudiosCompatiblesEco(paciente) {
 }
 
 function abrirSeleccionEco(id, accion) {
-    if (accion === 'editar' && !puedeEditarEco) return;
+    if ((accion === 'editar' || accion === 'imagenes') && !puedeEditarEco) return;
     const paciente = pacientesEco.find(item => Number(item.id_postulante) === Number(id));
     if (!paciente) return;
     const estudios = estudiosCompatiblesEco(paciente);
     postulanteEcoActual = Number(id);
     accionEcoActual = accion;
-    seleccionAccionEco.textContent = accion === 'editar' ? 'Editar resultado ECO' : 'Imprimir informe ECO';
+    seleccionAccionEco.textContent = {
+        editar: 'Editar resultado ECO',
+        imagenes: 'Imágenes del informe ECO',
+    }[accion] || 'Imprimir informe ECO';
     seleccionPostulanteEco.textContent = paciente.nombre;
     seleccionEstudiosEco.innerHTML = estudios.map(plantilla =>
         `<button type="button" class="btn-secondary" data-eco-estudio="${Salus.escape(plantilla.codigo)}">${Salus.escape(plantilla.nombre)}</button>`
@@ -205,6 +226,7 @@ function seleccionarEstudioEco(codigo) {
     const accion = accionEcoActual;
     modalSeleccionEco.close();
     if (accion === 'editar') editarEco(id, codigo);
+    else if (accion === 'imagenes') abrirImagenesEco(id, codigo);
     else prepararImpresionEco([id], codigo);
 }
 
@@ -215,13 +237,11 @@ async function editarEco(id, codigo) {
     const params = new URLSearchParams({q:'detalle', estudio:codigo, id_postulante:id});
     try {
         const detalle = await Salus.json('backend/informesEcoDAO.php?' + params);
-        liberarVistasImagenEco();
         postulanteEcoActual = Number(id);
         estudioEcoActual = codigo;
         ecoEstudioTitulo.textContent = detalle.plantilla.nombre;
         ecoPostulanteTitulo.textContent = paciente.nombre;
         const resultado = detalle.resultado;
-        const imagenes = Array.isArray(detalle.imagenes) ? detalle.imagenes : [null, null];
         const campos = detalle.plantilla.campos.map(campo => `<div class="campo">
             <label>${Salus.escape(campo.etiqueta)}</label>
             <textarea data-eco-campo="${Salus.escape(campo.clave)}" maxlength="8000">${Salus.escape(resultado.campos[campo.clave] || '')}</textarea>
@@ -229,16 +249,29 @@ async function editarEco(id, codigo) {
         ecoCampos.innerHTML = `<div class="campo"><label>Motivo del estudio</label><input id="ecoMotivo" maxlength="500" value="${Salus.escape(resultado.motivo || '')}"></div>
             <div class="campo eco-introduccion"><label>Introducción</label><textarea id="ecoIntroduccion" maxlength="5000">${Salus.escape(resultado.introduccion || '')}</textarea></div>
             ${campos}
-            <div class="campo eco-conclusion"><label>Conclusión</label><textarea id="ecoConclusion" maxlength="8000" placeholder="Este estudio puede no requerir conclusión.">${Salus.escape(resultado.conclusion || '')}</textarea></div>
-            <div class="campo">
-                <label>Imágenes del estudio</label>
-                <small>Puede guardar hasta dos imágenes JPG, PNG o WEBP de 5 MB cada una. Seleccionar un archivo reemplaza la imagen de esa posición.</small>
-                <div class="eco-image-editor">
-                    ${[1, 2].map(posicion => bloqueImagenEco(posicion, imagenes[posicion - 1] || '')).join('')}
-                </div>
-            </div>`;
-        configurarControlesImagenEco(imagenes);
+            <div class="campo eco-conclusion"><label>Conclusión</label><textarea id="ecoConclusion" maxlength="8000" placeholder="Este estudio puede no requerir conclusión.">${Salus.escape(resultado.conclusion || '')}</textarea></div>`;
         modalEco.showModal();
+    } catch (error) {
+        Salus.toast(error.message, 'error');
+    }
+}
+
+async function abrirImagenesEco(id, codigo) {
+    if (!puedeEditarEco) return;
+    const paciente = pacientesEco.find(item => Number(item.id_postulante) === Number(id));
+    if (!paciente) return;
+    const params = new URLSearchParams({q:'detalle', estudio:codigo, id_postulante:id});
+    try {
+        const detalle = await Salus.json('backend/informesEcoDAO.php?' + params);
+        liberarVistasImagenEco();
+        postulanteEcoActual = Number(id);
+        estudioEcoActual = codigo;
+        imagenesEstudioTitulo.textContent = 'Imágenes · ' + detalle.plantilla.nombre;
+        imagenesPostulanteTitulo.textContent = paciente.nombre;
+        const imagenes = Array.isArray(detalle.imagenes) ? detalle.imagenes : [null, null];
+        ecoImagenesSlots.innerHTML = [1, 2].map(posicion => bloqueImagenEco(posicion, imagenes[posicion - 1] || '')).join('');
+        configurarControlesImagenEco(imagenes);
+        modalImagenesEco.showModal();
     } catch (error) {
         Salus.toast(error.message, 'error');
     }
@@ -269,9 +302,9 @@ function configurarControlesImagenEco(imagenes) {
                 vista.hidden = !urlGuardada || quitar.checked;
                 return;
             }
-            if (seleccionado.size > 5 * 1024 * 1024) {
+            if (seleccionado.size > 15 * 1024 * 1024) {
                 archivo.value = '';
-                Salus.toast('Cada imagen puede pesar como máximo 5 MB.', 'error');
+                Salus.toast('Cada imagen puede pesar como máximo 15 MB.', 'error');
                 return;
             }
             const temporal = URL.createObjectURL(seleccionado);
@@ -304,26 +337,37 @@ frmEco.addEventListener('submit', async event => {
     ecoCampos.querySelectorAll('[data-eco-campo]').forEach(control => { campos[control.dataset.ecoCampo] = control.value; });
     const resultado = {motivo:ecoMotivo.value, introduccion:ecoIntroduccion.value, campos, conclusion:ecoConclusion.value};
     try {
-        const cuerpo = Salus.form({
-            id_postulante:postulanteEcoActual,
-            estudio:estudioEcoActual,
-            resultado:JSON.stringify(resultado)
-        });
-        [1, 2].forEach(posicion => {
-            const archivo = document.getElementById(`ecoImagen${posicion}`).files[0];
-            const quitar = document.getElementById(`ecoQuitarImagen${posicion}`).checked;
-            if (archivo) cuerpo.append(`imagen_${posicion}`, archivo);
-            if (quitar) cuerpo.append(`eliminar_imagen_${posicion}`, '1');
-        });
         await Salus.json('backend/informesEcoDAO.php?q=guardar', {
             method:'POST',
-            body:cuerpo
+            body:Salus.form({id_postulante:postulanteEcoActual, estudio:estudioEcoActual, resultado:JSON.stringify(resultado)})
         });
         modalEco.close();
-        liberarVistasImagenEco();
         Salus.toast('Resultado ECO guardado.');
     } catch (error) {
         Salus.toast(error.message, 'error');
+    }
+});
+
+frmImagenesEco.addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!postulanteEcoActual || !estudioEcoActual) return;
+    const boton = frmImagenesEco.querySelector('button[type="submit"]');
+    const cuerpo = Salus.form({id_postulante:postulanteEcoActual, estudio:estudioEcoActual});
+    [1, 2].forEach(posicion => {
+        const archivo = document.getElementById(`ecoImagen${posicion}`).files[0];
+        const quitar = document.getElementById(`ecoQuitarImagen${posicion}`).checked;
+        if (archivo) cuerpo.append(`imagen_${posicion}`, archivo);
+        if (quitar) cuerpo.append(`eliminar_imagen_${posicion}`, '1');
+    });
+    boton.disabled = true;
+    try {
+        await Salus.json('backend/informesEcoDAO.php?q=imagenes', {method:'POST', body:cuerpo});
+        modalImagenesEco.close();
+        Salus.toast('Imágenes guardadas.');
+    } catch (error) {
+        Salus.toast(error.message, 'error');
+    } finally {
+        boton.disabled = false;
     }
 });
 
@@ -391,7 +435,7 @@ function imprimirTodos(codigo) {
     prepararImpresionEco(compatibles.map(paciente => Number(paciente.id_postulante)), codigo);
 }
 
-modalEco.addEventListener('close', liberarVistasImagenEco);
+modalImagenesEco.addEventListener('close', liberarVistasImagenEco);
 txtBuscar.addEventListener('keydown', event => { if (event.key === 'Enter') buscar(); });
 iniciarEco();
 </script>

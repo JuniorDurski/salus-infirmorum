@@ -26,6 +26,13 @@ try {
             validarCsrf();
             guardarResultadoEco($conexion, $identidad);
             break;
+        case 'imagenes':
+            if (!tienePermiso($identidad, 'reportes.eco.editar')) {
+                responderJson(['status' => 'error', 'mensaje' => 'No tiene permiso para editar informes ECO.'], 403);
+            }
+            validarCsrf();
+            guardarImagenesEco($conexion, $identidad);
+            break;
         default:
             responderJson(['status' => 'error', 'mensaje' => 'Operación no válida.'], 400);
     }
@@ -131,6 +138,33 @@ function guardarResultadoEco(mysqli $db, array $identidad): void
     }
     $resultado = normalizarResultadoInformeEco($plantilla, $recibido);
     $resultadoJson = json_encode($resultado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+    $actor = (int) $identidad['id_usuario'];
+    $codigo = $plantilla['codigo'];
+    // Solo actualiza el texto; las imágenes se gestionan en guardarImagenesEco().
+    $stmt = $db->prepare(
+        'INSERT INTO postulantes_informes_eco
+            (id_postulante, codigo_estudio, resultados, actualizado_por)
+         VALUES (?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+            resultados = VALUES(resultados),
+            actualizado_por = VALUES(actualizado_por),
+            actualizado_en = CURRENT_TIMESTAMP'
+    );
+    $stmt->bind_param('issi', $id, $codigo, $resultadoJson, $actor);
+    $stmt->execute();
+    responderJson(['status' => 'ok', 'mensaje' => 'Resultado ECO guardado.']);
+}
+
+function guardarImagenesEco(mysqli $db, array $identidad): void
+{
+    $plantilla = exigirPlantillaEco($_POST['estudio'] ?? '');
+    $id = (int) ($_POST['id_postulante'] ?? 0);
+    exigirPostulanteActivoEco($db, $id, $plantilla);
+    // Si el informe aún no tiene texto guardado se crea con los valores por defecto.
+    $resultadoJson = json_encode(
+        normalizarResultadoInformeEco($plantilla, []),
+        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR
+    );
 
     $stmtAnterior = $db->prepare(
         'SELECT imagen_1, imagen_2
@@ -168,10 +202,10 @@ function guardarResultadoEco(mysqli $db, array $identidad): void
             }
 
             foreach ($archivos as $posicion => $archivo) {
-                $nombre = bin2hex(random_bytes(16)) . '.' . $archivo['extension'];
+                $nombre = bin2hex(random_bytes(16)) . '.jpg';
                 $rutaRelativa = $carpetaRelativa . '/' . $nombre;
                 $rutaAbsoluta = $carpetaAbsoluta . DIRECTORY_SEPARATOR . $nombre;
-                if (!move_uploaded_file($archivo['temporal'], $rutaAbsoluta)) {
+                if (!normalizarImagenInformeEco($archivo, $rutaAbsoluta)) {
                     throw new RuntimeException('No se pudo guardar una de las imágenes ECO.');
                 }
                 $nuevosArchivos[] = $rutaRelativa;
@@ -196,7 +230,6 @@ function guardarResultadoEco(mysqli $db, array $identidad): void
                 (id_postulante, codigo_estudio, resultados, imagen_1, imagen_2, actualizado_por)
              VALUES (?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
-                resultados = VALUES(resultados),
                 imagen_1 = VALUES(imagen_1),
                 imagen_2 = VALUES(imagen_2),
                 actualizado_por = VALUES(actualizado_por),
@@ -220,9 +253,51 @@ function guardarResultadoEco(mysqli $db, array $identidad): void
 
     responderJson([
         'status' => 'ok',
-        'mensaje' => 'Resultado ECO guardado.',
+        'mensaje' => 'Imágenes ECO guardadas.',
         'imagenes' => [$imagenesFinales[1], $imagenesFinales[2]],
     ]);
+}
+
+/**
+ * Guarda la imagen como JPG enderezada según su EXIF (fotos de celular),
+ * con el lado mayor limitado a 1600 px para que el PDF no pese de más.
+ */
+function normalizarImagenInformeEco(array $archivo, string $destino): bool
+{
+    $origen = $archivo['temporal'];
+    $imagen = match ($archivo['extension']) {
+        'jpg' => @imagecreatefromjpeg($origen),
+        'png' => @imagecreatefrompng($origen),
+        'webp' => @imagecreatefromwebp($origen),
+        default => false,
+    };
+    if ($imagen === false) return false;
+
+    if ($archivo['extension'] === 'jpg' && function_exists('exif_read_data')) {
+        $exif = @exif_read_data($origen);
+        $giro = ['3' => 180, '6' => -90, '8' => 90][(string) ($exif['Orientation'] ?? '')] ?? 0;
+        if ($giro !== 0) {
+            $girada = imagerotate($imagen, $giro, 0);
+            if ($girada !== false) {
+                imagedestroy($imagen);
+                $imagen = $girada;
+            }
+        }
+    }
+
+    $ancho = imagesx($imagen);
+    $alto = imagesy($imagen);
+    $escala = min(1, 1600 / max($ancho, $alto));
+    $nuevoAncho = max(1, (int) round($ancho * $escala));
+    $nuevoAlto = max(1, (int) round($alto * $escala));
+    $lienzo = imagecreatetruecolor($nuevoAncho, $nuevoAlto);
+    // Fondo blanco para PNG/WEBP con transparencia.
+    imagefill($lienzo, 0, 0, imagecolorallocate($lienzo, 255, 255, 255));
+    imagecopyresampled($lienzo, $imagen, 0, 0, 0, 0, $nuevoAncho, $nuevoAlto, $ancho, $alto);
+    imagedestroy($imagen);
+    $ok = imagejpeg($lienzo, $destino, 88);
+    imagedestroy($lienzo);
+    return $ok;
 }
 
 function validarImagenInformeEco(array $archivo): array
@@ -230,11 +305,14 @@ function validarImagenInformeEco(array $archivo): array
     if ((int) ($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
         throw new RuntimeException('No se recibió una imagen ECO válida.');
     }
-    if ((int) ($archivo['size'] ?? 0) <= 0 || (int) $archivo['size'] > 5 * 1024 * 1024) {
-        throw new RuntimeException('Cada imagen ECO debe pesar como máximo 5 MB.');
+    if ((int) ($archivo['size'] ?? 0) <= 0 || (int) $archivo['size'] > 15 * 1024 * 1024) {
+        throw new RuntimeException('Cada imagen ECO debe pesar como máximo 15 MB.');
     }
 
     $temporal = (string) ($archivo['tmp_name'] ?? '');
+    if (!is_uploaded_file($temporal)) {
+        throw new RuntimeException('No se recibió una imagen ECO válida.');
+    }
     $finfo = new finfo(FILEINFO_MIME_TYPE);
     $mime = $finfo->file($temporal);
     $extensiones = [

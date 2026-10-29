@@ -113,7 +113,6 @@ $css = '<style>
     .eco-photo-row { border-collapse: collapse; margin-top: 3mm; page-break-inside: avoid; table-layout: fixed; width: 100%; }
     .eco-photo-row td { padding: 0; }
     .eco-photo-space { height: 38mm; width: 62%; }
-    .eco-photo-cell { text-align: center; vertical-align: middle; width: 66%; }
     .eco-photo-signature { text-align: center; vertical-align: bottom; width: 34%; }
     .eco-images { border-collapse: collapse; margin: 0 auto; page-break-inside: avoid; }
     .eco-images td { padding: 0 2mm; text-align: center; vertical-align: middle; }
@@ -182,45 +181,30 @@ foreach ($pacientes as $indice => $paciente) {
     $html .= '</div>';
     $mpdf->WriteHTML($html);
 
-    // Se escribe el cuerpo primero para medir cuánto espacio libre queda en la hoja
-    // y ajustar las imágenes a ese espacio.
-    $disponible = $mpdf->h - $mpdf->bMargin - $mpdf->y;
-    $anchoUtil = $mpdf->pgwidth;
     $mostrarFirma = !empty($plantilla['mostrar_firma']);
     // Estilos en línea: mPDF no aplica las clases anidadas del sello dentro de celdas.
     $sello = '<div style="color:#000; font-family:calibri, freesans, sans-serif; font-size:10pt; font-weight:normal; line-height:1.05; text-align:center;">'
         . '<span style="font-family:timesnewroman, freeserif, serif; font-size:13pt; font-weight:bold;">Dr. Carlos Florentín Báez</span><br>'
         . 'Medicina Familiar<br>Esp. Ecografía - Imagen<br>Reg. Prof. Nº 12.713</div>';
-    $despedida = '<div class="eco-signoff">Atentamente.</div>';
-    // Alto aproximado (mm) de "Atentamente." + sello + márgenes.
-    $altoCierre = 40;
-
-    $cierre = '<div class="eco-page">';
-    if ($imagenesPaciente !== [] && $disponible - $altoCierre >= 50) {
-        // Hay lugar: imágenes grandes a todo el ancho y el sello debajo.
-        $altoImagen = min($disponible - $altoCierre, 90);
-        $cierre .= htmlImagenesEco($imagenesPaciente, $anchoUtil, $altoImagen, 130, 'eco-images-full')
-            . $despedida
-            . ($mostrarFirma ? '<div class="eco-signature">' . $sello . '</div>' : '');
-    } elseif ($imagenesPaciente !== []) {
-        // Poco lugar: imágenes en el espacio a la izquierda del sello.
-        $altoImagen = max(35, min($disponible - 17, 75));
-        $anchoImagenes = $mostrarFirma ? $anchoUtil * 0.66 : $anchoUtil;
-        $cierre .= $despedida
-            . '<table class="eco-photo-row"><tr>'
-            . '<td class="eco-photo-cell"' . ($mostrarFirma ? '' : ' colspan="2"') . '>'
-            . htmlImagenesEco($imagenesPaciente, $anchoImagenes, $altoImagen, 90)
-            . '</td>'
-            . ($mostrarFirma ? '<td class="eco-photo-signature">' . $sello . '</td>' : '')
-            . '</tr></table>';
-    } elseif ($mostrarFirma && !empty($plantilla['espacio_foto'])) {
-        $cierre .= $despedida
-            . '<table class="eco-photo-row"><tr><td class="eco-photo-space">&nbsp;</td><td class="eco-photo-signature">' . $sello . '</td></tr></table>';
-    } else {
-        $cierre .= $despedida . ($mostrarFirma ? '<div class="eco-signature">' . $sello . '</div>' : '');
+    $cierre = '<div class="eco-page"><div class="eco-signoff">Atentamente.</div>';
+    if ($mostrarFirma && $imagenesPaciente === [] && !empty($plantilla['espacio_foto'])) {
+        $cierre .= '<table class="eco-photo-row"><tr><td class="eco-photo-space">&nbsp;</td><td class="eco-photo-signature">' . $sello . '</td></tr></table>';
+    } elseif ($mostrarFirma) {
+        $cierre .= '<div class="eco-signature">' . $sello . '</div>';
     }
-    $cierre .= '</div>';
-    $mpdf->WriteHTML($cierre);
+    $mpdf->WriteHTML($cierre . '</div>');
+
+    if ($imagenesPaciente !== []) {
+        // Las imágenes van debajo del sello, ajustadas al espacio que quedó libre en la hoja.
+        $margenSuperior = 5;
+        $disponible = $mpdf->h - $mpdf->bMargin - $mpdf->y - $margenSuperior - 2;
+        if ($disponible < 45) {
+            // No entran con un tamaño legible: pasan a la hoja siguiente.
+            $mpdf->AddPage();
+            $disponible = $mpdf->h - $mpdf->bMargin - $mpdf->y - $margenSuperior - 2;
+        }
+        $mpdf->WriteHTML(htmlImagenesEco($imagenesPaciente, $mpdf->pgwidth, min($disponible, 90), 130, 'eco-images-full'));
+    }
 }
 
 $mpdf->Output('Informes_ECO.pdf', 'I');
