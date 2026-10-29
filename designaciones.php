@@ -23,7 +23,7 @@ include 'menu.php';
                     <option value="">Seleccione</option><option value="1">Enero</option><option value="2">Febrero</option><option value="3">Marzo</option><option value="4">Abril</option><option value="5">Mayo</option><option value="6">Junio</option><option value="7">Julio</option><option value="8">Agosto</option><option value="9">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option><option value="12">Diciembre</option>
                 </select></div>
             </div>
-            <div class="campo"><label for="id_pais">País (opcional)</label><select name="id_pais" id="id_pais"><option value="">Cargando…</option></select></div>
+            <div class="campo"><label for="id_pais">País</label><select name="id_pais" id="id_pais"><option value="">Cargando…</option></select></div>
             <?php if ($puedeEditar): ?><div class="form-actions"><button type="submit">Guardar</button><button type="button" class="btn-secondary" onclick="limpiar()">Cancelar</button></div><?php endif; ?>
             <div id="mensaje" class="mensaje" role="status"></div>
         </form>
@@ -41,6 +41,7 @@ include 'menu.php';
 <script>
 const puedeEditarEscuelas = <?= $puedeEditar ? 'true' : 'false' ?>;
 let escuelas = [], paises = [];
+const periodoPredeterminado = {anio: new Date().getFullYear(), mes: new Date().getMonth() + 1};
 async function cargar() {
     try {
         escuelas = await Salus.json('backend/designacionesDAO.php?q=listar');
@@ -62,14 +63,20 @@ async function eliminar(id) {
     try { await Salus.json('backend/designacionesDAO.php?q=eliminar', {method:'POST', body:Salus.form({id})}); Salus.toast('Escuela desactivada.'); cargar(); }
     catch (error) { Salus.toast(error.message, 'error'); }
 }
-function limpiar() { frmDesignacion.reset(); id_escuela.value=''; periodo_anio.value=new Date().getFullYear(); mensaje.textContent=''; }
+function aplicarPredeterminados() {
+    periodo_anio.value=periodoPredeterminado.anio;
+    periodo_mes.value=periodoPredeterminado.mes;
+    const paraguay=paises.find(p=>p.codigo_iso2==='PY');
+    id_pais.value=paraguay?.id_pais||'';
+}
+function limpiar() { frmDesignacion.reset(); id_escuela.value=''; aplicarPredeterminados(); mensaje.textContent=''; }
 frmDesignacion.addEventListener('submit', async event => {
     event.preventDefault();
     try { await Salus.json('backend/designacionesDAO.php?q=guardar', {method:'POST', body:new FormData(frmDesignacion)}); Salus.toast('Escuela guardada.'); limpiar(); cargar(); }
     catch(error) { mensaje.textContent=error.message; }
 });
 (async function iniciar(){
-    try { paises=await Salus.json('backend/referencialesDAO.php?q=paises'); id_pais.innerHTML='<option value="">Sin especificar</option>'+paises.map(p=>`<option value="${p.id_pais}">${Salus.escape(p.nombre)}</option>`).join(''); await cargar(); }
+    try { paises=await Salus.json('backend/referencialesDAO.php?q=paises'); id_pais.innerHTML='<option value="">Sin especificar</option>'+paises.map(p=>`<option value="${p.id_pais}">${Salus.escape(p.nombre)}</option>`).join(''); aplicarPredeterminados(); await cargar(); }
     catch(error){ Salus.toast(error.message,'error'); }
 })();
 </script>

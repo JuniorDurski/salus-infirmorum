@@ -135,6 +135,7 @@ small, .help-text { color: var(--muted); }
 .stat span { display: block; color: var(--muted); font-size: .84rem; }
 .stat strong { display: block; margin-top: 7px; font-size: 1.8rem; }
 .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+.form-stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
 .campo, .field { display: grid; gap: 7px; margin-bottom: 15px; }
 .field.full { grid-column: 1 / -1; }
 .form-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 5px; }

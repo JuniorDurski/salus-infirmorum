@@ -62,7 +62,9 @@ $titulosRuta = [
     'index.php' => 'Panel principal', 'designaciones.php' => 'Escuelas',
     'pacientes.php' => 'Pacientes', 'imprimir.php' => 'Informes',
     'usuarios.php' => 'Usuarios', 'roles.php' => 'Roles',
-    'permisos.php' => 'Permisos', 'menus.php' => 'Menús', 'perfil.php' => 'Mi perfil',
+    'permisos.php' => 'Permisos', 'menus.php' => 'Menús',
+    'universidades.php' => 'Universidades', 'titulos.php' => 'Títulos profesionales',
+    'perfil.php' => 'Mi perfil',
 ];
 $tituloActual = $tituloPagina ?? ($titulosRuta[$rutaActual] ?? 'Salus Infirmorum');
 ?>

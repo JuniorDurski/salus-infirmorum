@@ -71,3 +71,10 @@ El rol es el control habitual de acceso. El estado de un permiso se administra
 desde `permisos.php` y funciona como un bloqueo global: si un permiso `menu.*`
 está inactivo, el nodo se oculta para todos los roles. La migración `V8` deja
 como universales solamente Inicio y Mi perfil; el resto exige asignación por rol.
+
+## Catálogos geográficos y académicos
+
+La migración `V9` carga los 249 códigos ISO 3166-1 asignados, sus nombres en
+español y prefijos telefónicos internacionales. También incorpora la nómina de
+57 universidades paraguayas publicada por ANEAES y crea los módulos protegidos
+`universidades.php` y `titulos.php` bajo el menú Referenciales.

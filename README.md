@@ -20,3 +20,7 @@ de habilitar el resto de los módulos.
 La navegación se administra desde **Seguridad > Menús**. Cada padre o hijo crea
 su permiso `menu.<ruta>` y puede limitarse por rol, desactivarse o declararse
 visible para todos los usuarios autenticados.
+
+Los catálogos de universidades y títulos profesionales se administran desde
+**Referenciales**. La migración V9 incorpora países, prefijos telefónicos y la
+nómina de universidades paraguayas.
