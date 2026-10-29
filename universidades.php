@@ -19,8 +19,8 @@ include 'menu.php';
             <input type="hidden" name="id_universidad" id="id_universidad">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(tokenCsrf(), ENT_QUOTES, 'UTF-8') ?>">
             <div class="campo"><label for="id_pais">País</label><select name="id_pais" id="id_pais" required><option value="">Cargando…</option></select></div>
-            <div class="campo"><label for="nombre">Nombre oficial</label><input name="nombre" id="nombre" maxlength="200" required></div>
-            <div class="campo"><label for="abreviatura">Abreviatura</label><input name="abreviatura" id="abreviatura" maxlength="30" placeholder="UNA"></div>
+            <div class="campo"><label for="nombre">Nombre oficial</label><input name="nombre" id="nombre" data-uppercase maxlength="200" required></div>
+            <div class="campo"><label for="abreviatura">Abreviatura</label><input name="abreviatura" id="abreviatura" data-uppercase maxlength="30" placeholder="UNA"></div>
             <div class="form-actions"><button type="submit">Guardar universidad</button><button type="button" class="btn-secondary" onclick="limpiarUniversidad()">Cancelar</button></div>
             <div id="mensaje" class="mensaje" role="status"></div>
         </form>

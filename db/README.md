@@ -92,7 +92,21 @@ sincronización, atención, llamado, comentarios, pagos y exportación. Solo
 de roles. Cuando `pago_realizado = 1`, la atención queda en modo de solo lectura
 para el profesional.
 
+La migración `V11` simplifica el trabajo del profesional: desactiva el permiso
+de llamado y convierte “Guardar atención” en la única acción operativa. La
+exportación queda disponible para cualquier usuario que pueda acceder a la
+jornada, sin exigir un permiso adicional. Las columnas históricas de llamado se
+conservan para no destruir información existente.
+
 `postulantes_atencion.observacion` es un JSON con conversaciones `clinica`,
 `general` y `doctor`. El estado de cada estudio se conserva normalizado en
 `postulantes_atencion_estudios`, lo que permite la consulta pública de solo
 lectura mediante documento y escuela.
+
+## Nombres normalizados
+
+La migración `V12` convierte a mayúsculas los nombres de usuarios, pacientes,
+escuelas, universidades y derivadores, además del nombre de institución del
+derivador. Disparadores de base de datos mantienen la regla para inserciones y
+actualizaciones realizadas fuera de la aplicación. Los formularios aplican la
+misma normalización mientras el usuario escribe.

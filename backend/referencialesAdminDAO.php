@@ -55,8 +55,9 @@ function guardarUniversidad(mysqli $db): void
 {
     $id = (int) ($_POST['id_universidad'] ?? 0);
     $idPais = (int) ($_POST['id_pais'] ?? 0);
-    $nombre = trim((string) ($_POST['nombre'] ?? ''));
-    $abreviatura = trim((string) ($_POST['abreviatura'] ?? '')) ?: null;
+    $nombre = mb_strtoupper(trim((string) ($_POST['nombre'] ?? '')), 'UTF-8');
+    $abreviaturaTexto = mb_strtoupper(trim((string) ($_POST['abreviatura'] ?? '')), 'UTF-8');
+    $abreviatura = $abreviaturaTexto !== '' ? $abreviaturaTexto : null;
 
     if ($idPais <= 0 || $nombre === '' || mb_strlen($nombre) > 200
         || ($abreviatura !== null && mb_strlen($abreviatura) > 30)) {

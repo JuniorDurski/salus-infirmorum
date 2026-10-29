@@ -16,7 +16,7 @@ include 'menu.php';
         <form id="frmDesignacion">
             <input type="hidden" name="id_escuela" id="id_escuela">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(tokenCsrf(), ENT_QUOTES, 'UTF-8') ?>">
-            <div class="campo"><label for="nombre">Nombre</label><input name="nombre" id="nombre" maxlength="150" required></div>
+            <div class="campo"><label for="nombre">Nombre</label><input name="nombre" id="nombre" data-uppercase maxlength="150" required></div>
             <div class="field-grid">
                 <div class="campo"><label for="periodo_anio">Año</label><input type="number" name="periodo_anio" id="periodo_anio" min="1900" max="2200" value="<?= date('Y') ?>" required></div>
                 <div class="campo"><label for="periodo_mes">Mes</label><select name="periodo_mes" id="periodo_mes" required>

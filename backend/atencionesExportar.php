@@ -6,7 +6,7 @@ require_once __DIR__ . '/conexion.php';
 require_once __DIR__ . '/seguridad.php';
 require_once __DIR__ . '/atenciones_service.php';
 
-$identidad = requerirAutenticacion($conexion, 'postulantes_atencion.exportar');
+$identidad = requerirAutenticacion($conexion);
 $id = (int) ($_GET['id'] ?? 0);
 $formato = strtolower((string) ($_GET['formato'] ?? 'csv'));
 if (!in_array($formato, ['csv', 'txt', 'json', 'xls'], true)) {
@@ -23,8 +23,6 @@ foreach ($asignacion['postulantes'] as $postulante) {
         'Documento' => $postulante['documento'],
         'Postulante' => $postulante['nombre'],
         'Escuela' => $postulante['escuela'],
-        'Llamado' => (int) $postulante['llamado'] ? 'SÍ' : 'NO',
-        'Atendido' => (int) $postulante['atendido'] ? 'SÍ' : 'NO',
         'Pagado' => (int) $postulante['pagado'] ? 'SÍ' : 'NO',
         'Estudios' => implode(' | ', $estudios),
     ];

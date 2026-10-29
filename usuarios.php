@@ -16,7 +16,7 @@ include 'menu.php';
             <input type="hidden" name="id_usuario" id="id_usuario">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(tokenCsrf(), ENT_QUOTES) ?>">
             <div class="campo"><label>Usuario</label><input name="usuario" id="usuario" required pattern="[a-z0-9._-]{3,60}"></div>
-            <div class="campo"><label>Nombre</label><input name="nombre" id="nombre" required></div>
+            <div class="campo"><label>Nombre</label><input name="nombre" id="nombre" data-uppercase required></div>
             <div class="campo"><label>CI</label><input name="ci" id="ci" required></div>
             <div class="campo"><label>Correo</label><input type="email" name="correo" id="correo"></div>
             <div class="campo" id="grupoClave"><label>Contraseña inicial</label><input type="password" name="clave" id="clave"><small>Puede ser cualquier valor no vacío. El usuario deberá cambiarla al ingresar.</small></div>

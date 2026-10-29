@@ -19,7 +19,7 @@ include 'menu.php';
             <input type="hidden" name="id_paciente" id="id_paciente">
             <input type="hidden" name="url_foto" id="url_foto">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(tokenCsrf(), ENT_QUOTES, 'UTF-8') ?>">
-            <div class="campo"><label for="nombre">Nombre y apellido *</label><input name="nombre" id="nombre" maxlength="250" required></div>
+            <div class="campo"><label for="nombre">Nombre y apellido *</label><input name="nombre" id="nombre" data-uppercase maxlength="250" required></div>
             <div class="field-grid">
                 <div class="campo"><label for="ci">Documento *</label><input name="ci" id="ci" maxlength="30" required></div>
                 <div class="campo"><label for="codigo">Código</label><input name="codigo" id="codigo" maxlength="20"></div>

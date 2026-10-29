@@ -9,8 +9,8 @@ $q = $_GET['q'] ?? 'listar';
 $identidad = requerirAlgunPermiso($conexion, [
     'postulantes_atencion.ver', 'postulantes_atencion.asignar',
     'postulantes_atencion.iniciar', 'postulantes_atencion.sincronizar',
-    'postulantes_atencion.atender', 'postulantes_atencion.llamar',
-    'postulantes_atencion.comentar', 'postulantes_atencion.pagar',
+    'postulantes_atencion.atender', 'postulantes_atencion.comentar',
+    'postulantes_atencion.pagar',
     'postulantes_atencion.exportar',
 ], true);
 
@@ -27,7 +27,6 @@ try {
         case 'sincronizar': sincronizarUna($conexion, $identidad); break;
         case 'sincronizar_dia': sincronizarDia($conexion, $identidad); break;
         case 'inicio': cambiarInicio($conexion, $identidad); break;
-        case 'llamar': llamarPostulante($conexion, $identidad); break;
         case 'atender': atenderPostulante($conexion, $identidad); break;
         case 'comentar': comentarAtencion($conexion, $identidad); break;
         case 'pagar': pagarAsignacion($conexion, $identidad); break;
@@ -69,9 +68,10 @@ function catalogosAtencion(mysqli $db, array $identidad): void
          ORDER BY u.nombre"
     )->fetch_all(MYSQLI_ASSOC);
     $permisos = [];
-    foreach (['asignar', 'iniciar', 'sincronizar', 'atender', 'llamar', 'comentar', 'pagar', 'exportar'] as $accion) {
+    foreach (['asignar', 'iniciar', 'sincronizar', 'atender', 'comentar', 'pagar'] as $accion) {
         $permisos[$accion] = tienePermiso($identidad, 'postulantes_atencion.' . $accion);
     }
+    $permisos['exportar'] = true;
     responderJson(['status' => 'ok', 'escuelas' => $escuelas, 'estudios' => $estudios,
         'usuarios' => $usuarios, 'permisos' => $permisos, 'hoy' => date('Y-m-d')]);
 }
@@ -225,33 +225,21 @@ function cambiarInicio(mysqli $db, array $identidad): void
     responderJson(['status' => 'ok', 'mensaje' => $estado ? 'Atención habilitada.' : 'Atención pausada.']);
 }
 
-function llamarPostulante(mysqli $db, array $identidad): void
-{
-    exigirPermisoAtencion($identidad, 'postulantes_atencion.llamar');
-    $id = (int) ($_POST['id_postulante_atencion'] ?? 0);
-    $detalle = obtenerPostulanteAtencion($db, $id, $identidad);
-    if (!asignacionEditablePorProfesional($detalle)) responderJson(['status' => 'error', 'mensaje' => 'La lista está cerrada o fuera de fecha.'], 409);
-    $actor = (int) $identidad['id_usuario'];
-    $stmt = $db->prepare('UPDATE postulantes_atencion SET llamado = 1, llamado_en = NOW(), llamado_por = ? WHERE id_postulante_atencion = ?');
-    $stmt->bind_param('ii', $actor, $id); $stmt->execute();
-    responderJson(['status' => 'ok', 'mensaje' => 'Postulante llamado.']);
-}
-
 function atenderPostulante(mysqli $db, array $identidad): void
 {
     exigirPermisoAtencion($identidad, 'postulantes_atencion.atender');
     $id = (int) ($_POST['id_postulante_atencion'] ?? 0);
-    $atendido = ($_POST['atendido'] ?? '0') === '1' ? 1 : 0;
     $realizados = idsEnteros($_POST['estudios'] ?? []);
     $detalle = obtenerPostulanteAtencion($db, $id, $identidad);
     if (!asignacionEditablePorProfesional($detalle)) responderJson(['status' => 'error', 'mensaje' => 'La atención ya no puede modificarse.'], 409);
     $actor = (int) $identidad['id_usuario'];
     $db->begin_transaction();
     $stmt = $db->prepare(
-        'UPDATE postulantes_atencion SET atendido = ?, atendido_en = IF(? = 1, NOW(), NULL),
-                atendido_por = IF(? = 1, ?, NULL) WHERE id_postulante_atencion = ?'
+        'UPDATE postulantes_atencion
+         SET atendido = 1, atendido_en = NOW(), atendido_por = ?
+         WHERE id_postulante_atencion = ?'
     );
-    $stmt->bind_param('iiiii', $atendido, $atendido, $atendido, $actor, $id); $stmt->execute();
+    $stmt->bind_param('ii', $actor, $id); $stmt->execute();
     $db->query("UPDATE postulantes_atencion_estudios SET realizado = 0, realizado_en = NULL, actualizado_por = {$actor} WHERE id_postulante_atencion = {$id}");
     if ($realizados) {
         $lista = implode(',', array_map('intval', $realizados));

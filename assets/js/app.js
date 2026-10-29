@@ -50,6 +50,18 @@
 
     function iniciarApp() {
         Salus.csrf = document.documentElement.dataset.csrf || Salus.csrf;
+        document.addEventListener('input', event => {
+            const campo = event.target.closest?.('[data-uppercase]');
+            if (!campo || typeof campo.value !== 'string') return;
+            const inicio = campo.selectionStart;
+            const fin = campo.selectionEnd;
+            const mayusculas = campo.value.toLocaleUpperCase('es');
+            if (campo.value === mayusculas) return;
+            campo.value = mayusculas;
+            if (inicio !== null && fin !== null && typeof campo.setSelectionRange === 'function') {
+                campo.setSelectionRange(inicio, fin);
+            }
+        });
         document.querySelectorAll('[data-sidebar-toggle]').forEach(button => {
             button.addEventListener('click', () => document.body.classList.toggle('sidebar-open'));
         });
