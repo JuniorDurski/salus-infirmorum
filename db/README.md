@@ -153,3 +153,9 @@ la navegación por emojis descriptivos para cada menú.
 La migración `V19` registra como escuelas activas todas las designaciones que
 seleccionan plantillas en `reportes/index.php`. Incluye por separado ACADEPOL,
 COLEPOL e ISEPOL aunque compartan informe, y las tres variantes de LICEMIL.
+
+## Imágenes en informes ECO
+
+La migración `V21` permite asociar hasta dos imágenes opcionales a cada informe
+ECO. Las rutas se almacenan por separado de los resultados JSON y la impresión
+puede incluirlas u omitirlas sin eliminar los archivos guardados.

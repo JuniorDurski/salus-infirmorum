@@ -17,6 +17,14 @@ include 'menu.php';
 .eco-study-options button { text-align: left; width: 100%; }
 .eco-print-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; }
 .eco-print-label { color: var(--text-muted, #64748b); font-size: .9rem; font-weight: 600; }
+.eco-image-editor { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.eco-image-slot { border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
+.eco-image-slot > strong { display: block; margin-bottom: 8px; }
+.eco-image-preview { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; display: block; height: 180px; margin-bottom: 10px; object-fit: contain; width: 100%; }
+.eco-image-remove { align-items: center; display: flex; font-size: .9rem; gap: 7px; margin-top: 9px; }
+.eco-print-option { align-items: flex-start; border: 1px solid var(--border); border-radius: 12px; display: flex; gap: 10px; padding: 14px; }
+.eco-print-option input { margin-top: 3px; }
+@media (max-width: 680px) { .eco-image-editor { grid-template-columns: 1fr; } }
 </style>
 
 <div class="page-header">
@@ -73,6 +81,23 @@ include 'menu.php';
     </div>
 </dialog>
 
+<dialog class="modal eco-selection-modal" id="modalImpresionEco">
+    <div class="modal-header">
+        <div><span class="eyebrow">Opciones de impresión</span><h2 id="impresionEstudioEco">Informe ECO</h2></div>
+        <button class="icon-button" type="button" onclick="modalImpresionEco.close()" aria-label="Cerrar">×</button>
+    </div>
+    <div class="modal-body">
+        <label class="eco-print-option">
+            <input type="checkbox" id="ecoIncluirImagenes" checked>
+            <span><strong>Incluir imágenes</strong><br><small>Agrega al PDF las imágenes guardadas en cada informe. Puede desmarcarlo para imprimir solamente el texto.</small></span>
+        </label>
+    </div>
+    <div class="modal-footer">
+        <button class="btn-secondary" type="button" onclick="modalImpresionEco.close()">Cancelar</button>
+        <button type="button" onclick="confirmarImpresionEco()">Imprimir</button>
+    </div>
+</dialog>
+
 <dialog class="modal eco-modal" id="modalEco">
     <form id="frmEco" class="modal-form">
         <div class="modal-header">
@@ -94,6 +119,9 @@ let plantillasEco = [];
 let postulanteEcoActual = null;
 let estudioEcoActual = '';
 let accionEcoActual = '';
+let idsImpresionEco = [];
+let codigoImpresionEco = '';
+let urlsTemporalesEco = [];
 
 async function iniciarEco() {
     try {
@@ -177,7 +205,7 @@ function seleccionarEstudioEco(codigo) {
     const accion = accionEcoActual;
     modalSeleccionEco.close();
     if (accion === 'editar') editarEco(id, codigo);
-    else enviarInformeEco([id], codigo);
+    else prepararImpresionEco([id], codigo);
 }
 
 async function editarEco(id, codigo) {
@@ -187,11 +215,13 @@ async function editarEco(id, codigo) {
     const params = new URLSearchParams({q:'detalle', estudio:codigo, id_postulante:id});
     try {
         const detalle = await Salus.json('backend/informesEcoDAO.php?' + params);
+        liberarVistasImagenEco();
         postulanteEcoActual = Number(id);
         estudioEcoActual = codigo;
         ecoEstudioTitulo.textContent = detalle.plantilla.nombre;
         ecoPostulanteTitulo.textContent = paciente.nombre;
         const resultado = detalle.resultado;
+        const imagenes = Array.isArray(detalle.imagenes) ? detalle.imagenes : [null, null];
         const campos = detalle.plantilla.campos.map(campo => `<div class="campo">
             <label>${Salus.escape(campo.etiqueta)}</label>
             <textarea data-eco-campo="${Salus.escape(campo.clave)}" maxlength="8000">${Salus.escape(resultado.campos[campo.clave] || '')}</textarea>
@@ -199,11 +229,72 @@ async function editarEco(id, codigo) {
         ecoCampos.innerHTML = `<div class="campo"><label>Motivo del estudio</label><input id="ecoMotivo" maxlength="500" value="${Salus.escape(resultado.motivo || '')}"></div>
             <div class="campo eco-introduccion"><label>Introducción</label><textarea id="ecoIntroduccion" maxlength="5000">${Salus.escape(resultado.introduccion || '')}</textarea></div>
             ${campos}
-            <div class="campo eco-conclusion"><label>Conclusión</label><textarea id="ecoConclusion" maxlength="8000" placeholder="Este estudio puede no requerir conclusión.">${Salus.escape(resultado.conclusion || '')}</textarea></div>`;
+            <div class="campo eco-conclusion"><label>Conclusión</label><textarea id="ecoConclusion" maxlength="8000" placeholder="Este estudio puede no requerir conclusión.">${Salus.escape(resultado.conclusion || '')}</textarea></div>
+            <div class="campo">
+                <label>Imágenes del estudio</label>
+                <small>Puede guardar hasta dos imágenes JPG, PNG o WEBP de 5 MB cada una. Seleccionar un archivo reemplaza la imagen de esa posición.</small>
+                <div class="eco-image-editor">
+                    ${[1, 2].map(posicion => bloqueImagenEco(posicion, imagenes[posicion - 1] || '')).join('')}
+                </div>
+            </div>`;
+        configurarControlesImagenEco(imagenes);
         modalEco.showModal();
     } catch (error) {
         Salus.toast(error.message, 'error');
     }
+}
+
+function bloqueImagenEco(posicion, url) {
+    const existente = Boolean(url);
+    return `<div class="eco-image-slot">
+        <strong>Imagen ${posicion}</strong>
+        <img class="eco-image-preview" id="ecoVistaImagen${posicion}" src="${Salus.escape(url)}" alt="Vista previa de imagen ${posicion}" ${existente ? '' : 'hidden'}>
+        <input type="file" id="ecoImagen${posicion}" accept="image/jpeg,image/png,image/webp">
+        <label class="eco-image-remove" id="ecoQuitarLabel${posicion}" ${existente ? '' : 'hidden'}>
+            <input type="checkbox" id="ecoQuitarImagen${posicion}"> Quitar la imagen guardada
+        </label>
+    </div>`;
+}
+
+function configurarControlesImagenEco(imagenes) {
+    [1, 2].forEach(posicion => {
+        const archivo = document.getElementById(`ecoImagen${posicion}`);
+        const quitar = document.getElementById(`ecoQuitarImagen${posicion}`);
+        const vista = document.getElementById(`ecoVistaImagen${posicion}`);
+        const urlGuardada = imagenes[posicion - 1] || '';
+        archivo.addEventListener('change', () => {
+            const seleccionado = archivo.files[0];
+            if (!seleccionado) {
+                vista.src = urlGuardada;
+                vista.hidden = !urlGuardada || quitar.checked;
+                return;
+            }
+            if (seleccionado.size > 5 * 1024 * 1024) {
+                archivo.value = '';
+                Salus.toast('Cada imagen puede pesar como máximo 5 MB.', 'error');
+                return;
+            }
+            const temporal = URL.createObjectURL(seleccionado);
+            urlsTemporalesEco.push(temporal);
+            quitar.checked = false;
+            vista.src = temporal;
+            vista.hidden = false;
+        });
+        quitar.addEventListener('change', () => {
+            if (quitar.checked) {
+                archivo.value = '';
+                vista.hidden = true;
+            } else {
+                vista.src = urlGuardada;
+                vista.hidden = !urlGuardada;
+            }
+        });
+    });
+}
+
+function liberarVistasImagenEco() {
+    urlsTemporalesEco.forEach(url => URL.revokeObjectURL(url));
+    urlsTemporalesEco = [];
 }
 
 frmEco.addEventListener('submit', async event => {
@@ -213,18 +304,52 @@ frmEco.addEventListener('submit', async event => {
     ecoCampos.querySelectorAll('[data-eco-campo]').forEach(control => { campos[control.dataset.ecoCampo] = control.value; });
     const resultado = {motivo:ecoMotivo.value, introduccion:ecoIntroduccion.value, campos, conclusion:ecoConclusion.value};
     try {
+        const cuerpo = Salus.form({
+            id_postulante:postulanteEcoActual,
+            estudio:estudioEcoActual,
+            resultado:JSON.stringify(resultado)
+        });
+        [1, 2].forEach(posicion => {
+            const archivo = document.getElementById(`ecoImagen${posicion}`).files[0];
+            const quitar = document.getElementById(`ecoQuitarImagen${posicion}`).checked;
+            if (archivo) cuerpo.append(`imagen_${posicion}`, archivo);
+            if (quitar) cuerpo.append(`eliminar_imagen_${posicion}`, '1');
+        });
         await Salus.json('backend/informesEcoDAO.php?q=guardar', {
             method:'POST',
-            body:Salus.form({id_postulante:postulanteEcoActual, estudio:estudioEcoActual, resultado:JSON.stringify(resultado)})
+            body:cuerpo
         });
         modalEco.close();
+        liberarVistasImagenEco();
         Salus.toast('Resultado ECO guardado.');
     } catch (error) {
         Salus.toast(error.message, 'error');
     }
 });
 
-function enviarInformeEco(ids, codigo) {
+function prepararImpresionEco(ids, codigo) {
+    if (!ids.length) {
+        Salus.toast('No hay postulantes compatibles para imprimir.', 'error');
+        return;
+    }
+    const plantilla = plantillasEco.find(item => item.codigo === codigo);
+    if (!plantilla) return;
+    idsImpresionEco = ids;
+    codigoImpresionEco = codigo;
+    impresionEstudioEco.textContent = plantilla.nombre;
+    ecoIncluirImagenes.checked = true;
+    modalImpresionEco.showModal();
+}
+
+function confirmarImpresionEco() {
+    const ids = [...idsImpresionEco];
+    const codigo = codigoImpresionEco;
+    const incluirImagenes = ecoIncluirImagenes.checked;
+    modalImpresionEco.close();
+    enviarInformeEco(ids, codigo, incluirImagenes);
+}
+
+function enviarInformeEco(ids, codigo, incluirImagenes) {
     if (!plantillasEco.some(plantilla => plantilla.codigo === codigo)) {
         Salus.toast('Seleccione un estudio válido.', 'error');
         return;
@@ -242,6 +367,11 @@ function enviarInformeEco(ids, codigo) {
     estudio.name = 'estudio';
     estudio.value = codigo;
     form.appendChild(estudio);
+    const imagenes = document.createElement('input');
+    imagenes.type = 'hidden';
+    imagenes.name = 'incluir_imagenes';
+    imagenes.value = incluirImagenes ? '1' : '0';
+    form.appendChild(imagenes);
     ids.forEach(id => {
         const input = document.createElement('input');
         input.type = 'hidden';
@@ -258,9 +388,10 @@ function imprimirTodos(codigo) {
     const plantilla = plantillasEco.find(item => item.codigo === codigo);
     if (!plantilla) return;
     const compatibles = pacientesEco.filter(paciente => estudiosCompatiblesEco(paciente).some(item => item.codigo === codigo));
-    enviarInformeEco(compatibles.map(paciente => Number(paciente.id_postulante)), codigo);
+    prepararImpresionEco(compatibles.map(paciente => Number(paciente.id_postulante)), codigo);
 }
 
+modalEco.addEventListener('close', liberarVistasImagenEco);
 txtBuscar.addEventListener('keydown', event => { if (event.key === 'Enter') buscar(); });
 iniciarEco();
 </script>

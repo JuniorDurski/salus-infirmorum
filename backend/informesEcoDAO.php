@@ -33,6 +33,10 @@ try {
     responderJson(['status' => 'error', 'mensaje' => 'Los resultados recibidos no contienen un JSON válido.'], 400);
 } catch (mysqli_sql_exception $e) {
     responderJson(['status' => 'error', 'mensaje' => 'No se pudo guardar el informe ECO.'], 422);
+} catch (RuntimeException $e) {
+    responderJson(['status' => 'error', 'mensaje' => $e->getMessage()], 400);
+} catch (Throwable $e) {
+    responderJson(['status' => 'error', 'mensaje' => 'No se pudo procesar el informe ECO.'], 500);
 }
 
 function listarPlantillasEco(): void
@@ -78,7 +82,7 @@ function obtenerDetalleEco(mysqli $db): void
     exigirPostulanteActivoEco($db, $id, $plantilla);
 
     $stmt = $db->prepare(
-        'SELECT resultados, actualizado_en
+        'SELECT resultados, imagen_1, imagen_2, actualizado_en
          FROM postulantes_informes_eco
          WHERE id_postulante = ? AND codigo_estudio = ?'
     );
@@ -98,6 +102,10 @@ function obtenerDetalleEco(mysqli $db): void
         'status' => 'ok',
         'guardado' => $guardado,
         'actualizado_en' => $fila['actualizado_en'] ?? null,
+        'imagenes' => [
+            $fila['imagen_1'] ?? null,
+            $fila['imagen_2'] ?? null,
+        ],
         'plantilla' => [
             'codigo' => $plantilla['codigo'],
             'nombre' => $plantilla['nombre'],
@@ -112,6 +120,7 @@ function guardarResultadoEco(mysqli $db, array $identidad): void
     $plantilla = exigirPlantillaEco($_POST['estudio'] ?? '');
     $id = (int) ($_POST['id_postulante'] ?? 0);
     exigirPostulanteActivoEco($db, $id, $plantilla);
+
     $json = (string) ($_POST['resultado'] ?? '');
     if ($json === '' || strlen($json) > 100000) {
         responderJson(['status' => 'error', 'mensaje' => 'Los resultados están vacíos o exceden el tamaño permitido.'], 400);
@@ -122,20 +131,133 @@ function guardarResultadoEco(mysqli $db, array $identidad): void
     }
     $resultado = normalizarResultadoInformeEco($plantilla, $recibido);
     $resultadoJson = json_encode($resultado, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-    $actor = (int) $identidad['id_usuario'];
-    $codigo = $plantilla['codigo'];
-    $stmt = $db->prepare(
-        'INSERT INTO postulantes_informes_eco
-            (id_postulante, codigo_estudio, resultados, actualizado_por)
-         VALUES (?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE
-            resultados = VALUES(resultados),
-            actualizado_por = VALUES(actualizado_por),
-            actualizado_en = CURRENT_TIMESTAMP'
+
+    $stmtAnterior = $db->prepare(
+        'SELECT imagen_1, imagen_2
+         FROM postulantes_informes_eco
+         WHERE id_postulante = ? AND codigo_estudio = ?'
     );
-    $stmt->bind_param('issi', $id, $codigo, $resultadoJson, $actor);
-    $stmt->execute();
-    responderJson(['status' => 'ok', 'mensaje' => 'Resultado ECO guardado.']);
+    $stmtAnterior->bind_param('is', $id, $plantilla['codigo']);
+    $stmtAnterior->execute();
+    $filaAnterior = $stmtAnterior->get_result()->fetch_assoc() ?: [];
+    $anteriores = [
+        1 => $filaAnterior['imagen_1'] ?? null,
+        2 => $filaAnterior['imagen_2'] ?? null,
+    ];
+
+    $archivos = [];
+    foreach ([1, 2] as $posicion) {
+        $archivo = $_FILES['imagen_' . $posicion] ?? null;
+        if ($archivo !== null && (int) ($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            $archivos[$posicion] = validarImagenInformeEco($archivo);
+        }
+    }
+
+    $nuevosArchivos = [];
+    $imagenesFinales = $anteriores;
+    $transaccionIniciada = false;
+    try {
+        if ($archivos !== []) {
+            $carpetaRelativa = 'uploads/informes_eco/' . $id . '/' . $plantilla['codigo'];
+            $carpetaAbsoluta = dirname(__DIR__) . DIRECTORY_SEPARATOR
+                . str_replace('/', DIRECTORY_SEPARATOR, $carpetaRelativa);
+            if (!is_dir($carpetaAbsoluta)
+                && !mkdir($carpetaAbsoluta, 0755, true)
+                && !is_dir($carpetaAbsoluta)) {
+                throw new RuntimeException('No se pudo crear la carpeta para las imágenes ECO.');
+            }
+
+            foreach ($archivos as $posicion => $archivo) {
+                $nombre = bin2hex(random_bytes(16)) . '.' . $archivo['extension'];
+                $rutaRelativa = $carpetaRelativa . '/' . $nombre;
+                $rutaAbsoluta = $carpetaAbsoluta . DIRECTORY_SEPARATOR . $nombre;
+                if (!move_uploaded_file($archivo['temporal'], $rutaAbsoluta)) {
+                    throw new RuntimeException('No se pudo guardar una de las imágenes ECO.');
+                }
+                $nuevosArchivos[] = $rutaRelativa;
+                $imagenesFinales[$posicion] = $rutaRelativa;
+            }
+        }
+
+        foreach ([1, 2] as $posicion) {
+            if (!isset($archivos[$posicion]) && ($_POST['eliminar_imagen_' . $posicion] ?? '') === '1') {
+                $imagenesFinales[$posicion] = null;
+            }
+        }
+
+        $db->begin_transaction();
+        $transaccionIniciada = true;
+        $actor = (int) $identidad['id_usuario'];
+        $codigo = $plantilla['codigo'];
+        $imagen1 = $imagenesFinales[1];
+        $imagen2 = $imagenesFinales[2];
+        $stmt = $db->prepare(
+            'INSERT INTO postulantes_informes_eco
+                (id_postulante, codigo_estudio, resultados, imagen_1, imagen_2, actualizado_por)
+             VALUES (?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                resultados = VALUES(resultados),
+                imagen_1 = VALUES(imagen_1),
+                imagen_2 = VALUES(imagen_2),
+                actualizado_por = VALUES(actualizado_por),
+                actualizado_en = CURRENT_TIMESTAMP'
+        );
+        $stmt->bind_param('issssi', $id, $codigo, $resultadoJson, $imagen1, $imagen2, $actor);
+        $stmt->execute();
+        $db->commit();
+        $transaccionIniciada = false;
+    } catch (Throwable $e) {
+        if ($transaccionIniciada) $db->rollback();
+        foreach ($nuevosArchivos as $ruta) eliminarArchivoInformeEco($ruta);
+        throw $e;
+    }
+
+    foreach ([1, 2] as $posicion) {
+        if ($anteriores[$posicion] !== null && $anteriores[$posicion] !== $imagenesFinales[$posicion]) {
+            eliminarArchivoInformeEco($anteriores[$posicion]);
+        }
+    }
+
+    responderJson([
+        'status' => 'ok',
+        'mensaje' => 'Resultado ECO guardado.',
+        'imagenes' => [$imagenesFinales[1], $imagenesFinales[2]],
+    ]);
+}
+
+function validarImagenInformeEco(array $archivo): array
+{
+    if ((int) ($archivo['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        throw new RuntimeException('No se recibió una imagen ECO válida.');
+    }
+    if ((int) ($archivo['size'] ?? 0) <= 0 || (int) $archivo['size'] > 5 * 1024 * 1024) {
+        throw new RuntimeException('Cada imagen ECO debe pesar como máximo 5 MB.');
+    }
+
+    $temporal = (string) ($archivo['tmp_name'] ?? '');
+    $finfo = new finfo(FILEINFO_MIME_TYPE);
+    $mime = $finfo->file($temporal);
+    $extensiones = [
+        'image/jpeg' => 'jpg',
+        'image/png' => 'png',
+        'image/webp' => 'webp',
+    ];
+    if (!isset($extensiones[$mime]) || @getimagesize($temporal) === false) {
+        throw new RuntimeException('Las imágenes ECO deben ser JPG, PNG o WEBP.');
+    }
+
+    return ['temporal' => $temporal, 'extension' => $extensiones[$mime]];
+}
+
+function eliminarArchivoInformeEco(?string $rutaRelativa): void
+{
+    if ($rutaRelativa === null
+        || !preg_match('#^uploads/informes_eco/[0-9]+/[A-Z0-9_]+/[a-f0-9]{32}\.(jpg|png|webp)$#', $rutaRelativa)) {
+        return;
+    }
+    $rutaAbsoluta = dirname(__DIR__) . DIRECTORY_SEPARATOR
+        . str_replace('/', DIRECTORY_SEPARATOR, $rutaRelativa);
+    if (is_file($rutaAbsoluta)) @unlink($rutaAbsoluta);
 }
 
 function exigirPlantillaEco($codigo): array
@@ -170,4 +292,3 @@ function idsInformeEco($valores): array
     $ids = array_values(array_unique(array_filter(array_map('intval', $valores), static fn(int $id): bool => $id > 0)));
     return array_slice($ids, 0, 1000);
 }
-

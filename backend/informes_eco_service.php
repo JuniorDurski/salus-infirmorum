@@ -7,8 +7,8 @@ function plantillasInformeEco(): array
 
     $plantillas = [
         'ABDOMINAL_URGENCIA' => [
-            'nombre' => 'Abdominal (urgencia)',
-            'titulo' => 'INFORME DE ECOGRAFIA ABDOMINAL (URGENCIA)',
+            'nombre' => 'Abdominal',
+            'titulo' => 'INFORME DE ECOGRAFIA ABDOMINAL',
             'color' => '#000000',
             'formato' => 'legal',
             'sexo' => null,
