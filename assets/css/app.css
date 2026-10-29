@@ -53,6 +53,8 @@ button:disabled, .boton:disabled { opacity: .55; cursor: not-allowed; transform:
 .btn-secondary, .boton.secundario, button.secundario { background: var(--surface); border-color: var(--border); color: var(--text); }
 .btn-secondary:hover, .boton.secundario:hover, button.secundario:hover { background: var(--surface-2); color: var(--text); }
 .btn-danger, button.danger { background: var(--danger-soft); border-color: transparent; color: var(--danger); }
+.btn-pause { background: #2563eb; border-color: #2563eb; color: #fff; }
+.btn-pause:hover { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
 .btn-small { min-height: 34px; padding: .4rem .7rem; font-size: .84rem; }
 
 input:not([type="checkbox"]):not([type="radio"]):not([type="file"]), select, textarea {

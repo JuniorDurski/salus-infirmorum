@@ -212,8 +212,7 @@ function renderDetalle(){
     detalleResumen.textContent=`${a.usuarios.map(u=>u.nombre).join(' · ')} · ${a.postulantes.length} postulante(s)`;
     let acciones='';
     if(catalogos.permisos.asignar&&!a.pago_realizado)acciones+='<button class="btn-secondary" onclick="editarCabecera()">Editar asignación</button>';
-    if(catalogos.permisos.iniciar&&!a.pago_realizado)acciones+=`<button onclick="accionCabecera('inicio',{empieza_atender:${a.empieza_atender?0:1}})">${a.empieza_atender?'Pausar atención':'Empezar a atender'}</button>`;
-    if(catalogos.permisos.estado)acciones+=`<button class="btn-danger" onclick="cambiarEstadoAsignacion(${a.id_asignar_atencion},0)">Desactivar asignación</button>`;
+    if(catalogos.permisos.iniciar&&!a.pago_realizado)acciones+=`<button class="${a.empieza_atender?'btn-pause':''}" onclick="accionCabecera('inicio',{empieza_atender:${a.empieza_atender?0:1}})">${a.empieza_atender?'Pausar atención':'Empezar a atender'}</button>`;
     ['xls','csv','txt','json'].forEach(formato=>acciones+=`<a class="btn btn-secondary btn-small" href="backend/atencionesExportar.php?id=${a.id_asignar_atencion}&formato=${formato}">${formato==='xls'?'Excel':formato.toUpperCase()}</a>`);
     acciones+=a.pago_realizado?'<span class="badge badge-success">Jornada pagada · solo lectura</span>':a.empieza_atender?'<span class="badge badge-success">Atención habilitada</span>':'<span class="badge badge-muted">En espera</span>';
     accionesJornada.innerHTML=acciones;
