@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/seguridad.php';
+require_once __DIR__ . '/codigos_pacientes.php';
 requerirAutenticacion($conexion, $permisoReporte ?? 'reportes.imprimir');
 
 $listaIds = [];
@@ -26,14 +27,14 @@ if ($listaIds === []) {
 $placeholders = implode(',', array_fill(0, count($listaIds), '?'));
 $sql = "SELECT
             p.id_paciente,
-            p.codigo AS codigo_paciente,
+            " . sqlCodigoPaciente('p') . " AS codigo_paciente,
             p.nombre,
             p.documento,
             TIMESTAMPDIFF(YEAR, p.fecha_nacimiento, CURDATE()) AS edad,
             IF(p.es_femenino = 1, 'FEMENINO', 'MASCULINO') AS sexo,
             p.grupo_sanguineo AS tipi,
             DATE_FORMAT(p.creado_en, '%d/%m/%Y') AS fecha,
-            CONCAT(COALESCE(p.codigo, ''), ' - ', COALESCE(e.nombre, '')) AS codigo
+            CONCAT(" . sqlCodigoPaciente('p') . ", ' - ', COALESCE(e.nombre, '')) AS codigo
         FROM pacientes p
         LEFT JOIN escuelas e ON e.id_escuela = p.id_escuela
         WHERE p.id_paciente IN ({$placeholders})

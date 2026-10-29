@@ -41,7 +41,7 @@ async function buscar(){
     try{
         const data=await Salus.json('backend/postulantesDAO.php?'+params);idsActuales=data.map(p=>p.id_postulante);resumen.textContent=`${data.length} paciente(s) encontrado(s)`;
         tabla.innerHTML=data.length?data.map(p=>`<tr>
-            <td><strong>${Salus.escape(p.nombre)}</strong><br><small>${Salus.escape(p.codigo||'Sin código')}</small></td><td>${Salus.escape(p.ci)}</td>
+            <td><strong>${Salus.escape(p.nombre)}</strong><br><small>${Salus.escape(p.codigo_generado||p.codigo||'')}</small></td><td>${Salus.escape(p.ci)}</td>
             <td>${Salus.escape(p.edad)} años<br><small>${Salus.escape(p.sexo)}</small></td><td>${Salus.escape(p.escuela||'—')}</td>
             <td><span class="badge badge-muted">${Salus.escape(formatoGrupoSanguineo(p.grupo_sanguineo)||'—')}</span></td><td>${Salus.escape(p.fecha)}</td>
             <td><button class="btn-small btn-secondary" onclick="imprimirUno(${Number(p.id_postulante)})">Imprimir</button></td>

@@ -165,3 +165,11 @@ puede incluirlas u omitirlas sin eliminar los archivos guardados.
 La migración `V22` crea `postulantes_informes_audiometria` (un DX por postulante),
 los permisos `reportes.audiometria.*` y el menú INFORME AUDIOMETRÍA. Se otorgan a
 los mismos roles que INFORME RX, además de ADMIN y PROFESIONAL.
+
+## Código de pacientes
+
+Si un paciente no tiene código cargado se muestra e imprime uno generado `NNN-ID`:
+`NNN` es su orden (por id) entre los pacientes activos dados de alta ese día, e `ID` su id
+(ej.: `003-58`). Se calcula en `backend/codigos_pacientes.php`; si se desactiva
+un paciente, los siguientes del mismo día corren su número.
+La migración `V23` agrega el índice `ix_pacientes_creado_en` para ese cálculo.

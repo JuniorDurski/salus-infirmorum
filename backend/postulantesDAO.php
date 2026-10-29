@@ -3,6 +3,7 @@
 header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/conexion.php';
 require_once __DIR__ . '/seguridad.php';
+require_once __DIR__ . '/codigos_pacientes.php';
 
 $q = $_GET['q'] ?? '';
 
@@ -45,12 +46,16 @@ try {
 
 function camposPacienteSql(): string
 {
+    // codigo: el cargado a mano (para editar); codigo_generado: el que se muestra e imprime.
     return "p.id_paciente,
             p.id_paciente AS id_postulante,
             p.id_escuela,
             p.id_escuela AS id_designacion,
             p.id_pais,
             p.codigo,
+            " . sqlCodigoPaciente('p') . " AS codigo_generado,
+            " . sqlOrdenDiaPacienteTexto('p') . " AS orden_dia,
+            DATE_FORMAT(p.creado_en, '%Y-%m-%d') AS fecha_alta,
             p.nombre,
             p.documento,
             p.documento AS ci,
@@ -94,7 +99,8 @@ function guardarPaciente(mysqli $conexion): void
     $sexoRecibido = $_POST['es_femenino'] ?? $_POST['sexo'] ?? '';
     $idEscuelaRecibida = $_POST['id_escuela'] ?? $_POST['id_designacion'] ?? '';
     $idEscuela = $idEscuelaRecibida !== '' ? (int) $idEscuelaRecibida : null;
-    $idPais = ($_POST['id_pais'] ?? '') !== '' ? (int) $_POST['id_pais'] : null;
+    // Sin país elegido se asume Paraguay.
+    $idPais = ($_POST['id_pais'] ?? '') !== '' ? (int) $_POST['id_pais'] : idPaisParaguay($conexion);
     $telefono = valorNullable($_POST['telefono'] ?? null);
     $urlFoto = valorNullable($_POST['url_foto'] ?? null);
 
@@ -187,10 +193,11 @@ function buscarPacientes(mysqli $conexion): void
     $types = '';
 
     if ($texto !== '') {
-        $where[] = '(p.nombre LIKE ? OR p.documento LIKE ?)';
+        $where[] = '(p.nombre LIKE ? OR p.documento LIKE ? OR ' . sqlCodigoPaciente('p') . ' LIKE ?)';
         $params[] = "%{$texto}%";
         $params[] = "%{$texto}%";
-        $types .= 'ss';
+        $params[] = "%{$texto}%";
+        $types .= 'sss';
     }
     if ($idEscuela > 0) {
         $where[] = 'p.id_escuela = ?';
@@ -214,6 +221,12 @@ function buscarPacientes(mysqli $conexion): void
     }
     $stmt->execute();
     echo json_encode($stmt->get_result()->fetch_all(MYSQLI_ASSOC), JSON_UNESCAPED_UNICODE);
+}
+
+function idPaisParaguay(mysqli $conexion): ?int
+{
+    $fila = $conexion->query("SELECT id_pais FROM paises WHERE codigo_iso2 = 'PY' LIMIT 1")->fetch_assoc();
+    return $fila !== null ? (int) $fila['id_pais'] : null;
 }
 
 function fechaValida(string $fecha): bool

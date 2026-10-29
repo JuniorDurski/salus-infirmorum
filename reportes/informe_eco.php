@@ -76,7 +76,7 @@ $css = '<style>
     .eco-patient { border-collapse: collapse; font-size: 11pt; font-weight: bold; line-height: 1.08; width: 100%; }
     .eco-patient td { padding: 0 0 1.2mm; vertical-align: top; }
     .eco-patient .right { text-align: left; width: 31%; }
-    .eco-ci-age { border-collapse: collapse; table-layout: fixed; width: 66%; }
+    .eco-ci-age { border-collapse: collapse; table-layout: fixed; width: 96%; }
     .eco-ci-age td { padding: 0; width: 50%; }
     .eco-label { text-decoration: underline; }
     .eco-reason { font-weight: bold; margin-top: 1mm; }
@@ -127,10 +127,10 @@ foreach ($pacientes as $indice => $paciente) {
     $html = '<div class="eco-page">' . $membrete . '
         <table class="eco-patient">
             <tr><td><span class="eco-label">PACIENTE:</span> ' . $nombre . '</td><td class="right"><span class="eco-label">FECHA:</span> ' . $fecha . '</td></tr>
-            <tr><td colspan="2"><table class="eco-ci-age"><tr>
+            <tr><td><table class="eco-ci-age"><tr>
                 <td><span class="eco-label">CI:</span> ' . $ci . '</td>
                 <td><span class="eco-label">EDAD:</span> ' . $edad . ' AÑOS</td>
-            </tr></table></td></tr>
+            </tr></table></td><td class="right"><span class="eco-label">CÓDIGO:</span> ' . ecoHtml($paciente['codigo_paciente']) . '</td></tr>
         </table>
         <div class="eco-reason"><span class="eco-label">MOTIVO DEL PRESENTE ESTUDIO:</span>&nbsp;&nbsp;&nbsp; ' . $motivo . '</div>
         <div class="eco-title">' . ecoHtml($plantilla['titulo']) . '</div>

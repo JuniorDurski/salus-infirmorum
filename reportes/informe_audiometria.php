@@ -92,6 +92,7 @@ foreach ($pacientes as $indice => $paciente) {
         . filaAudiometria('NÚMERO DE CÉDULA', $paciente['ci'])
         . filaAudiometria('FECHA DE NACIMIENTO', $nacimientos[$idPaciente] ?? '')
         . filaAudiometria('EDAD', $paciente['edad'], 8.5)
+        . filaAudiometria('CÓDIGO', $paciente['codigo_paciente'])
         . '</table>'
         . '<div class="au-subtitle">AUDIOMETRIA TONAL</div>'
         // El audiograma va en blanco: se completa a mano en la hoja impresa.

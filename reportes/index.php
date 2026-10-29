@@ -24,8 +24,8 @@ $mapaInformes = [
     'ACADEMIL' => 'informe_academil.php',
     
     'ISEPOL'   => 'informe_isepol.php',
-    'ACADEPOL'   => 'informe_isepol.php',
-    'COLEPOL'   => 'informe_isepol.php',
+    'ACADEPOL'   => 'informe_colepol.php',
+    'COLEPOL'   => 'informe_colepol.php',
 
     'DISERGEMIL'   => 'informe_disergemil.php',
 

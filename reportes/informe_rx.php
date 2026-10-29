@@ -4,6 +4,7 @@ error_reporting(E_ALL & ~E_DEPRECATED & ~E_NOTICE);
 
 require_once __DIR__ . '/../mpdf/vendor/autoload.php';
 require_once __DIR__ . '/../backend/conexion.php';
+require_once __DIR__ . '/membrete_clinica.php';
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     http_response_code(405);
@@ -20,21 +21,24 @@ include __DIR__ . '/../backend/header_pacientes.php';
 $configuracion = [
     'mode' => 'utf-8',
     'format' => 'legal',
-    'margin_top' => 7.5,
+    'margin_top' => 4,
     'margin_right' => 23.5,
     'margin_bottom' => 5,
     'margin_left' => 23.5,
 ];
 
+// Fuentes del membrete (Times, Calibri…) más la fuente manuscrita de la firma.
+$configuracion = configurarFuentesInforme($configuracion);
 $fuenteFirma = 'freeserif';
 $rutaFuenteFirma = 'C:/Windows/Fonts/FRSCRIPT.TTF';
 if (is_file($rutaFuenteFirma)) {
-    $variables = (new \Mpdf\Config\ConfigVariables())->getDefaults();
-    $variablesFuentes = (new \Mpdf\Config\FontVariables())->getDefaults();
-    $configuracion['fontDir'] = array_merge($variables['fontDir'], [dirname($rutaFuenteFirma)]);
-    $configuracion['fontdata'] = $variablesFuentes['fontdata'] + [
-        'frenchscriptmt' => ['R' => basename($rutaFuenteFirma)],
-    ];
+    if (!isset($configuracion['fontdata'])) {
+        $variables = (new \Mpdf\Config\ConfigVariables())->getDefaults();
+        $variablesFuentes = (new \Mpdf\Config\FontVariables())->getDefaults();
+        $configuracion['fontDir'] = array_merge($variables['fontDir'], [dirname($rutaFuenteFirma)]);
+        $configuracion['fontdata'] = $variablesFuentes['fontdata'];
+    }
+    $configuracion['fontdata']['frenchscriptmt'] = ['R' => basename($rutaFuenteFirma)];
     $fuenteFirma = 'frenchscriptmt';
 }
 
@@ -42,20 +46,11 @@ $mpdf = new \Mpdf\Mpdf($configuracion);
 $mpdf->SetTitle('Informes RX');
 $mpdf->SetAuthor('Clínica Médica Florentín');
 
-$logo = str_replace('\\', '/', __DIR__ . '/../images/img_logo.png');
+$membrete = membreteClinicaHtml();
 $css = '
 <style>
     body { color: #000; font-family: "Times New Roman", freeserif, serif; font-size: 10pt; }
-    .rx-header { height: 45mm; }
-    .rx-header-layout { border-collapse: collapse; table-layout: fixed; width: 100%; }
-    .rx-header-copy { color: #777; font-family: Arial, sans-serif; font-weight: bold; text-align: center; vertical-align: top; }
-    .rx-header-text { border-collapse: collapse; margin: 0 auto; width: 80mm; }
-    .rx-header-text td { color: #777; font-family: Arial, sans-serif; font-weight: bold; text-align: center; }
-    .rx-clinic { border-bottom: 0.35mm solid #777; font-size: 14pt; line-height: 1.2; padding: 1mm 0 4mm; }
-    .rx-address { font-size: 9pt; line-height: 1.1; padding-top: 3mm; }
-    .rx-phone { border-bottom: 0.35mm solid #777; font-size: 8.5pt; line-height: 1.15; padding: 1mm 0 5mm; }
-    .rx-logo { height: 24mm; margin-right: -12mm; margin-top: 2mm; opacity: 0.55; width: 38mm; }
-    .rx-content { margin-left: auto; margin-right: auto; width: 92%; }
+    .rx-content { margin-left: auto; margin-right: auto; margin-top: 4mm; width: 92%; }
     .rx-patient { border-collapse: collapse; font-family: "Times New Roman", freeserif, serif; font-size: 12pt; line-height: 1.1; margin: 0; table-layout: fixed; width: 100%; }
     .rx-patient td { padding: 0.5mm 0; vertical-align: top; }
     .rx-patient-label { width: 35%; }
@@ -93,29 +88,10 @@ foreach ($pacientes as $indice => $paciente) {
     $edad = htmlspecialchars((string) $paciente['edad'], ENT_QUOTES, 'UTF-8');
     $documento = htmlspecialchars((string) $paciente['ci'], ENT_QUOTES, 'UTF-8');
     $codigo = htmlspecialchars(trim((string) ($paciente['codigo_paciente'] ?? '')), ENT_QUOTES, 'UTF-8');
-    $celdaCodigo = $codigo !== ''
-        ? '<td class="rx-patient-secondary-label" width="9%"><b>COD</b></td><td class="rx-patient-secondary-separator" width="3%">:</td><td class="rx-patient-secondary-value" width="33%">' . $codigo . '</td>'
-        : '<td width="9%"></td><td width="3%"></td><td width="33%"></td>';
+    // Siempre hay código: el cargado a mano o el generado "NNN-ID".
+    $celdaCodigo = '<td class="rx-patient-secondary-label" width="9%"><b>COD</b></td><td class="rx-patient-secondary-separator" width="3%">:</td><td class="rx-patient-secondary-value" width="33%">' . $codigo . '</td>';
 
-    $html = '
-        <div class="rx-header">
-            <table class="rx-header-layout">
-                <tr>
-                    <td width="14%"></td>
-                    <td width="57%" class="rx-header-copy">
-                        <table class="rx-header-text">
-                            <tr><td class="rx-clinic">CLINICA MEDICA FLORENTIN</td></tr>
-                            <tr><td class="rx-address">Villa Elisa, Calle 7 y Von Polesky</td></tr>
-                            <tr><td class="rx-phone">+595987 67 88 88</td></tr>
-                        </table>
-                    </td>
-                    <td width="29%" style="text-align:right; vertical-align:top;">
-                        <img src="' . htmlspecialchars($logo, ENT_QUOTES, 'UTF-8') . '" class="rx-logo">
-                    </td>
-                </tr>
-            </table>
-        </div>
-
+    $html = $membrete . '
         <div class="rx-content">
         <table class="rx-patient">
             <tr>

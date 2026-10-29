@@ -37,6 +37,7 @@ function valorFA()            { return valorAleatorioEscalado(80, 145, 1); }
 function valorCol()           { return valorAleatorioEscalado(110, 165, 1); }
 function valorTri()           { return valorAleatorioEscalado(88, 116, 1); }
 function valorHDL()           { return valorAleatorioEscalado(46, 56, 1); }
+function valorHbA1c()         { return valorAleatorioEscalado(2.6, 3.0, 0.1); }
 
 function valorPlaqueta()      { return valorAleatorioEscalado(200000, 400000, 1000); }
 function valorHematocrito()   { return valorAleatorioEscalado(43, 46, 0.1); }
