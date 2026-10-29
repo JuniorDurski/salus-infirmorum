@@ -4,10 +4,12 @@ $usuarioAutenticado = requerirAlgunPermiso($conexion, [
     'postulantes_atencion.ver', 'postulantes_atencion.asignar',
     'postulantes_atencion.iniciar', 'postulantes_atencion.sincronizar',
     'postulantes_atencion.atender', 'postulantes_atencion.comentar',
-    'postulantes_atencion.pagar', 'postulantes_atencion.exportar',
+    'postulantes_atencion.pagar', 'postulantes_atencion.estado',
+    'postulantes_atencion.exportar',
 ]);
 $puedeCrearAsignacion = tienePermiso($usuarioAutenticado, 'postulantes_atencion.asignar');
 $puedeSincronizar = tienePermiso($usuarioAutenticado, 'postulantes_atencion.sincronizar');
+$puedeCambiarEstado = tienePermiso($usuarioAutenticado, 'postulantes_atencion.estado');
 $tituloPagina = 'Asignaciones de atención';
 include 'menu.php';
 ?>
@@ -54,7 +56,7 @@ include 'menu.php';
 
 <section class="card">
     <div class="card-header">
-        <div><h2>Jornadas</h2><p class="help-text" id="resumenAsignaciones">Cargando…</p></div>
+        <div><h2>Jornadas activas</h2><p class="help-text" id="resumenAsignaciones">Cargando…</p></div>
         <div class="header-actions"><input type="date" id="filtroFecha" aria-label="Filtrar por fecha"><button class="btn-secondary" type="button" onclick="filtroFecha.value='';cargarAsignaciones()">Ver todas</button></div>
     </div>
     <div class="table-wrap"><table class="data-table">
@@ -79,6 +81,18 @@ include 'menu.php';
     </table></div>
 </section>
 
+<?php if ($puedeCambiarEstado): ?>
+<section class="card attention-disabled-section">
+    <div class="card-header">
+        <div><span class="eyebrow">Historial recuperable</span><h2>Asignaciones desactivadas</h2><p class="help-text" id="resumenAsignacionesDesactivadas">Cargando…</p></div>
+    </div>
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr><th>Fecha</th><th>Escuelas</th><th>Profesionales</th><th>Postulantes atendidos</th><th>Liquidación</th><th></th></tr></thead>
+        <tbody id="tablaAsignacionesDesactivadas"></tbody>
+    </table></div>
+</section>
+<?php endif; ?>
+
 <dialog class="modal" id="modalEstudios">
     <div class="modal-header"><div><span class="eyebrow">Atención</span><h2 id="estudiosTitulo">Estudios del postulante</h2></div><button class="icon-button" type="button" onclick="modalEstudios.close()" aria-label="Cerrar">×</button></div>
     <div class="modal-body"><div class="checks" id="estudiosContenido"></div></div>
@@ -101,8 +115,9 @@ include 'menu.php';
 <script>
 const puedeCrearAsignacion = <?= $puedeCrearAsignacion ? 'true' : 'false' ?>;
 const puedeSincronizarAsignaciones = <?= $puedeSincronizar ? 'true' : 'false' ?>;
+const puedeCambiarEstadoAsignaciones = <?= $puedeCambiarEstado ? 'true' : 'false' ?>;
 let catalogos={escuelas:[],usuarios:[],estudios:[],permisos:{},hoy:''};
-let asignaciones=[], detalleActual=null, postulanteEstudiosActual=null, postulanteObservacionActual=null;
+let asignaciones=[], asignacionesDesactivadas=[], detalleActual=null, postulanteEstudiosActual=null, postulanteObservacionActual=null;
 const esc=v=>Salus.escape(v??'');
 
 async function iniciarAtenciones(){
@@ -111,6 +126,7 @@ async function iniciarAtenciones(){
         filtroFecha.value=catalogos.hoy;
         if(puedeCrearAsignacion){fechaAsignacion.value=catalogos.hoy;renderSelectores();}
         await cargarAsignaciones();
+        if(puedeCambiarEstadoAsignaciones)await cargarAsignacionesDesactivadas();
     }catch(e){Salus.toast(e.message,'error');}
 }
 
@@ -137,7 +153,22 @@ async function cargarAsignaciones(){
 
 function renderAsignaciones(){
     resumenAsignaciones.textContent=`${asignaciones.length} jornada(s)`;
-    tablaAsignaciones.innerHTML=asignaciones.length?asignaciones.map(a=>`<tr class="${detalleActual&&Number(detalleActual.id_asignar_atencion)===Number(a.id_asignar_atencion)?'selected-row':''}"><td><strong>${esc(a.fecha)}</strong><br><small>#${a.id_asignar_atencion}</small></td><td>${esc(a.escuelas||'—')}</td><td>${esc(a.profesionales||'—')}</td><td><strong>${a.atendidos}/${a.total}</strong><br><small>atendidos / total</small></td><td>${a.pago_realizado?'<span class="badge badge-success">Pago total realizado</span>':`<span class="badge badge-muted">${a.pagados}/${a.total} pagados</span>`}</td><td><button class="btn-small btn-secondary" onclick="abrirDetalle(${a.id_asignar_atencion})">Abrir jornada</button></td></tr>`).join(''):'<tr><td colspan="6" class="empty-state">No hay asignaciones para este filtro.</td></tr>';
+    tablaAsignaciones.innerHTML=asignaciones.length?asignaciones.map(a=>`<tr class="${detalleActual&&Number(detalleActual.id_asignar_atencion)===Number(a.id_asignar_atencion)?'selected-row':''}"><td><strong>${esc(a.fecha)}</strong><br><small>#${a.id_asignar_atencion}</small></td><td>${esc(a.escuelas||'—')}</td><td>${esc(a.profesionales||'—')}</td><td><strong>${a.atendidos}/${a.total}</strong><br><small>atendidos / total</small></td><td>${a.pago_realizado?'<span class="badge badge-success">Pago total realizado</span>':`<span class="badge badge-muted">${a.pagados}/${a.total} pagados</span>`}</td><td><div class="table-actions"><button class="btn-small btn-secondary" onclick="abrirDetalle(${a.id_asignar_atencion})">Abrir jornada</button>${puedeCambiarEstadoAsignaciones?`<button class="btn-small btn-danger" onclick="cambiarEstadoAsignacion(${a.id_asignar_atencion},0)">Desactivar</button>`:''}</div></td></tr>`).join(''):'<tr><td colspan="6" class="empty-state">No hay asignaciones activas para este filtro.</td></tr>';
+}
+
+async function cargarAsignacionesDesactivadas(){
+    if(!puedeCambiarEstadoAsignaciones)return;
+    try{
+        const respuesta=await Salus.json('backend/atencionesDAO.php?q=listar&estado=desactivadas');
+        asignacionesDesactivadas=respuesta.asignaciones;renderAsignacionesDesactivadas();
+    }catch(e){Salus.toast(e.message,'error');}
+}
+
+function renderAsignacionesDesactivadas(){
+    resumenAsignacionesDesactivadas.textContent=`${asignacionesDesactivadas.length} jornada(s)`;
+    tablaAsignacionesDesactivadas.innerHTML=asignacionesDesactivadas.length
+        ?asignacionesDesactivadas.map(a=>`<tr><td><strong>${esc(a.fecha)}</strong><br><small>#${a.id_asignar_atencion}</small></td><td>${esc(a.escuelas||'—')}</td><td>${esc(a.profesionales||'—')}</td><td><strong>${a.atendidos}/${a.total}</strong><br><small>atendidos / total</small></td><td>${a.pago_realizado?'<span class="badge badge-success">Pago total realizado</span>':`<span class="badge badge-muted">${a.pagados}/${a.total} pagados</span>`}</td><td><button class="btn-small" onclick="cambiarEstadoAsignacion(${a.id_asignar_atencion},1)">Reactivar</button></td></tr>`).join('')
+        :'<tr><td colspan="6" class="empty-state">No hay asignaciones desactivadas.</td></tr>';
 }
 
 function nuevaAsignacion(){
@@ -182,6 +213,7 @@ function renderDetalle(){
     let acciones='';
     if(catalogos.permisos.asignar&&!a.pago_realizado)acciones+='<button class="btn-secondary" onclick="editarCabecera()">Editar asignación</button>';
     if(catalogos.permisos.iniciar&&!a.pago_realizado)acciones+=`<button onclick="accionCabecera('inicio',{empieza_atender:${a.empieza_atender?0:1}})">${a.empieza_atender?'Pausar atención':'Empezar a atender'}</button>`;
+    if(catalogos.permisos.estado)acciones+=`<button class="btn-danger" onclick="cambiarEstadoAsignacion(${a.id_asignar_atencion},0)">Desactivar asignación</button>`;
     ['xls','csv','txt','json'].forEach(formato=>acciones+=`<a class="btn btn-secondary btn-small" href="backend/atencionesExportar.php?id=${a.id_asignar_atencion}&formato=${formato}">${formato==='xls'?'Excel':formato.toUpperCase()}</a>`);
     acciones+=a.pago_realizado?'<span class="badge badge-success">Jornada pagada · solo lectura</span>':a.empieza_atender?'<span class="badge badge-success">Atención habilitada</span>':'<span class="badge badge-muted">En espera</span>';
     accionesJornada.innerHTML=acciones;
@@ -207,7 +239,7 @@ function comentariosDe(postulante){
 }
 
 function puedeComentarActual(){
-    return !detalleActual.pago_realizado&&catalogos.permisos.comentar&&(detalleActual.editable_profesional||catalogos.permisos.asignar||catalogos.permisos.iniciar||catalogos.permisos.sincronizar||catalogos.permisos.pagar);
+    return !detalleActual.pago_realizado&&catalogos.permisos.comentar&&(detalleActual.editable_profesional||catalogos.permisos.asignar||catalogos.permisos.iniciar||catalogos.permisos.sincronizar||catalogos.permisos.pagar||catalogos.permisos.estado);
 }
 
 function renderEstudiosFila(postulante,puedeAtender){
@@ -248,6 +280,17 @@ async function accionCabecera(accion,extra={}){
     try{
         const respuesta=await Salus.json(`backend/atencionesDAO.php?q=${accion}`,{method:'POST',body:Salus.form({id_asignar_atencion:detalleActual.id_asignar_atencion,...extra})});
         Salus.toast(respuesta.mensaje);await cargarAsignaciones();await abrirDetalle(detalleActual.id_asignar_atencion,false);
+    }catch(e){Salus.toast(e.message,'error');}
+}
+
+async function cambiarEstadoAsignacion(id,activo){
+    if(!puedeCambiarEstadoAsignaciones)return;
+    if(!activo&&!confirm('¿Desactivar esta asignación? Dejará de mostrarse y la atención quedará pausada.'))return;
+    try{
+        const respuesta=await Salus.json('backend/atencionesDAO.php?q=estado',{method:'POST',body:Salus.form({id_asignar_atencion:id,activo})});
+        Salus.toast(respuesta.mensaje);
+        if(!activo&&detalleActual&&Number(detalleActual.id_asignar_atencion)===Number(id))cerrarDetalle();
+        await Promise.all([cargarAsignaciones(),cargarAsignacionesDesactivadas()]);
     }catch(e){Salus.toast(e.message,'error');}
 }
 

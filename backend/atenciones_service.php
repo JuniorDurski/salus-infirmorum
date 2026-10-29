@@ -23,13 +23,20 @@ function esGestorAtenciones(array $identidad): bool
 {
     // Sincronizar o iniciar no concede visibilidad global. Un profesional puede
     // ejecutar esas acciones y aun así debe ver solamente sus asignaciones.
-    foreach (['postulantes_atencion.asignar', 'postulantes_atencion.pagar'] as $permiso) {
+    foreach (['postulantes_atencion.asignar', 'postulantes_atencion.pagar',
+              'postulantes_atencion.estado'] as $permiso) {
         if (tienePermiso($identidad, $permiso)) return true;
     }
     return false;
 }
 
-function obtenerAsignacion(mysqli $db, int $id, array $identidad, bool $bloquear = false): array
+function obtenerAsignacion(
+    mysqli $db,
+    int $id,
+    array $identidad,
+    bool $bloquear = false,
+    bool $permitirInactiva = false
+): array
 {
     $sql = "SELECT a.*, u.nombre AS creado_por_nombre,
                    EXISTS(SELECT 1 FROM postulantes_asignar_atencion_usuarios au
@@ -44,6 +51,9 @@ function obtenerAsignacion(mysqli $db, int $id, array $identidad, bool $bloquear
     $stmt->execute();
     $asignacion = $stmt->get_result()->fetch_assoc();
     if (!$asignacion) responderJson(['status' => 'error', 'mensaje' => 'La asignación no existe.'], 404);
+    if ((int) $asignacion['activo'] !== 1 && !$permitirInactiva) {
+        responderJson(['status' => 'error', 'mensaje' => 'La asignación está desactivada.'], 404);
+    }
 
     if (!esGestorAtenciones($identidad)) {
         $hoy = date('Y-m-d');
@@ -57,7 +67,8 @@ function obtenerAsignacion(mysqli $db, int $id, array $identidad, bool $bloquear
 
 function asignacionEditablePorProfesional(array $asignacion): bool
 {
-    return (int) $asignacion['usuario_asignado'] === 1
+    return (int) $asignacion['activo'] === 1
+        && (int) $asignacion['usuario_asignado'] === 1
         && (int) $asignacion['empieza_atender'] === 1
         && (int) $asignacion['pago_realizado'] === 0
         && $asignacion['fecha'] <= date('Y-m-d');
@@ -75,6 +86,7 @@ function sincronizarAsignacion(mysqli $db, int $idAsignacion): int
                  ON ae.id_asignar_atencion = a.id_asignar_atencion
          INNER JOIN pacientes p ON p.id_escuela = ae.id_escuela
          WHERE a.id_asignar_atencion = ?
+           AND a.activo = 1
            AND p.activo = 1
            AND DATE(p.creado_en) = a.fecha"
     );
@@ -124,7 +136,7 @@ function recalcularEstadosAsignacion(mysqli $db, int $idAsignacion): void
 function obtenerDetalleAsignacion(mysqli $db, int $id, array $identidad): array
 {
     $asignacion = obtenerAsignacion($db, $id, $identidad);
-    foreach (['empieza_atender', 'pago_realizado', 'usuario_asignado'] as $campo) {
+    foreach (['empieza_atender', 'pago_realizado', 'activo', 'usuario_asignado'] as $campo) {
         $asignacion[$campo] = (int) $asignacion[$campo];
     }
 

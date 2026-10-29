@@ -197,6 +197,7 @@ table { border-collapse: collapse; }
 .payment-panel { margin-top: 18px; padding: 17px; border: 1px solid var(--border); border-radius: 12px; background: var(--primary-soft); }
 .payment-panel h3 { margin-top: 0; }
 .attention-workspace { margin-top: 20px; }
+.attention-disabled-section { margin-top: 20px; }
 .attention-workspace-actions { display: flex; align-items: end; gap: 10px; }
 .status-filter { display: grid; gap: 4px; min-width: 150px; }
 .status-filter span { color: var(--muted); font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
@@ -239,16 +240,18 @@ table { border-collapse: collapse; }
 .auth-panel > p { margin-top: 0; color: var(--muted); }
 .auth-logo { display: block; width: 155px; max-height: 80px; object-fit: contain; object-position: left center; margin-bottom: 18px; }
 .auth-panel button[type="submit"] { width: 100%; margin-top: 8px; }
-.public-query-page { min-height: 100vh; padding: 32px 18px; background: radial-gradient(circle at 10% 10%, #d9efe9, transparent 35%), var(--bg); }
+.public-query-page { min-height: 100vh; padding: 32px 18px; overflow-x: hidden; background: radial-gradient(circle at 10% 10%, #d9efe9, transparent 35%), var(--bg); }
 .public-query-shell { width: min(900px, 100%); margin: 0 auto; }
-.public-query-card { padding: clamp(22px, 5vw, 42px); }
+.public-query-card { padding: clamp(22px, 5vw, 42px); overflow: hidden; }
 .public-query-brand { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
 .public-query-brand img { width: 64px; height: 64px; object-fit: contain; }
-.public-query-brand h1 { margin: 3px 0 0; }
+.public-query-brand h1 { margin: 3px 0 0; font-size: clamp(1.65rem, 4vw, 2.2rem); line-height: 1.12; }
 .query-result-header { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin: 28px 0 13px; padding-top: 22px; border-top: 1px solid var(--border); }
 .query-result-header h2, .query-result-header p { margin: 3px 0; }
+.query-result-summary { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
 .public-study-list { display: grid; gap: 9px; }
-.public-study-list > div { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 11px; padding: 14px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-2); }
+.public-study-list > article { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 11px; margin: 0; padding: 14px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-2); }
+.public-study-list strong { overflow-wrap: anywhere; }
 .public-study-list small { display: block; margin-top: 3px; }
 .status-dot { width: 11px; height: 11px; border-radius: 50%; background: var(--danger); }
 .status-dot.done { background: var(--success); }
@@ -278,9 +281,24 @@ table { border-collapse: collapse; }
     .comment-form { grid-template-columns: 1fr; }
     .page-header { align-items: flex-start; flex-direction: column; }
     .header-actions, .search-box, .header-actions .search-box { width: 100%; }
+    .public-query-page { padding: 18px 12px; }
+    .public-query-card { padding: 24px 20px; }
+    .public-query-actions { display: grid; grid-template-columns: 1fr; }
+    .public-query-actions > * { width: 100%; }
+    .query-result-header { align-items: flex-start; flex-direction: column; }
+    .query-result-summary { justify-content: flex-start; }
 }
 @media (max-width: 520px) {
     .stats-grid { grid-template-columns: 1fr; }
     .card, .panel-seguridad, .auth-panel { padding: 18px; border-radius: 13px; }
     .topbar-actions .theme-label { display: none; }
+    .public-query-page { padding: 0; background: var(--surface); }
+    .public-query-shell { min-height: 100vh; }
+    .public-query-card { min-height: 100vh; padding: 22px 16px; border: 0; border-radius: 0; box-shadow: none; }
+    .public-query-brand { align-items: flex-start; gap: 12px; }
+    .public-query-brand img { width: 48px; height: 48px; }
+    .public-query-brand h1 { font-size: 1.55rem; }
+    .public-query-card input, .public-query-card select { font-size: 16px; }
+    .public-study-list > article { grid-template-columns: auto minmax(0, 1fr); align-items: start; padding: 12px; }
+    .public-study-list > article > .badge { grid-column: 2; justify-self: start; }
 }

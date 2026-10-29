@@ -10,7 +10,7 @@ $identidad = requerirAlgunPermiso($conexion, [
     'postulantes_atencion.ver', 'postulantes_atencion.asignar',
     'postulantes_atencion.iniciar', 'postulantes_atencion.sincronizar',
     'postulantes_atencion.atender', 'postulantes_atencion.comentar',
-    'postulantes_atencion.pagar',
+    'postulantes_atencion.pagar', 'postulantes_atencion.estado',
     'postulantes_atencion.exportar',
 ], true);
 
@@ -30,6 +30,7 @@ try {
         case 'atender': atenderPostulante($conexion, $identidad); break;
         case 'comentar': comentarAtencion($conexion, $identidad); break;
         case 'pagar': pagarAsignacion($conexion, $identidad); break;
+        case 'estado': cambiarEstadoAsignacion($conexion, $identidad); break;
         default: responderJson(['status' => 'error', 'mensaje' => 'Operación no válida.'], 400);
     }
 } catch (mysqli_sql_exception $e) {
@@ -68,7 +69,7 @@ function catalogosAtencion(mysqli $db, array $identidad): void
          ORDER BY u.nombre"
     )->fetch_all(MYSQLI_ASSOC);
     $permisos = [];
-    foreach (['asignar', 'iniciar', 'sincronizar', 'atender', 'comentar', 'pagar'] as $accion) {
+    foreach (['asignar', 'iniciar', 'sincronizar', 'atender', 'comentar', 'pagar', 'estado'] as $accion) {
         $permisos[$accion] = tienePermiso($identidad, 'postulantes_atencion.' . $accion);
     }
     $permisos['exportar'] = true;
@@ -78,9 +79,16 @@ function catalogosAtencion(mysqli $db, array $identidad): void
 
 function listarAsignaciones(mysqli $db, array $identidad): void
 {
-    $where = [];
-    $params = [];
-    $types = '';
+    $filtroEstado = (string) ($_GET['estado'] ?? 'activas');
+    if (!in_array($filtroEstado, ['activas', 'desactivadas'], true)) {
+        responderJson(['status' => 'error', 'mensaje' => 'Estado de asignación no válido.'], 400);
+    }
+    if ($filtroEstado === 'desactivadas') {
+        exigirPermisoAtencion($identidad, 'postulantes_atencion.estado');
+    }
+    $where = ['a.activo = ?'];
+    $params = [$filtroEstado === 'activas' ? 1 : 0];
+    $types = 'i';
     $fecha = trim((string) ($_GET['fecha'] ?? ''));
     if ($fecha !== '') {
         if (!fechaIsoValida($fecha)) responderJson(['status' => 'error', 'mensaje' => 'Fecha no válida.'], 400);
@@ -92,7 +100,7 @@ function listarAsignaciones(mysqli $db, array $identidad): void
                     AND (a.fecha < CURDATE() OR (a.fecha = CURDATE() AND a.empieza_atender = 1))";
         $params[] = (int) $identidad['id_usuario']; $types .= 'i';
     }
-    $sql = "SELECT a.id_asignar_atencion, a.fecha, a.empieza_atender, a.pago_realizado,
+    $sql = "SELECT a.id_asignar_atencion, a.fecha, a.empieza_atender, a.pago_realizado, a.activo,
                    a.creado_en, u.nombre AS creado_por_nombre,
                    (SELECT GROUP_CONCAT(e.nombre ORDER BY e.nombre SEPARATOR ' · ')
                     FROM postulantes_asignar_atencion_escuelas ae
@@ -126,7 +134,7 @@ function listarAsignaciones(mysqli $db, array $identidad): void
     $stmt->execute();
     $datos = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
     foreach ($datos as &$dato) {
-        foreach (['id_asignar_atencion', 'empieza_atender', 'pago_realizado', 'total', 'atendidos', 'pagados'] as $campo) $dato[$campo] = (int) $dato[$campo];
+        foreach (['id_asignar_atencion', 'empieza_atender', 'pago_realizado', 'activo', 'total', 'atendidos', 'pagados'] as $campo) $dato[$campo] = (int) $dato[$campo];
     }
     responderJson(['status' => 'ok', 'asignaciones' => $datos]);
 }
@@ -213,7 +221,7 @@ function sincronizarDia(mysqli $db, array $identidad): void
     exigirPermisoAtencion($identidad, 'postulantes_atencion.sincronizar');
     $fecha = trim((string) ($_POST['fecha'] ?? date('Y-m-d')));
     if (!fechaIsoValida($fecha)) responderJson(['status' => 'error', 'mensaje' => 'Fecha no válida.'], 400);
-    $stmt = $db->prepare('SELECT id_asignar_atencion FROM postulantes_asignar_atencion WHERE fecha = ?');
+    $stmt = $db->prepare('SELECT id_asignar_atencion FROM postulantes_asignar_atencion WHERE fecha = ? AND activo = 1');
     $stmt->bind_param('s', $fecha); $stmt->execute();
     $total = 0; $cabeceras = 0;
     foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $fila) {
@@ -298,6 +306,37 @@ function comentarAtencion(mysqli $db, array $identidad): void
     $stmt->bind_param('si', $contenido, $id); $stmt->execute();
     $db->commit();
     responderJson(['status' => 'ok', 'mensaje' => 'Comentario agregado.']);
+}
+
+function cambiarEstadoAsignacion(mysqli $db, array $identidad): void
+{
+    exigirPermisoAtencion($identidad, 'postulantes_atencion.estado');
+    $id = (int) ($_POST['id_asignar_atencion'] ?? 0);
+    $valor = (string) ($_POST['activo'] ?? '');
+    if ($id <= 0 || !in_array($valor, ['0', '1'], true)) {
+        responderJson(['status' => 'error', 'mensaje' => 'Estado de asignación no válido.'], 400);
+    }
+
+    $activo = (int) $valor;
+    $db->begin_transaction();
+    $asignacion = obtenerAsignacion($db, $id, $identidad, true, true);
+    if ((int) $asignacion['activo'] !== $activo) {
+        $stmt = $db->prepare(
+            'UPDATE postulantes_asignar_atencion
+             SET activo = ?, empieza_atender = IF(? = 0, 0, empieza_atender)
+             WHERE id_asignar_atencion = ?'
+        );
+        $stmt->bind_param('iii', $activo, $activo, $id);
+        $stmt->execute();
+    }
+    $db->commit();
+
+    responderJson([
+        'status' => 'ok',
+        'mensaje' => $activo
+            ? 'Asignación reactivada. La atención permanece pausada hasta que vuelva a habilitarla.'
+            : 'Asignación desactivada y atención pausada.',
+    ]);
 }
 
 function pagarAsignacion(mysqli $db, array $identidad): void

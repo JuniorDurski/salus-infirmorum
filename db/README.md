@@ -103,7 +103,7 @@ conservan para no destruir información existente.
 como un único historial de observaciones identificado solamente por usuario y
 fecha. El estado de cada estudio se conserva normalizado en
 `postulantes_atencion_estudios`, lo que permite la consulta pública de solo
-lectura mediante documento y escuela.
+lectura mediante documento y fecha de atención.
 
 ## Nombres normalizados
 
@@ -119,3 +119,11 @@ Desde `V13`, `postulantes_atencion.atendido` es un estado derivado: vale `1`
 solamente cuando el postulante tiene al menos un estudio y todos sus checks
 están realizados. Al desmarcar cualquier estudio vuelve a `0`. La migración
 también corrige los registros históricos para aplicar la misma regla.
+
+## Estado de las asignaciones
+
+La migración `V14` agrega el estado reversible `activo` a las asignaciones y el
+permiso `postulantes_atencion.estado`. Una asignación desactivada queda pausada,
+no aparece en las jornadas operativas, no se sincroniza ni puede abrirse o
+exportarse. Sus datos se conservan y un usuario autorizado puede restaurarla
+desde la sección de asignaciones desactivadas.
