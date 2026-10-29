@@ -42,3 +42,13 @@ se resuelve contra la lista permitida de `backend/calculos/RegistroCalculos.php`
 Para agregar un cálculo se crea el callable en ese registro y una migración que
 asigne su clave a la plantilla. Los resultados momentáneos quedan agrupados en
 el JSON de `resultados_estudio` y se reutilizan en impresiones posteriores.
+
+## Acceso inicial
+
+La migración `V6` crea el usuario `admin` con una contraseña temporal.
+`clave_predeterminada = 1` impide acceder al sistema hasta que el administrador
+la reemplace desde `cambiar_clave.php`.
+
+Las firmas, sellos y fotos no se reciben como URLs escritas manualmente. El
+endpoint de carga valida JPG, PNG o WEBP (máximo 5 MB), guarda el archivo bajo
+`uploads/` con un nombre aleatorio y persiste su ruta relativa en la base.

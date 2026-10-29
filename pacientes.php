@@ -1,5 +1,6 @@
 <?php
 include "conexion.php";
+$usuarioAutenticado = requerirAutenticacion($conexion, 'pacientes.ver');
 include "menu.php";
 ?>
 
@@ -20,6 +21,7 @@ include "menu.php";
             </thead>
 
             <input type="hidden" name="id_paciente" id="id_paciente">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(tokenCsrf(), ENT_QUOTES) ?>">
 
             <tr>
                 <th align="left" colspan="3">
@@ -86,8 +88,10 @@ include "menu.php";
                     <input type="tel" name="telefono" id="telefono" placeholder="+595981123456">
                 </th>
                 <th align="left">
-                    <b>URL de foto</b><br>
-                    <input type="url" name="url_foto" id="url_foto">
+                    <b>Foto del paciente</b><br>
+                    <input type="hidden" name="url_foto" id="url_foto">
+                    <input type="file" id="foto_paciente" accept="image/jpeg,image/png,image/webp">
+                    <img id="vista_foto" src="" alt="Foto" width="80" style="display:none; margin-top:5px;">
                 </th>
             </tr>
 
@@ -181,23 +185,34 @@ function cargar() {
 }
 
 /* ================= GUARDAR ================= */
-frmPostulante.onsubmit = function(e){
+frmPostulante.onsubmit = async function(e){
     e.preventDefault();
     let fd = new FormData(this);
 
-    fetch(url + "?q=guardar", {
+    const respuesta = await fetch(url + "?q=guardar", {
         method: "POST",
         body: fd
-    })
-    .then(r => r.json())
-    .then(res => {
-        if (res.status == "ok") {
-            limpiar();
-            cargar();
-        } else {
-            alert(res.mensaje);
-        }
     });
+    const res = await respuesta.json();
+    if (res.status == "ok") {
+        if (foto_paciente.files[0]) {
+            const foto = new FormData();
+            foto.append('tipo', 'paciente_foto');
+            foto.append('id_paciente', res.id_paciente);
+            foto.append('archivo', foto_paciente.files[0]);
+            foto.append('csrf_token', csrfMenu);
+            const respuestaFoto = await fetch('backend/uploadDAO.php', { method: 'POST', body: foto });
+            const resultadoFoto = await respuestaFoto.json();
+            if (resultadoFoto.status !== 'ok') {
+                alert(resultadoFoto.mensaje);
+                return;
+            }
+        }
+        limpiar();
+        cargar();
+    } else {
+        alert(res.mensaje);
+    }
 };
 
 /* ================= EDITAR ================= */
@@ -213,6 +228,8 @@ function editar(p) {
     id_pais.value = p.id_pais ?? '';
     telefono.value = p.telefono ?? '';
     url_foto.value = p.url_foto ?? '';
+    vista_foto.src = p.url_foto || '';
+    vista_foto.style.display = p.url_foto ? 'block' : 'none';
 }
 
 
@@ -222,6 +239,7 @@ function eliminar(id) {
 
     let fd = new FormData();
     fd.append("id", id);
+    fd.append("csrf_token", csrfMenu);
 
     fetch(url + "?q=eliminar", {
         method: "POST",
@@ -238,6 +256,8 @@ function limpiar() {
     frmPostulante.reset();
     id_paciente.value = "";
     codigo.value = "";
+    url_foto.value = "";
+    vista_foto.style.display = 'none';
 }
 
 

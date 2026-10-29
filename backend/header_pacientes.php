@@ -1,5 +1,8 @@
 <?php
 
+require_once __DIR__ . '/seguridad.php';
+requerirAutenticacion($conexion, 'reportes.imprimir');
+
 $listaIds = [];
 
 if (isset($id) && $id !== null && $id !== '') {

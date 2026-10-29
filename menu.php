@@ -1,3 +1,6 @@
+<?php
+$identidadMenu = $usuarioAutenticado ?? requerirAutenticacion($conexion);
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -7,6 +10,7 @@
 
 <script>
     const urlMenu = "backend/usuariosDAO.php";
+    const csrfMenu = <?= json_encode(tokenCsrf()) ?>;
     let oscuro = false;
 
     window.onload = function () {
@@ -31,8 +35,6 @@
             cuerpo.link = "lime";
             cuerpo.vLink = "lime";
             cuerpo.aLink = "lime";
-            cuerpo.inp
-
             menu.color = "lime"; // cambiar menú a verde
 
             logo.src = "images/icono_menu_oscuro.png";
@@ -54,7 +56,9 @@
     }
 
     function cambiarModo() {
-        fetch(urlMenu + "?q=cambiar_fuente")
+        const datos = new FormData();
+        datos.append('csrf_token', csrfMenu);
+        fetch(urlMenu + "?q=cambiar_fuente", { method: 'POST', body: datos })
             .then(r => r.json())
             .then(res => {
                 if (res.status === 'error') {
@@ -68,7 +72,10 @@
 
     function cargarMenu() {
         fetch('backend/menusDAO.php')
-            .then(r => r.json())
+            .then(r => {
+                if (r.status === 401) location.href = 'login.php';
+                return r.json();
+            })
             .then(menus => {
                 const contenedor = document.getElementById('opciones-menu');
                 contenedor.innerHTML = menus.map(renderMenu).join('');
@@ -95,8 +102,10 @@
     }
 
     function cerrarSesion() {
-        fetch(urlMenu + '?q=logout')
-            .then(() => location.href = 'index.php');
+        const datos = new FormData();
+        datos.append('csrf_token', csrfMenu);
+        fetch(urlMenu + '?q=logout', { method: 'POST', body: datos })
+            .then(() => location.href = 'login.php');
     }
 
     function aplicarModoCampos(esOscuro) {
@@ -189,6 +198,11 @@
                 </tr>
             </table>
 
+        </td>
+        <td align="right" nowrap>
+            <strong><?= htmlspecialchars($identidadMenu['nombre']) ?></strong><br>
+            <small>@<?= htmlspecialchars($identidadMenu['usuario']) ?> |
+                <?= htmlspecialchars(implode(', ', $identidadMenu['roles'])) ?></small>
         </td>
     </tr>
 </table>

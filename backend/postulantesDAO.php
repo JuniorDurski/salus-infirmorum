@@ -2,8 +2,16 @@
 
 header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/conexion.php';
+require_once __DIR__ . '/seguridad.php';
 
 $q = $_GET['q'] ?? '';
+
+if (in_array($q, ['listar', 'buscar'], true)) {
+    requerirAutenticacion($conexion, 'pacientes.ver', true);
+} else {
+    requerirAutenticacion($conexion, 'pacientes.editar', true);
+    validarCsrf();
+}
 
 try {
     switch ($q) {
@@ -109,7 +117,8 @@ function guardarPaciente(mysqli $conexion): void
     if ($telefono !== null && !preg_match('/^\+[1-9][0-9]{7,14}$/', $telefono)) {
         responderPacienteError('El teléfono debe usar formato internacional, por ejemplo +595981123456.');
     }
-    if ($urlFoto !== null && filter_var($urlFoto, FILTER_VALIDATE_URL) === false) {
+    $esRutaLocal = $urlFoto !== null && preg_match('#^uploads/pacientes/[0-9]+/[a-f0-9]{32}\.(jpg|png|webp)$#', $urlFoto);
+    if ($urlFoto !== null && !$esRutaLocal && filter_var($urlFoto, FILTER_VALIDATE_URL) === false) {
         responderPacienteError('La URL de la foto no es válida.');
     }
 
@@ -139,7 +148,7 @@ function guardarPaciente(mysqli $conexion): void
     }
 
     $stmt->execute();
-    echo json_encode(['status' => 'ok']);
+    echo json_encode(['status' => 'ok', 'id_paciente' => $id > 0 ? $id : $conexion->insert_id]);
 }
 
 function cambiarEstadoPaciente(mysqli $conexion, bool $activar): void

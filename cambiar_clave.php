@@ -1,0 +1,57 @@
+<?php
+
+require_once __DIR__ . '/backend/conexion.php';
+require_once __DIR__ . '/backend/seguridad.php';
+$identidad = requerirAutenticacion($conexion, null, false, true);
+?>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Cambiar contraseña | Salus Infirmorum</title>
+    <link rel="stylesheet" href="css/seguridad.css">
+</head>
+<body class="seguridad">
+<main class="auth-contenedor">
+    <section class="auth-panel">
+        <h1>Cambiar contraseña</h1>
+        <p>Usuario: <strong><?= htmlspecialchars($identidad['usuario']) ?></strong></p>
+        <?php if ($identidad['clave_predeterminada']): ?>
+            <p>Debe reemplazar la contraseña temporal antes de continuar.</p>
+        <?php endif; ?>
+        <form id="formClave">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(tokenCsrf(), ENT_QUOTES) ?>">
+            <div class="campo">
+                <label for="clave_actual">Contraseña actual</label>
+                <input type="password" id="clave_actual" name="clave_actual" required autocomplete="current-password">
+            </div>
+            <div class="campo">
+                <label for="clave_nueva">Nueva contraseña</label>
+                <input type="password" id="clave_nueva" name="clave_nueva" required autocomplete="new-password">
+                <small>Puede utilizar cualquier contraseña que no esté vacía.</small>
+            </div>
+            <div class="campo">
+                <label for="clave_confirmacion">Confirmar nueva contraseña</label>
+                <input type="password" id="clave_confirmacion" name="clave_confirmacion" required autocomplete="new-password">
+            </div>
+            <div id="mensaje" class="mensaje"></div>
+            <button class="boton" type="submit">Guardar contraseña</button>
+        </form>
+    </section>
+</main>
+<script>
+document.getElementById('formClave').addEventListener('submit', async function (evento) {
+    evento.preventDefault();
+    const mensaje = document.getElementById('mensaje');
+    const respuesta = await fetch('backend/usuariosDAO.php?q=cambiar_clave', { method: 'POST', body: new FormData(this) });
+    const datos = await respuesta.json();
+    if (!respuesta.ok || datos.status !== 'ok') {
+        mensaje.textContent = datos.mensaje || 'No se pudo cambiar la contraseña.';
+        return;
+    }
+    location.href = datos.redirect || 'index.php';
+});
+</script>
+</body>
+</html>

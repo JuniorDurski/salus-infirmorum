@@ -1,5 +1,6 @@
 <?php
 include "conexion.php";
+$usuarioAutenticado = requerirAutenticacion($conexion, 'reportes.imprimir');
 include "menu.php";
 ?>
 

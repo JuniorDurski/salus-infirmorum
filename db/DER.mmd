@@ -71,10 +71,14 @@ erDiagram
 
     USUARIOS {
         INT id_usuario PK
+        VARCHAR usuario UK
         VARCHAR nombre
         VARCHAR ci UK
         VARCHAR correo UK
         VARCHAR clave_hash
+        BOOLEAN clave_predeterminada
+        INT version_sesion
+        DATETIME ultimo_login_en
         BOOLEAN activo
         DATETIME creado_en
         DATETIME actualizado_en

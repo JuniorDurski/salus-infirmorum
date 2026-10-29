@@ -4,7 +4,8 @@ include "menu.php";
 ?>
 
 <center>
-	<h1>C:\User\Junior_Gabriel_Rotela> HOLA MUNDO</h1>
+	<h1>C:\User\<?= htmlspecialchars($usuarioAutenticado['usuario']) ?>> BIENVENIDO</h1>
+	<h2><?= htmlspecialchars($usuarioAutenticado['nombre']) ?></h2>
 	<img src="images/hola_mundo.png" height="500">
 </center>
 

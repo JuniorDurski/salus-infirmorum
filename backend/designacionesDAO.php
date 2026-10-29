@@ -2,8 +2,16 @@
 
 header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/conexion.php';
+require_once __DIR__ . '/seguridad.php';
 
 $q = $_GET['q'] ?? '';
+
+if ($q === 'listar') {
+    requerirAutenticacion($conexion, 'escuelas.ver', true);
+} else {
+    requerirAutenticacion($conexion, 'escuelas.editar', true);
+    validarCsrf();
+}
 
 try {
     switch ($q) {

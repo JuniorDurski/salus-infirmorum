@@ -1,4 +1,8 @@
 <?php
+require_once __DIR__ . '/../backend/conexion.php';
+require_once __DIR__ . '/../backend/seguridad.php';
+requerirAutenticacion($conexion, 'reportes.imprimir');
+
 // ==========================
 // RECIBIR DATOS
 // ==========================

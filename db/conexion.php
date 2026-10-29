@@ -1,10 +1,7 @@
 <?php
 
 $configDb = require __DIR__ . '/config.php';
-
-if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
-    session_start();
-}
+require_once __DIR__ . '/sesion.php';
 
 $conexion = new mysqli(
     $configDb['host'],

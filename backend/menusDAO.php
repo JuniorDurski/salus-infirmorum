@@ -2,10 +2,10 @@
 
 header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/conexion.php';
+require_once __DIR__ . '/seguridad.php';
 
-$idUsuario = isset($_SESSION['usuario']['id_usuario'])
-    ? (int) $_SESSION['usuario']['id_usuario']
-    : 0;
+$identidad = requerirAutenticacion($conexion, null, true);
+$idUsuario = (int) $identidad['id_usuario'];
 
 $sql = "SELECT DISTINCT
             m.id_menu, m.id_menu_padre, m.codigo, m.etiqueta,

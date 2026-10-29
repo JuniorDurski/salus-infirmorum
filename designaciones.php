@@ -1,5 +1,6 @@
 <?php
 include "conexion.php";
+$usuarioAutenticado = requerirAutenticacion($conexion, 'escuelas.ver');
 include "menu.php";
 ?>
 
@@ -22,6 +23,7 @@ include "menu.php";
                     </thead>
                     
                     <input type="hidden" name="id_escuela" id="id_escuela">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(tokenCsrf(), ENT_QUOTES) ?>">
                     <tr>
                         <th align="left">
                             <b>Escuela</b><br>
@@ -138,6 +140,7 @@ function eliminar(id) {
 
     let fd = new FormData();
     fd.append("id", id);
+    fd.append("csrf_token", csrfMenu);
 
     fetch(url + "?q=eliminar", {
         method: "POST",
