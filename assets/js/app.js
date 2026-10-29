@@ -33,10 +33,11 @@
                 document.body.appendChild(region);
             }
             const item = document.createElement('div');
-            item.className = `toast ${type === 'error' ? 'error' : ''}`;
+            // type: 'ok' (verde), 'warn' (amarillo, se queda un poco más) o 'error' (rojo)
+            item.className = `toast ${type === 'error' ? 'error' : type === 'warn' ? 'warn' : ''}`;
             item.textContent = message;
             region.appendChild(item);
-            setTimeout(() => item.remove(), 3500);
+            setTimeout(() => item.remove(), type === 'ok' ? 3500 : 6000);
         }
     };
     window.Salus = Salus;

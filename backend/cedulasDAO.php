@@ -1,12 +1,14 @@
 <?php
 
 /**
- * Búsqueda en el padrón de cédulas para autocompletar el formulario de pacientes.
+ * Búsqueda por cédula para autocompletar el formulario de pacientes.
  *
  * GET backend/cedulasDAO.php?q=buscar&cedula=1234567
  *
- * Devuelve solo los datos que parecen válidos; el resto va vacío (null) para
- * que el formulario no pise lo que el usuario ya cargó con datos de relleno.
+ * Busca primero en nuestros pacientes (fuente "sistema") y, si no está,
+ * en el padrón de cédulas (fuente "padron"). Del padrón devuelve solo los
+ * datos que parecen válidos; el resto va vacío (null) para que el
+ * formulario no pise lo que el usuario ya cargó con datos de relleno.
  */
 
 header('Content-Type: application/json; charset=utf-8');
@@ -34,6 +36,33 @@ if (!preg_match('/\d/', $cedula)) {
     responderCedula(['status' => 'error', 'mensaje' => 'La cédula debe contener números.'], 422);
 }
 
+/* 1) Primero en nuestro sistema (pacientes ya cargados, activos o no) */
+$stmt = $conexion->prepare(
+    "SELECT id_paciente, nombre, documento, fecha_nacimiento, es_femenino, activo
+       FROM pacientes
+      WHERE TRIM(LEADING '0' FROM REPLACE(REPLACE(UPPER(documento), '.', ''), ' ', '')) = ?
+      ORDER BY activo DESC, id_paciente DESC
+      LIMIT 1"
+);
+$stmt->bind_param('s', $cedula);
+$stmt->execute();
+$paciente = $stmt->get_result()->fetch_assoc();
+
+if ($paciente) {
+    responderCedula([
+        'status' => 'ok',
+        'encontrado' => true,
+        'fuente' => 'sistema',
+        'id_paciente' => (int) $paciente['id_paciente'],
+        'activo' => (int) $paciente['activo'] === 1,
+        'cedula' => $paciente['documento'],
+        'nombre' => $paciente['nombre'],
+        'fecha_nacimiento' => $paciente['fecha_nacimiento'],
+        'sexo' => (int) $paciente['es_femenino'] === 1 ? 'F' : 'M',
+    ]);
+}
+
+/* 2) Si no está, en el padrón de cédulas */
 $db = conexionCedulas();
 
 if ($db === null) {
@@ -61,6 +90,7 @@ if (!$fila) {
 responderCedula([
     'status' => 'ok',
     'encontrado' => true,
+    'fuente' => 'padron',
     'cedula' => $fila['cedula'],
     'nombre' => limpiarNombre($fila['nombre_completo']),
     'fecha_nacimiento' => limpiarFecha($fila['fecha_nacimiento']),

@@ -9,7 +9,9 @@ include 'menu.php';
 <div class="page-header">
     <div><span class="eyebrow">Gestión clínica</span><h1>Pacientes</h1><p>Datos personales, procedencia e identificación clínica en un solo lugar.</p></div>
     <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center">
-        <input id="filtroPacientes" type="search" placeholder="Buscar nombre, documento o código…" style="min-width:260px">
+        <input id="filtroPacientes" type="search" placeholder="Buscar nombre, documento o código…" style="min-width:260px; width:auto">
+        <button type="button" class="btn-secondary" onclick="exportarLista('xls')" title="Descargar en Excel los pacientes de la lista">Excel</button>
+        <button type="button" class="btn-secondary" onclick="exportarLista('pdf')" title="Generar un PDF con los pacientes de la lista">PDF</button>
     </div>
 </div>
 
@@ -21,16 +23,15 @@ include 'menu.php';
             <input type="hidden" name="id_paciente" id="id_paciente">
             <input type="hidden" name="url_foto" id="url_foto">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(tokenCsrf(), ENT_QUOTES, 'UTF-8') ?>">
-            <div class="campo"><label for="nombre">Nombre y apellido *</label><input name="nombre" id="nombre" data-uppercase maxlength="250" required></div>
-            <div class="field-grid">
-                <div class="campo"><label for="ci">Documento *</label>
-                    <div style="display:flex; gap:6px">
-                        <input name="ci" id="ci" maxlength="30" required>
-                        <button type="button" class="btn-secondary" id="btnBuscarCedula" style="flex-shrink:0" onclick="buscarCedula()" title="Buscar en el padrón de cédulas y autocompletar">Buscar</button>
-                    </div>
-                    <small id="estadoCedula" class="help-text"></small>
+            <div class="campo"><label for="ci">Documento *</label>
+                <div style="display:flex; gap:6px">
+                    <input name="ci" id="ci" maxlength="30" required>
+                    <button type="button" class="btn-secondary" id="btnBuscarCedula" style="flex-shrink:0" onclick="buscarCedula()" title="Buscar en el sistema y en el padrón de cédulas">Buscar</button>
                 </div>
-                <div class="campo"><label for="codigo">Código</label><input name="codigo" id="codigo" maxlength="20" placeholder="Automático: orden-id"></div>
+            </div>
+            <div class="campo"><label for="nombre">Nombre y apellido *</label><input name="nombre" id="nombre" data-uppercase maxlength="250" required></div>
+            <div class="campo"><label for="codigo">Código</label><input name="codigo" id="codigo" maxlength="20" placeholder="Automático: orden-id"></div>
+            <div class="field-grid">
                 <div class="campo"><label for="fecha_nacimiento">Fecha de nacimiento *</label><input type="date" name="fecha_nacimiento" id="fecha_nacimiento" max="<?= date('Y-m-d') ?>" required></div>
                 <div class="campo"><label for="es_femenino">Sexo *</label><select name="es_femenino" id="es_femenino" required><option value="">Seleccione</option><option value="0">Masculino</option><option value="1">Femenino</option></select></div>
                 <div class="campo"><label for="id_escuela">Escuela</label><select name="id_escuela" id="id_escuela"><option value="">Cargando…</option></select></div>
@@ -69,6 +70,7 @@ include 'menu.php';
 <script>
 const puedeEditarPacientes = <?= $puedeEditar ? 'true' : 'false' ?>;
 let pacientes = [], escuelas = [], paises = [];
+let pacientesVisibles = []; // lo que se ve en la tabla con los filtros aplicados
 async function cargarCatalogos() {
     [escuelas, paises] = await Promise.all([
         Salus.json('backend/designacionesDAO.php?q=listar'), Salus.json('backend/referencialesDAO.php?q=paises')
@@ -93,6 +95,7 @@ function renderPacientes() {
     const fecha=filtroFecha.value;
     const datos=pacientes.filter(p=>(!fecha||p.fecha_alta===fecha)
         &&(!termino||`${p.nombre} ${p.ci} ${p.codigo_generado||''}`.toLowerCase().includes(termino)));
+    pacientesVisibles=datos;
     resumen.textContent=`${datos.length} de ${pacientes.length} paciente(s)`;
     tabla.innerHTML=datos.length?datos.map(p=>`<tr>
         <td><strong>${Number(p.id_paciente)}</strong><br><small title="Orden del día de alta">Orden ${Salus.escape(p.orden_dia)}</small></td>
@@ -104,7 +107,6 @@ function renderPacientes() {
 }
 function editar(id) {
     const p=pacientes.find(item=>Number(item.id_paciente)===Number(id)); if(!p)return;
-    estadoCedula.textContent='';
     id_paciente.value=p.id_paciente; nombre.value=p.nombre; codigo.value=p.codigo||''; ci.value=p.ci;
     fecha_nacimiento.value=p.fecha_nacimiento; es_femenino.value=p.es_femenino; grupo_sanguineo.value=p.grupo_sanguineo||'';
     id_escuela.value=p.id_escuela||''; telefono.value=p.telefono||''; url_foto.value=p.url_foto||'';
@@ -112,30 +114,59 @@ function editar(id) {
     // Foto oculta por ahora: vista_foto.src=p.url_foto||''; vista_foto.hidden=!p.url_foto;
     nombre.focus();
 }
-// Busca la cédula en el padrón y completa solo los datos que vengan bien.
-// Lo que falta en el padrón no se toca, y todo se puede corregir a mano después.
+// Exporta a Excel o PDF exactamente los pacientes que se ven en la lista.
+function exportarLista(formato){
+    if(!pacientesVisibles.length){Salus.toast('No hay pacientes en la lista para exportar.','warn');return;}
+    const filtros=[];
+    if(filtroPacientes.value.trim()) filtros.push('búsqueda "'+filtroPacientes.value.trim()+'"');
+    if(filtroFecha.value) filtros.push('fecha de alta '+filtroFecha.value.split('-').reverse().join('/'));
+    const form=document.createElement('form');
+    form.method='POST'; form.action='backend/pacientesExportar.php';
+    if(formato==='pdf') form.target='_blank';
+    const campos={formato, ids:pacientesVisibles.map(p=>p.id_paciente).join(','), filtro:filtros.join(', '), csrf_token:Salus.csrf};
+    Object.entries(campos).forEach(([name,value])=>{
+        const input=document.createElement('input'); input.type='hidden'; input.name=name; input.value=value; form.appendChild(input);
+    });
+    document.body.appendChild(form); form.submit(); form.remove();
+}
+// Busca la cédula primero en nuestros pacientes y, si no está, en el padrón.
+// Solo completa los datos que vengan bien; todo se puede corregir a mano después.
+// Los avisos salen como pop-up; si se completó todo desde el padrón no se avisa nada.
 async function buscarCedula(){
     const cedula=ci.value.trim();
-    if(!cedula){estadoCedula.textContent='Ingrese un número de cédula.';ci.focus();return;}
-    btnBuscarCedula.disabled=true; estadoCedula.textContent='Buscando…';
+    if(!cedula){Salus.toast('Ingrese un número de cédula.','warn');ci.focus();return;}
+    btnBuscarCedula.disabled=true;
     try{
         const r=await Salus.json('backend/cedulasDAO.php?q=buscar&cedula='+encodeURIComponent(cedula));
-        if(!r.encontrado){estadoCedula.textContent='No se encontró en el padrón. Cargue los datos a mano.';return;}
+        if(!r.encontrado){Salus.toast('No se encontró la cédula. Cargue los datos a mano.','warn');return;}
+
+        if(r.fuente==='sistema'){
+            if(Number(id_paciente.value)===r.id_paciente) return; // ya se está editando este paciente
+            if(r.activo&&pacientes.some(p=>Number(p.id_paciente)===r.id_paciente)){
+                editar(r.id_paciente);
+                Salus.toast('Este paciente ya está registrado (ID '+r.id_paciente+'). Se cargaron sus datos para editar.','warn');
+            }else{
+                id_paciente.value='';
+                nombre.value=r.nombre||''; fecha_nacimiento.value=r.fecha_nacimiento||''; es_femenino.value=r.sexo==='F'?'1':'0';
+                Salus.toast('Esta cédula pertenece a un paciente desactivado (ID '+r.id_paciente+'). Reactívelo antes de volver a cargarlo.','warn');
+            }
+            return;
+        }
+
         const faltantes=[];
         if(r.nombre) nombre.value=r.nombre; else faltantes.push('nombre');
         if(r.fecha_nacimiento) fecha_nacimiento.value=r.fecha_nacimiento; else faltantes.push('fecha de nacimiento');
         if(r.sexo) es_femenino.value=r.sexo==='F'?'1':'0'; else faltantes.push('sexo');
-        // Si se completó todo no se muestra nada; solo se avisa lo que falta.
         let texto='';
         if(faltantes.length===3) texto='El padrón no tiene datos útiles para esta cédula.';
         else if(faltantes.length) texto='Falta: '+faltantes.join(', ')+'.';
-        if(r.origen&&r.origen!=='principal') texto+=' (Registrado como '+({padre:'padre',madre:'madre',conyuge:'cónyuge'}[r.origen]||r.origen)+' de otra persona: revise los datos.)';
-        estadoCedula.textContent=texto.trim();
-    }catch(error){estadoCedula.textContent=error.message;}
+        if(r.origen&&r.origen!=='principal') texto+=' Registrado como '+({padre:'padre',madre:'madre',conyuge:'cónyuge'}[r.origen]||r.origen)+' de otra persona: revise los datos.';
+        if(texto.trim()) Salus.toast(texto.trim(),'warn');
+    }catch(error){Salus.toast(error.message,'error');}
     finally{btnBuscarCedula.disabled=false;}
 }
 function limpiar(){
-    frmPostulante.reset();id_paciente.value='';url_foto.value='';mensaje.textContent='';estadoCedula.textContent='';
+    frmPostulante.reset();id_paciente.value='';url_foto.value='';mensaje.textContent='';
     seleccionarParaguay();
     // Foto oculta por ahora: vista_foto.src='';vista_foto.hidden=true;
 }
