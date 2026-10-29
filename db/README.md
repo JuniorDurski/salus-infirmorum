@@ -127,3 +127,11 @@ permiso `postulantes_atencion.estado`. Una asignación desactivada queda pausada
 no aparece en las jornadas operativas, no se sincroniza ni puede abrirse o
 exportarse. Sus datos se conservan y un usuario autorizado puede restaurarla
 desde la sección de asignaciones desactivadas.
+
+## Informe RX
+
+Las migraciones `V15` y `V16` incorporan **POSTULANTES > INFORME RX** con
+permisos funcional y de navegación independientes. Inicialmente hereda los
+roles habilitados para INFORME LAB; después ambos accesos pueden administrarse
+por separado desde el módulo de roles. La pantalla permite imprimir todos los
+resultados filtrados o un postulante individual.

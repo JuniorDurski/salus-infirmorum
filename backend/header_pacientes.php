@@ -1,7 +1,7 @@
 <?php
 
 require_once __DIR__ . '/seguridad.php';
-requerirAutenticacion($conexion, 'reportes.imprimir');
+requerirAutenticacion($conexion, $permisoReporte ?? 'reportes.imprimir');
 
 $listaIds = [];
 
@@ -26,6 +26,7 @@ if ($listaIds === []) {
 $placeholders = implode(',', array_fill(0, count($listaIds), '?'));
 $sql = "SELECT
             p.id_paciente,
+            p.codigo AS codigo_paciente,
             p.nombre,
             p.documento,
             TIMESTAMPDIFF(YEAR, p.fecha_nacimiento, CURDATE()) AS edad,
@@ -52,6 +53,7 @@ while ($row = $rs->fetch_assoc()) {
         // Alias temporal: evita cambiar todos los informes en la misma migración.
         'id_postulante' => $row['id_paciente'],
         'id_paciente' => $row['id_paciente'],
+        'codigo_paciente' => trim((string) ($row['codigo_paciente'] ?? '')),
         'nombre' => $row['nombre'],
         'ci' => $row['documento'],
         'tipi' => $row['tipi'] ?: '',

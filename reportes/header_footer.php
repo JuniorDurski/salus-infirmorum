@@ -15,7 +15,7 @@ $footer = '
                     <br>
                     Villa Elisa - Centro Von Poleski, calle 7, calle Toledo.<br>
                     Guayayvi - Centro Barrio Santa Rosa.<br>
-                    Celular: +595 985 29 60 89 &nbsp; | &nbsp; Correo: laboratorioflorentin@gmail.com<br>
+                    Celular: +595987 67 88 88 &nbsp; | &nbsp; Correo: laboratorioflorentin@gmail.com<br>
                     <span style="font-weight:bold;">HABILITADO POR MSPYBS y LCSP, DRHC 77/2022</span><br>
                 </div>
             </td>

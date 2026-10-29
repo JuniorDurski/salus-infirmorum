@@ -60,7 +60,8 @@ function renderizarMenus(array $menus, string $rutaActual, bool $esSubmenu = fal
 
 $titulosRuta = [
     'index.php' => 'Panel principal', 'designaciones.php' => 'Escuelas',
-    'pacientes.php' => 'Pacientes', 'imprimir.php' => 'Informes',
+    'pacientes.php' => 'Pacientes', 'imprimir.php' => 'Informe LAB',
+    'informe_rx.php' => 'Informe RX',
     'usuarios.php' => 'Usuarios', 'roles.php' => 'Roles',
     'permisos.php' => 'Permisos', 'menus.php' => 'Menús',
     'universidades.php' => 'Universidades', 'titulos.php' => 'Títulos profesionales',
