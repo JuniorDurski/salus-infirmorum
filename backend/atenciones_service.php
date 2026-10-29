@@ -212,7 +212,7 @@ function obtenerDetalleAsignacion(mysqli $db, int $id, array $identidad): array
 function obtenerPostulanteAtencion(mysqli $db, int $detalleId, array $identidad, bool $bloquear = false): array
 {
     $stmt = $db->prepare(
-        'SELECT pa.*, a.fecha, a.empieza_atender, a.pago_realizado
+        'SELECT pa.*, a.fecha, a.empieza_atender, a.pago_realizado, a.activo
          FROM postulantes_atencion pa
          INNER JOIN postulantes_asignar_atencion a ON a.id_asignar_atencion = pa.id_asignar_atencion
          INNER JOIN pacientes p ON p.id_paciente = pa.id_paciente AND p.activo = 1
