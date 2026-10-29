@@ -135,3 +135,11 @@ permisos funcional y de navegación independientes. Inicialmente hereda los
 roles habilitados para INFORME LAB; después ambos accesos pueden administrarse
 por separado desde el módulo de roles. La pantalla permite imprimir todos los
 resultados filtrados o un postulante individual.
+
+## Informe ECO
+
+La migración `V17` incorpora **POSTULANTES > INFORME ECO** y la tabla
+`postulantes_informes_eco`. Cada registro combina un postulante y un tipo de
+ecografía, y conserva sus resultados editables como JSON. El módulo incluye
+plantillas abdominal, mamaria, testicular y ginecológica, impresión individual
+o masiva, y permisos independientes para imprimir y editar.

@@ -94,7 +94,7 @@ foreach ($pacientes as $indice => $paciente) {
     $documento = htmlspecialchars((string) $paciente['ci'], ENT_QUOTES, 'UTF-8');
     $codigo = htmlspecialchars(trim((string) ($paciente['codigo_paciente'] ?? '')), ENT_QUOTES, 'UTF-8');
     $celdaCodigo = $codigo !== ''
-        ? '<td class="rx-patient-secondary-label" width="9%">COD</td><td class="rx-patient-secondary-separator" width="3%">:</td><td class="rx-patient-secondary-value" width="33%">' . $codigo . '</td>'
+        ? '<td class="rx-patient-secondary-label" width="9%"><b>COD</b></td><td class="rx-patient-secondary-separator" width="3%">:</td><td class="rx-patient-secondary-value" width="33%">' . $codigo . '</td>'
         : '<td width="9%"></td><td width="3%"></td><td width="33%"></td>';
 
     $html = '
@@ -119,21 +119,21 @@ foreach ($pacientes as $indice => $paciente) {
         <div class="rx-content">
         <table class="rx-patient">
             <tr>
-                <td class="rx-patient-label" width="35%">NOMBRE&nbsp;Y&nbsp;APELLIDO</td>
+                <td class="rx-patient-label" width="35%"><b>NOMBRE&nbsp;Y&nbsp;APELLIDO</b></td>
                 <td class="rx-patient-separator" width="3%">:</td>
                 <td colspan="4" width="62%">' . $nombre . '</td>
             </tr>
             <tr>
-                <td class="rx-patient-label" width="35%">FECHA</td>
+                <td class="rx-patient-label" width="35%"><b>FECHA</b></td>
                 <td class="rx-patient-separator" width="3%">:</td>
                 <td class="rx-patient-value" width="17%">' . $fecha . '</td>
                 ' . $celdaCodigo . '
             </tr>
             <tr>
-                <td class="rx-patient-label" width="35%">EDAD</td>
+                <td class="rx-patient-label" width="35%"><b>EDAD</b></td>
                 <td class="rx-patient-separator" width="3%">:</td>
                 <td class="rx-patient-value" width="17%">' . $edad . '&nbsp; AÑOS</td>
-                <td class="rx-patient-secondary-label" width="9%">CI</td>
+                <td class="rx-patient-secondary-label" width="9%"><b>CI</b></td>
                 <td class="rx-patient-secondary-separator" width="3%">:</td>
                 <td class="rx-patient-secondary-value" width="33%">' . $documento . '</td>
             </tr>

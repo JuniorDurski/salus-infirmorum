@@ -62,6 +62,7 @@ $titulosRuta = [
     'index.php' => 'Panel principal', 'designaciones.php' => 'Escuelas',
     'pacientes.php' => 'Pacientes', 'imprimir.php' => 'Informe LAB',
     'informe_rx.php' => 'Informe RX',
+    'informe_eco.php' => 'Informe ECO',
     'usuarios.php' => 'Usuarios', 'roles.php' => 'Roles',
     'permisos.php' => 'Permisos', 'menus.php' => 'Menús',
     'universidades.php' => 'Universidades', 'titulos.php' => 'Títulos profesionales',
