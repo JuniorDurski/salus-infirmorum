@@ -64,6 +64,7 @@ $titulosRuta = [
     'informe_rx.php' => 'Informe RX',
     'informe_eco.php' => 'Informe ECO',
     'informe_audiometria.php' => 'Informe audiometría',
+    'rotulos.php' => 'Imprimir rótulos',
     'usuarios.php' => 'Usuarios', 'roles.php' => 'Roles',
     'permisos.php' => 'Permisos', 'menus.php' => 'Menús',
     'universidades.php' => 'Universidades', 'titulos.php' => 'Títulos profesionales',

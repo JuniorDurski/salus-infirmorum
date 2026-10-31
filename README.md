@@ -24,3 +24,11 @@ visible para todos los usuarios autenticados.
 Los catálogos de universidades y títulos profesionales se administran desde
 **Referenciales**. La migración V9 incorpora países, prefijos telefónicos y la
 nómina de universidades paraguayas.
+
+## Rótulos de postulantes
+
+La migración `V24` incorpora **POSTULANTES > IMPRIMIR RÓTULO**. La pantalla
+permite filtrar por escuela, fecha de alta, nombre o cédula y generar un PDF
+con un postulante, una selección de cualquier cantidad o todos los resultados.
+Cada rótulo se imprime como un rectángulo horizontal de borde grueso, con el
+nombre y la cédula centrados en Arial 28 y la cédula separada por puntos de miles.
