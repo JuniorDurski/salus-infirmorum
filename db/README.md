@@ -173,3 +173,21 @@ Si un paciente no tiene código cargado se muestra e imprime uno generado `NNN-I
 (ej.: `003-58`). Se calcula en `backend/codigos_pacientes.php`; si se desactiva
 un paciente, los siguientes del mismo día corren su número.
 La migración `V23` agrega el índice `ix_pacientes_creado_en` para ese cálculo.
+
+## Arreadores y pagos de postulantes
+
+La migración `V27` renombra las tablas históricas como
+`postulantes_arreadores` y `postulantes_arreador_postulante`. También incorpora
+`postulantes_arreador_escuela`, donde cada convenio define para el año actual
+el precio por postulante, la comisión del arreador y el importe resultante para
+la clínica.
+
+Los catálogos `metodos_pago` y `postulantes_pago` permiten registrar varios
+abonos por postulante y por método, conservando la fecha, el importe, el saldo
+posterior y el usuario que realizó la carga.
+
+Desde `V28`, **ARREADORES Y CONVENIOS** es un submódulo independiente. Cada
+convenio tiene tarifas distintas para hombres y mujeres, mientras que la
+comisión y el importe que queda para la clínica se cargan manualmente. La
+pantalla `postulantes.php` conserva solamente la lista de postulantes,
+asignaciones, pagos y saldos; `pacientes.php` permanece independiente.

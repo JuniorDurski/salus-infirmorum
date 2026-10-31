@@ -8,6 +8,9 @@ $personaSingularTitulo = $esModuloPostulantes ? 'Postulante' : 'Paciente';
 $personaPluralTitulo = $esModuloPostulantes ? 'Postulantes' : 'Pacientes';
 $usuarioAutenticado = requerirAutenticacion($conexion, 'pacientes.ver');
 $puedeEditar = tienePermiso($usuarioAutenticado, 'pacientes.editar');
+$calendarioActual = $conexion->query("SELECT DATE_FORMAT(CURDATE(), '%Y-%m-%d') AS hoy, YEAR(CURDATE()) AS anio")->fetch_assoc();
+$hoyAplicacion = $calendarioActual['hoy'];
+$anioAplicacion = (int) $calendarioActual['anio'];
 $tituloPagina = $personaPluralTitulo;
 include 'menu.php';
 ?>
@@ -38,7 +41,7 @@ include 'menu.php';
             <div class="campo"><label for="nombre">Nombre y apellido *</label><input name="nombre" id="nombre" data-uppercase maxlength="250" required></div>
             <div class="campo"><label for="codigo">Código</label><input name="codigo" id="codigo" maxlength="20" placeholder="Automático: orden-id"></div>
             <div class="field-grid">
-                <div class="campo"><label for="fecha_nacimiento">Fecha de nacimiento *</label><input type="date" name="fecha_nacimiento" id="fecha_nacimiento" max="<?= date('Y-m-d') ?>" required></div>
+                <div class="campo"><label for="fecha_nacimiento">Fecha de nacimiento *</label><input type="date" name="fecha_nacimiento" id="fecha_nacimiento" max="<?= htmlspecialchars($hoyAplicacion, ENT_QUOTES, 'UTF-8') ?>" required></div>
                 <div class="campo"><label for="es_femenino">Sexo *</label><select name="es_femenino" id="es_femenino" required><option value="">Seleccione</option><option value="0">Masculino</option><option value="1">Femenino</option></select></div>
                 <div class="campo"><label for="id_escuela">Escuela</label><select name="id_escuela" id="id_escuela"><option value="">Cargando…</option></select></div>
                 <div class="campo"><label for="grupo_sanguineo">Grupo sanguíneo</label><select name="grupo_sanguineo" id="grupo_sanguineo"><option value="">Sin especificar</option><option>A Rh Positivo</option><option>A Rh Negativo</option><option>B Rh Positivo</option><option>B Rh Negativo</option><option>AB Rh Positivo</option><option>AB Rh Negativo</option><option>O Rh Positivo</option><option>O Rh Negativo</option></select></div>
@@ -73,6 +76,56 @@ include 'menu.php';
     </section>
 </div>
 
+<section class="card postulantes-finanzas">
+    <div class="card-header"><div><h2>Asignaciones y saldos</h2><p class="help-text" id="resumenFinanzas">Cargando…</p></div></div>
+    <div class="table-wrap"><table class="data-table">
+        <thead><tr><th>Postulante</th><th>Escuela</th><th>Arreador</th><th>Total</th><th>Pagado</th><th>Saldo</th><th>Acciones</th></tr></thead>
+        <tbody id="tablaFinanzas"><tr><td colspan="7" class="empty-state">Cargando…</td></tr></tbody>
+    </table></div>
+</section>
+
+<?php if ($puedeEditar): ?>
+<dialog class="modal" id="modalAsignarArreador">
+    <div class="modal-header"><div><span class="eyebrow">Postulante</span><h2>Asignar arreador</h2></div><button class="icon-button" type="button" onclick="modalAsignarArreador.close()" aria-label="Cerrar">×</button></div>
+    <form id="formAsignarArreador" class="modal-form">
+        <input type="hidden" name="id_paciente" id="finAsignarPaciente">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(tokenCsrf(), ENT_QUOTES, 'UTF-8') ?>">
+        <div class="modal-body">
+            <p class="notice" id="finAsignarResumen"></p>
+            <div class="campo"><label for="finAsignarConvenio">Convenio disponible *</label><select id="finAsignarConvenio" name="id_arreador_escuela" required></select></div>
+            <div class="campo"><label for="finAsignarObservacion">Observación</label><textarea id="finAsignarObservacion" name="observacion" maxlength="500"></textarea></div>
+            <div id="mensajeAsignar" class="mensaje"></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn-secondary" onclick="modalAsignarArreador.close()">Cancelar</button><button type="submit">Guardar asignación</button></div>
+    </form>
+</dialog>
+
+<dialog class="modal" id="modalPagoPostulante">
+    <div class="modal-header"><div><span class="eyebrow">Cobro</span><h2>Registrar pago</h2></div><button class="icon-button" type="button" onclick="modalPagoPostulante.close()" aria-label="Cerrar">×</button></div>
+    <form id="formPagoPostulante" class="modal-form">
+        <input type="hidden" name="id_arreador_postulante" id="finPagoAsignacion">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(tokenCsrf(), ENT_QUOTES, 'UTF-8') ?>">
+        <div class="modal-body">
+            <p class="notice" id="finPagoResumen"></p>
+            <div class="field-grid">
+                <div class="campo"><label for="finMetodoPago">Método de pago *</label><select id="finMetodoPago" name="id_metodo_pago" required></select></div>
+                <div class="campo"><label for="finFechaPago">Fecha *</label><input id="finFechaPago" name="fecha" type="date" max="<?= htmlspecialchars($hoyAplicacion, ENT_QUOTES, 'UTF-8') ?>" required></div>
+            </div>
+            <div class="campo"><label for="finMontoPago">Importe *</label><input id="finMontoPago" name="monto" type="number" min="0.01" step="0.01" required></div>
+            <div class="campo"><label for="finPagoObservacion">Observación</label><textarea id="finPagoObservacion" name="observacion" maxlength="500"></textarea></div>
+            <div id="mensajePago" class="mensaje"></div>
+        </div>
+        <div class="modal-footer"><button type="button" class="btn-secondary" onclick="modalPagoPostulante.close()">Cancelar</button><button type="submit">Registrar pago</button></div>
+    </form>
+</dialog>
+<?php endif; ?>
+
+<dialog class="modal" id="modalHistorialPagos">
+    <div class="modal-header"><div><span class="eyebrow">Trazabilidad</span><h2 id="tituloHistorialPagos">Historial de pagos</h2></div><button class="icon-button" type="button" onclick="modalHistorialPagos.close()" aria-label="Cerrar">×</button></div>
+    <div class="modal-body"><div class="table-wrap"><table class="data-table"><thead><tr><th>Fecha</th><th>Método</th><th>Importe</th><th>Saldo</th><th>Registró</th></tr></thead><tbody id="tablaHistorialPagos"></tbody></table></div></div>
+    <div class="modal-footer"><button type="button" class="btn-secondary" onclick="modalHistorialPagos.close()">Cerrar</button></div>
+</dialog>
+
 <script>
 const puedeEditarPacientes = <?= $puedeEditar ? 'true' : 'false' ?>;
 const moduloPersonas = <?= json_encode($moduloPersonas, JSON_UNESCAPED_UNICODE) ?>;
@@ -80,6 +133,7 @@ const personaSingular = <?= json_encode($personaSingular, JSON_UNESCAPED_UNICODE
 const personaPlural = <?= json_encode($personaPlural, JSON_UNESCAPED_UNICODE) ?>;
 const personaSingularTitulo = <?= json_encode($personaSingularTitulo, JSON_UNESCAPED_UNICODE) ?>;
 let pacientes = [], escuelas = [], paises = [];
+let finanzas = {anio:<?= $anioAplicacion ?>, arreadores:[], convenios:[], asignaciones:[], metodos_pago:[]};
 let pacientesVisibles = []; // lo que se ve en la tabla con los filtros aplicados
 async function cargarCatalogos() {
     [escuelas, paises] = await Promise.all([
@@ -112,8 +166,76 @@ function renderPacientes() {
         <td><strong>${Salus.escape(p.nombre)}</strong><br><small>${Salus.escape(p.codigo_generado||'')}</small></td>
         <td>${Salus.escape(p.ci)}</td><td>${Salus.escape(p.edad)} años<br><small>${Salus.escape(p.sexo)}</small></td>
         <td>${Salus.escape(p.escuela||'—')}</td><td><span class="badge badge-muted">${Salus.escape(formatoGrupoSanguineo(p.grupo_sanguineo)||'—')}</span></td>
-        <td><div class="table-actions">${puedeEditarPacientes?`<button class="btn-small btn-secondary" onclick="editar(${p.id_paciente})">Editar</button><button class="btn-small btn-danger" onclick="eliminar(${p.id_paciente})">Desactivar</button>`:''}</div></td>
+        <td><div class="table-actions">${puedeEditarPacientes?`<button class="btn-small btn-secondary" onclick="editar(${p.id_paciente})">Editar</button><button class="btn-small btn-secondary" onclick="abrirAsignacionArreador(${p.id_paciente})">Asignar arreador</button>${accionPagoPaciente(p.id_paciente)}<button class="btn-small btn-danger" onclick="eliminar(${p.id_paciente})">Desactivar</button>`:''}</div></td>
     </tr>`).join(''):`<tr><td colspan="7" class="empty-state">No se encontraron ${personaPlural}.</td></tr>`;
+}
+
+function dinero(valor){
+    return new Intl.NumberFormat('es-PY',{style:'currency',currency:'PYG',minimumFractionDigits:0,maximumFractionDigits:2}).format(Number(valor)||0);
+}
+function fechaHora(valor){
+    if(!valor)return '—';
+    const partes=String(valor).split(' ')[0].split('-');
+    return partes.length===3?`${partes[2]}/${partes[1]}/${partes[0]}`:Salus.escape(valor);
+}
+function accionPagoPaciente(idPaciente){
+    const asignacion=finanzas.asignaciones.find(a=>Number(a.id_paciente)===Number(idPaciente));
+    return asignacion&&Number(asignacion.saldo)>0
+        ?`<button class="btn-small" onclick="abrirPago(${Number(asignacion.id_arreador_postulante)})">Registrar pago</button>`:'';
+}
+async function cargarFinanzas(){
+    try{
+        finanzas=await Salus.json('backend/postulantesFinanzasDAO.php?q=resumen');
+        renderFinanzas();
+        renderPacientes();
+    }catch(error){
+        tablaFinanzas.innerHTML=`<tr><td colspan="7" class="empty-state">${Salus.escape(error.message)}</td></tr>`;
+        Salus.toast(error.message,'error');
+    }
+}
+function renderFinanzas(){
+    const asignaciones=finanzas.asignaciones||[];
+    resumenFinanzas.textContent=`${asignaciones.length} postulante(s) asignado(s) en ${finanzas.anio}`;
+    tablaFinanzas.innerHTML=asignaciones.length?asignaciones.map(a=>`<tr>
+        <td><strong>${Salus.escape(a.postulante)}</strong><br><small>${Salus.escape(a.documento)}</small></td>
+        <td>${Salus.escape(a.escuela)}</td><td>${Salus.escape(a.arreador)}</td>
+        <td class="finance-money">${dinero(a.monto_total)}</td><td class="finance-money">${dinero(a.pagado)}</td>
+        <td class="finance-money"><strong class="${Number(a.saldo)<=0?'estado-activo':''}">${dinero(a.saldo)}</strong></td>
+        <td><div class="table-actions">${puedeEditarPacientes&&Number(a.saldo)>0?`<button class="btn-small" onclick="abrirPago(${Number(a.id_arreador_postulante)})">Registrar pago</button>`:''}<button class="btn-small btn-secondary" onclick="verHistorialPagos(${Number(a.id_arreador_postulante)})">Historial</button>${puedeEditarPacientes?`<button class="btn-small btn-secondary" onclick="abrirAsignacionArreador(${Number(a.id_paciente)})">Cambiar convenio</button>`:''}</div></td>
+    </tr>`).join(''):'<tr><td colspan="7" class="empty-state">Aún no hay postulantes vinculados a un arreador.</td></tr>';
+}
+function abrirAsignacionArreador(idPaciente){
+    const p=pacientes.find(item=>Number(item.id_paciente)===Number(idPaciente));if(!p)return;
+    if(!p.id_escuela){Salus.toast('Asigne una escuela al postulante antes de seleccionar un arreador.','warn');return;}
+    const disponibles=(finanzas.convenios||[]).filter(c=>Number(c.activo)&&Number(c.id_escuela)===Number(p.id_escuela));
+    if(!disponibles.length){Salus.toast('No hay un convenio activo del año actual para la escuela de este postulante.','warn');return;}
+    const actual=finanzas.asignaciones.find(a=>Number(a.id_paciente)===Number(idPaciente));
+    formAsignarArreador.reset();finAsignarPaciente.value=p.id_paciente;
+    const esMujer=Number(p.es_femenino)===1;
+    finAsignarResumen.innerHTML=`<strong>${Salus.escape(p.nombre)}</strong><br>${Salus.escape(p.escuela)} · ${esMujer?'Mujer':'Hombre'} · Documento ${Salus.escape(p.ci)}`;
+    finAsignarConvenio.innerHTML='<option value="">Seleccione</option>'+disponibles.map(c=>{
+        const tarifa=esMujer?c.monto_total_mujer:c.monto_total_hombre;
+        return `<option value="${Number(c.id_arreador_escuela)}" ${actual&&Number(actual.id_arreador_escuela)===Number(c.id_arreador_escuela)?'selected':''}>${Salus.escape(c.arreador)} · Tarifa ${esMujer?'mujer':'hombre'} ${dinero(tarifa)} · Comisión ${dinero(c.comision_arreador)}</option>`;
+    }).join('');
+    finAsignarObservacion.value=actual?.observacion||'';mensajeAsignar.textContent='';modalAsignarArreador.showModal();
+}
+function abrirPago(idAsignacion){
+    const a=finanzas.asignaciones.find(item=>Number(item.id_arreador_postulante)===Number(idAsignacion));if(!a)return;
+    if(Number(a.saldo)<=0){Salus.toast('Este postulante ya no tiene saldo pendiente.','warn');return;}
+    formPagoPostulante.reset();finPagoAsignacion.value=a.id_arreador_postulante;finFechaPago.value=<?= json_encode($hoyAplicacion) ?>;
+    finMetodoPago.innerHTML='<option value="">Seleccione</option>'+(finanzas.metodos_pago||[]).map(m=>`<option value="${Number(m.id_metodo_pago)}">${Salus.escape(m.nombre)}</option>`).join('');
+    finMontoPago.max=Number(a.saldo).toFixed(2);finMontoPago.value=Number(a.saldo).toFixed(2);
+    finPagoResumen.innerHTML=`<strong>${Salus.escape(a.postulante)}</strong><br>${Salus.escape(a.escuela)} · Saldo pendiente <strong>${dinero(a.saldo)}</strong>`;
+    mensajePago.textContent='';modalPagoPostulante.showModal();finMontoPago.select();
+}
+async function verHistorialPagos(idAsignacion){
+    const a=finanzas.asignaciones.find(item=>Number(item.id_arreador_postulante)===Number(idAsignacion));
+    tituloHistorialPagos.textContent=a?`Pagos de ${a.postulante}`:'Historial de pagos';
+    tablaHistorialPagos.innerHTML='<tr><td colspan="5" class="empty-state">Cargando…</td></tr>';modalHistorialPagos.showModal();
+    try{
+        const r=await Salus.json(`backend/postulantesFinanzasDAO.php?q=pagos&id=${Number(idAsignacion)}`);
+        tablaHistorialPagos.innerHTML=r.pagos.length?r.pagos.map(p=>`<tr><td>${fechaHora(p.fecha)}<br><small>${Salus.escape(String(p.fecha).split(' ')[1]||'')}</small></td><td>${Salus.escape(p.metodo_pago)}</td><td class="finance-money">${dinero(p.monto)}</td><td class="finance-money">${dinero(p.saldo)}</td><td>${Salus.escape(p.registrado_por)}${p.observacion?`<br><small>${Salus.escape(p.observacion)}</small>`:''}</td></tr>`).join(''):'<tr><td colspan="5" class="empty-state">Todavía no se registraron pagos.</td></tr>';
+    }catch(error){tablaHistorialPagos.innerHTML=`<tr><td colspan="5" class="empty-state">${Salus.escape(error.message)}</td></tr>`;}
 }
 function editar(id) {
     const p=pacientes.find(item=>Number(item.id_paciente)===Number(id)); if(!p)return;
@@ -194,15 +316,31 @@ if (puedeEditarPacientes) frmPersona.addEventListener('submit',async event=>{
         //     const foto=Salus.form({tipo:'paciente_foto',id_paciente:resultado.id_paciente});foto.append('archivo',foto_paciente.files[0]);
         //     await Salus.json('backend/uploadDAO.php',{method:'POST',body:foto});
         // }
-        Salus.toast(`${personaSingularTitulo} guardado.`);limpiar();cargar();
+        Salus.toast(`${personaSingularTitulo} guardado.`);limpiar();await cargar();await cargarFinanzas();
     }catch(error){mensaje.textContent=error.message;}
 });
+if (puedeEditarPacientes) {
+    formAsignarArreador.addEventListener('submit',async event=>{
+        event.preventDefault();mensajeAsignar.textContent='';
+        try{
+            await Salus.json('backend/postulantesFinanzasDAO.php?q=asignar',{method:'POST',body:new FormData(formAsignarArreador)});
+            modalAsignarArreador.close();Salus.toast('Arreador asignado al postulante.');await cargarFinanzas();
+        }catch(error){mensajeAsignar.textContent=error.message;}
+    });
+    formPagoPostulante.addEventListener('submit',async event=>{
+        event.preventDefault();mensajePago.textContent='';
+        try{
+            const resultado=await Salus.json('backend/postulantesFinanzasDAO.php?q=pagar',{method:'POST',body:new FormData(formPagoPostulante)});
+            modalPagoPostulante.close();Salus.toast(`Pago registrado. Saldo: ${dinero(resultado.saldo)}.`);await cargarFinanzas();
+        }catch(error){mensajePago.textContent=error.message;}
+    });
+}
 // Enter en Documento busca en el padrón en vez de guardar el formulario.
 if (puedeEditarPacientes) ci.addEventListener('keydown',event=>{
     if(event.key==='Enter'){event.preventDefault();buscarCedula();}
 });
 filtroPacientes.addEventListener('input',renderPacientes);
 filtroFecha.addEventListener('change',renderPacientes);
-(async()=>{try{await cargarCatalogos();await cargar();}catch(error){Salus.toast(error.message,'error');}})();
+(async()=>{try{await cargarCatalogos();await cargar();await cargarFinanzas();}catch(error){Salus.toast(error.message,'error');}})();
 </script>
 <?php include 'footer.php'; ?>

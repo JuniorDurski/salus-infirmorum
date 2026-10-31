@@ -49,3 +49,12 @@ evolucionen por separado. También normaliza `informe_lab.php` y
 
 La migración `V26` deja **ESTUDIOS** exclusivamente dentro de POSTULANTES,
 inmediatamente debajo de ESCUELAS, y ordena todos los submódulos del área.
+
+## Arreadores y pagos
+
+La migración `V27` estandariza los arreadores dentro de POSTULANTES y agrega
+convenios anuales por escuela, precios, comisiones, métodos de pago, abonos
+parciales y saldos. La migración `V28` separa la configuración en
+`arreadores.php`, permite tarifas diferentes para hombres y mujeres y convierte
+el importe de la clínica en un dato manual. `postulantes.php` conserva la lista,
+las asignaciones y los pagos; `pacientes.php` no se modifica.
