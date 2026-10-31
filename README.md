@@ -30,5 +30,10 @@ nómina de universidades paraguayas.
 La migración `V24` incorpora **POSTULANTES > IMPRIMIR RÓTULO**. La pantalla
 permite filtrar por escuela, fecha de alta, nombre o cédula y generar un PDF
 con un postulante, una selección de cualquier cantidad o todos los resultados.
-Cada rótulo se imprime como un rectángulo horizontal de borde grueso, con el
-nombre y la cédula centrados en Arial 28 y la cédula separada por puntos de miles.
+Cada rótulo se imprime como un rectángulo horizontal de borde grueso, con texto
+Arial centrado y la cédula separada por puntos de miles. Los formatos se declaran
+en `backend/rotulos_service.php`: ACADEPOL imprime nombre y cédula; LICEMIL agrega
+el código del postulante en la línea superior, mostrando solamente la parte
+anterior al primer guion. La pantalla crea automáticamente
+un botón identificado por cada formato disponible. Al pulsarlo imprime las filas
+marcadas y, cuando no hay ninguna selección, imprime toda la tabla filtrada.

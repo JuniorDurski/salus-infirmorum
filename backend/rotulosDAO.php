@@ -3,12 +3,17 @@
 header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/conexion.php';
 require_once __DIR__ . '/seguridad.php';
+require_once __DIR__ . '/rotulos_service.php';
 
 requerirAutenticacion($conexion, 'reportes.rotulos.imprimir', true);
 
 $q = $_GET['q'] ?? '';
 
 try {
+    if ($q === 'formatos') {
+        echo json_encode(catalogoPublicoFormatosRotulos(), JSON_UNESCAPED_UNICODE);
+        exit;
+    }
     if ($q === 'escuelas') {
         listarEscuelasRotulos($conexion);
     }
