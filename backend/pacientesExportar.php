@@ -1,10 +1,11 @@
 <?php
 
 /**
- * Exporta a Excel o PDF los pacientes que se ven en la lista de pacientes.php.
+ * Exporta a Excel o PDF los registros visibles en pacientes.php o postulantes.php.
  *
  * POST backend/pacientesExportar.php
  *   formato = xls | pdf
+ *   entidad = pacientes | postulantes
  *   ids     = "12,11,10"  (ids separados por coma, en el orden de la lista)
  *   filtro  = texto que describe los filtros aplicados (se imprime en el PDF)
  *   csrf_token
@@ -28,6 +29,10 @@ if (!in_array($formato, ['xls', 'pdf'], true)) {
     exit('Formato no válido.');
 }
 
+$entidad = strtolower((string) ($_POST['entidad'] ?? 'pacientes'));
+$esPostulantes = $entidad === 'postulantes';
+$entidad = $esPostulantes ? 'postulantes' : 'pacientes';
+
 $ids = array_values(array_unique(array_filter(
     array_map('intval', explode(',', (string) ($_POST['ids'] ?? ''))),
     static fn(int $id): bool => $id > 0
@@ -35,7 +40,7 @@ $ids = array_values(array_unique(array_filter(
 
 if ($ids === []) {
     http_response_code(400);
-    exit('No hay pacientes en la lista para exportar.');
+    exit("No hay {$entidad} en la lista para exportar.");
 }
 
 $filtro = trim((string) ($_POST['filtro'] ?? ''));
@@ -90,12 +95,12 @@ foreach ($ids as $id) {
     ];
 }
 
-$base = 'pacientes-' . date('Y-m-d_H-i');
+$base = $entidad . '-' . date('Y-m-d_H-i');
 
 if ($formato === 'xls') {
-    exportarExcel($filas, $base);
+    exportarExcel($filas, $base, $entidad);
 } else {
-    exportarPdf($filas, $base, $filtro);
+    exportarPdf($filas, $base, $filtro, $entidad);
 }
 
 /* ===========================
@@ -140,18 +145,18 @@ function tablaHtml(array $filas): string
     return $html . '</tbody></table>';
 }
 
-function exportarExcel(array $filas, string $base): void
+function exportarExcel(array $filas, string $base, string $entidad): void
 {
     header('Content-Type: application/vnd.ms-excel; charset=utf-8');
     header('Content-Disposition: attachment; filename="' . $base . '.xls"');
     echo "\xEF\xBB\xBF";
     echo '<html><head><meta charset="utf-8"></head><body>';
-    echo $filas === [] ? '<p>Sin pacientes.</p>' : tablaHtml($filas);
+    echo $filas === [] ? '<p>Sin ' . h($entidad) . '.</p>' : tablaHtml($filas);
     echo '</body></html>';
     exit;
 }
 
-function exportarPdf(array $filas, string $base, string $filtro): void
+function exportarPdf(array $filas, string $base, string $filtro, string $entidad): void
 {
     require_once __DIR__ . '/../mpdf/vendor/autoload.php';
 
@@ -163,7 +168,7 @@ function exportarPdf(array $filas, string $base, string $filtro): void
         'margin_left'   => 10,
         'margin_right'  => 10,
     ]);
-    $mpdf->SetTitle('Listado de pacientes');
+    $mpdf->SetTitle('Listado de ' . $entidad);
     $mpdf->SetHTMLFooter('<div style="font-size:8pt; text-align:right; color:#555">Página {PAGENO} de {nbpg}</div>');
 
     $html = '
@@ -175,12 +180,12 @@ function exportarPdf(array $filas, string $base, string $filtro): void
             table.lista th { background: #e8eeec; font-weight: bold; text-align: left; }
             table.lista th, table.lista td { border: 0.5px solid #999; padding: 3px 4px; }
         </style>
-        <h1>Listado de pacientes</h1>
+        <h1>Listado de ' . h($entidad) . '</h1>
         <div class="meta">
-            Generado: ' . h(date('d/m/Y H:i')) . ' · ' . count($filas) . ' paciente(s)'
+            Generado: ' . h(date('d/m/Y H:i')) . ' · ' . count($filas) . ' ' . h($entidad)
             . ($filtro !== '' ? ' · Filtro: ' . h($filtro) : '') . '
         </div>';
-    $html .= $filas === [] ? '<p>Sin pacientes.</p>' : tablaHtml($filas);
+    $html .= $filas === [] ? '<p>Sin ' . h($entidad) . '.</p>' : tablaHtml($filas);
 
     $mpdf->WriteHTML($html);
     $mpdf->Output($base . '.pdf', 'I');

@@ -36,7 +36,7 @@ include 'menu.php';
     <div class="form-actions">
         <?php if (tienePermiso($usuarioAutenticado, 'pacientes.ver') && existeUrlEnMenus($menusNavegacion, 'pacientes.php')): ?><a class="btn" href="pacientes.php">Pacientes</a><?php endif; ?>
         <?php if (tienePermiso($usuarioAutenticado, 'escuelas.ver') && existeUrlEnMenus($menusNavegacion, 'designaciones.php')): ?><a class="btn btn-secondary" href="designaciones.php">Escuelas</a><?php endif; ?>
-        <?php if (tienePermiso($usuarioAutenticado, 'reportes.imprimir') && existeUrlEnMenus($menusNavegacion, 'imprimir.php')): ?><a class="btn btn-secondary" href="imprimir.php">Imprimir informes</a><?php endif; ?>
+        <?php if (tienePermiso($usuarioAutenticado, 'reportes.imprimir') && existeUrlEnMenus($menusNavegacion, 'informe_lab.php')): ?><a class="btn btn-secondary" href="informe_lab.php">Informe LAB</a><?php endif; ?>
         <?php if (existeUrlEnMenus($menusNavegacion, 'perfil.php')): ?><a class="btn btn-secondary" href="perfil.php">Configurar mi perfil</a><?php endif; ?>
     </div>
 </section>

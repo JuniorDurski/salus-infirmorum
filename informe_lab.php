@@ -1,12 +1,12 @@
 <?php
 include 'conexion.php';
 $usuarioAutenticado = requerirAutenticacion($conexion, 'reportes.imprimir');
-$tituloPagina = 'Informes';
+$tituloPagina = 'Informe LAB';
 include 'menu.php';
 ?>
 
 <div class="page-header">
-    <div><span class="eyebrow">Documentos</span><h1>Imprimir informes</h1><p>Filtre pacientes y genere informes sin modificar sus plantillas PDF.</p></div>
+    <div><span class="eyebrow">Postulantes · Documentos</span><h1>Informe LAB</h1><p>Filtre postulantes y genere informes sin modificar sus plantillas PDF.</p></div>
 </div>
 
 <section class="card">
@@ -16,7 +16,7 @@ include 'menu.php';
         <div class="campo"><label for="f_fecha">Fecha de alta</label><input type="date" id="f_fecha"></div>
     </div>
     <div class="form-actions">
-        <button type="button" onclick="buscar()">Buscar pacientes</button>
+        <button type="button" onclick="buscar()">Buscar postulantes</button>
         <button type="button" class="btn-secondary" onclick="imprimirTodo()">Imprimir selección</button>
         <button type="button" class="btn-secondary" onclick="imprimirTarjeta()">Tarjetas Rh</button>
     </div>
@@ -39,7 +39,7 @@ async function cargarEscuelas(){
 async function buscar(){
     const params=new URLSearchParams({q:'buscar',texto:txtBuscar.value,designacion:f_designacion.value,fecha:f_fecha.value});
     try{
-        const data=await Salus.json('backend/postulantesDAO.php?'+params);idsActuales=data.map(p=>p.id_postulante);resumen.textContent=`${data.length} paciente(s) encontrado(s)`;
+        const data=await Salus.json('backend/postulantesDAO.php?'+params);idsActuales=data.map(p=>p.id_postulante);resumen.textContent=`${data.length} postulante(s) encontrado(s)`;
         tabla.innerHTML=data.length?data.map(p=>`<tr>
             <td><strong>${Salus.escape(p.nombre)}</strong><br><small>${Salus.escape(p.codigo_generado||p.codigo||'')}</small></td><td>${Salus.escape(p.ci)}</td>
             <td>${Salus.escape(p.edad)} años<br><small>${Salus.escape(p.sexo)}</small></td><td>${Salus.escape(p.escuela||'—')}</td>
@@ -50,7 +50,7 @@ async function buscar(){
 }
 function obtenerDesignacionTexto(){if(!f_designacion.value)return '';return f_designacion.options[f_designacion.selectedIndex].text.split(' · ')[0].trim();}
 function enviarInforme(action,ids,exigirEscuela=true){
-    if(!ids.length){Salus.toast('No hay pacientes para imprimir.','error');return;}
+    if(!ids.length){Salus.toast('No hay postulantes para imprimir.','error');return;}
     const designacion=obtenerDesignacionTexto();if(exigirEscuela&&!designacion){Salus.toast('Seleccione una escuela.','error');return;}
     const form=document.createElement('form');form.method='POST';form.action=action;form.target='_blank';
     ids.forEach((id,index)=>{const input=document.createElement('input');input.type='hidden';input.name=ids.length===1?'id':'ids[]';input.value=id;form.appendChild(input);});

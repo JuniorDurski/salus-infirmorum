@@ -1,25 +1,31 @@
 <?php
 include 'conexion.php';
+$moduloPersonas = 'pacientes';
+$esModuloPostulantes = $moduloPersonas === 'postulantes';
+$personaSingular = $esModuloPostulantes ? 'postulante' : 'paciente';
+$personaPlural = $esModuloPostulantes ? 'postulantes' : 'pacientes';
+$personaSingularTitulo = $esModuloPostulantes ? 'Postulante' : 'Paciente';
+$personaPluralTitulo = $esModuloPostulantes ? 'Postulantes' : 'Pacientes';
 $usuarioAutenticado = requerirAutenticacion($conexion, 'pacientes.ver');
 $puedeEditar = tienePermiso($usuarioAutenticado, 'pacientes.editar');
-$tituloPagina = 'Pacientes';
+$tituloPagina = $personaPluralTitulo;
 include 'menu.php';
 ?>
 
 <div class="page-header">
-    <div><span class="eyebrow">Gestión clínica</span><h1>Pacientes</h1><p>Datos personales, procedencia e identificación clínica en un solo lugar.</p></div>
+    <div><span class="eyebrow"><?= $esModuloPostulantes ? 'Postulantes · Gestión' : 'Gestión clínica' ?></span><h1><?= $personaPluralTitulo ?></h1><p>Datos personales, procedencia e identificación de <?= $esModuloPostulantes ? 'postulantes' : 'pacientes' ?> en un solo lugar.</p></div>
     <div style="display:flex; flex-wrap:wrap; gap:10px; align-items:center">
         <input id="filtroPacientes" type="search" placeholder="Buscar nombre, documento o código…" style="min-width:260px; width:auto">
-        <button type="button" class="btn-secondary" onclick="exportarLista('xls')" title="Descargar en Excel los pacientes de la lista">Excel</button>
-        <button type="button" class="btn-secondary" onclick="exportarLista('pdf')" title="Generar un PDF con los pacientes de la lista">PDF</button>
+        <button type="button" class="btn-secondary" onclick="exportarLista('xls')" title="Descargar en Excel los <?= $personaPlural ?> de la lista">Excel</button>
+        <button type="button" class="btn-secondary" onclick="exportarLista('pdf')" title="Generar un PDF con los <?= $personaPlural ?> de la lista">PDF</button>
     </div>
 </div>
 
 <div class="<?= $puedeEditar ? 'grid-2' : 'grid' ?>">
 <?php if ($puedeEditar): ?>
     <section class="card">
-        <div class="card-header"><div><h2>Datos del paciente</h2><p class="help-text">Los campos marcados son obligatorios.</p></div></div>
-        <form id="frmPostulante">
+        <div class="card-header"><div><h2>Datos del <?= $personaSingular ?></h2><p class="help-text">Los campos marcados son obligatorios.</p></div></div>
+        <form id="frmPersona">
             <input type="hidden" name="id_paciente" id="id_paciente">
             <input type="hidden" name="url_foto" id="url_foto">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(tokenCsrf(), ENT_QUOTES, 'UTF-8') ?>">
@@ -46,7 +52,7 @@ include 'menu.php';
                 <div class="campo"><label for="foto_paciente">Foto</label><img id="vista_foto" class="preview-image" alt="Vista previa" hidden><input type="file" id="foto_paciente" accept="image/jpeg,image/png,image/webp"><small>JPG, PNG o WEBP. Se sube al guardar.</small></div>
                 y las líneas comentadas con "foto" en el script de abajo.
             -->
-            <div class="form-actions"><button type="submit">Guardar paciente</button><button type="button" class="btn-secondary" onclick="limpiar()">Cancelar</button></div>
+            <div class="form-actions"><button type="submit">Guardar <?= $personaSingular ?></button><button type="button" class="btn-secondary" onclick="limpiar()">Cancelar</button></div>
             <div id="mensaje" class="mensaje" role="status"></div>
         </form>
     </section>
@@ -54,14 +60,14 @@ include 'menu.php';
 
     <section class="card">
         <div class="card-header" style="flex-wrap:wrap">
-            <div><h2>Pacientes activos</h2><p class="help-text" id="resumen">Cargando registros…</p></div>
+            <div><h2><?= $personaPluralTitulo ?> activos</h2><p class="help-text" id="resumen">Cargando registros…</p></div>
             <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center">
                 <input id="filtroFecha" type="date" title="Fecha de alta" aria-label="Filtrar por fecha de alta" style="width:auto">
                 <button type="button" class="btn-secondary btn-small" onclick="filtroFecha.value=''; renderPacientes()">Todas las fechas</button>
             </div>
         </div>
         <div class="table-wrap"><table class="data-table">
-            <thead><tr><th>ID / orden</th><th>Paciente</th><th>Documento</th><th>Edad / sexo</th><th>Escuela</th><th>Rh</th><th>Acciones</th></tr></thead>
+            <thead><tr><th>ID / orden</th><th><?= $personaSingularTitulo ?></th><th>Documento</th><th>Edad / sexo</th><th>Escuela</th><th>Rh</th><th>Acciones</th></tr></thead>
             <tbody id="tabla"><tr><td colspan="7" class="empty-state">Cargando…</td></tr></tbody>
         </table></div>
     </section>
@@ -69,6 +75,10 @@ include 'menu.php';
 
 <script>
 const puedeEditarPacientes = <?= $puedeEditar ? 'true' : 'false' ?>;
+const moduloPersonas = <?= json_encode($moduloPersonas, JSON_UNESCAPED_UNICODE) ?>;
+const personaSingular = <?= json_encode($personaSingular, JSON_UNESCAPED_UNICODE) ?>;
+const personaPlural = <?= json_encode($personaPlural, JSON_UNESCAPED_UNICODE) ?>;
+const personaSingularTitulo = <?= json_encode($personaSingularTitulo, JSON_UNESCAPED_UNICODE) ?>;
 let pacientes = [], escuelas = [], paises = [];
 let pacientesVisibles = []; // lo que se ve en la tabla con los filtros aplicados
 async function cargarCatalogos() {
@@ -96,14 +106,14 @@ function renderPacientes() {
     const datos=pacientes.filter(p=>(!fecha||p.fecha_alta===fecha)
         &&(!termino||`${p.nombre} ${p.ci} ${p.codigo_generado||''}`.toLowerCase().includes(termino)));
     pacientesVisibles=datos;
-    resumen.textContent=`${datos.length} de ${pacientes.length} paciente(s)`;
+    resumen.textContent=`${datos.length} de ${pacientes.length} ${personaPlural}`;
     tabla.innerHTML=datos.length?datos.map(p=>`<tr>
         <td><strong>${Number(p.id_paciente)}</strong><br><small title="Orden del día de alta">Orden ${Salus.escape(p.orden_dia)}</small></td>
         <td><strong>${Salus.escape(p.nombre)}</strong><br><small>${Salus.escape(p.codigo_generado||'')}</small></td>
         <td>${Salus.escape(p.ci)}</td><td>${Salus.escape(p.edad)} años<br><small>${Salus.escape(p.sexo)}</small></td>
         <td>${Salus.escape(p.escuela||'—')}</td><td><span class="badge badge-muted">${Salus.escape(formatoGrupoSanguineo(p.grupo_sanguineo)||'—')}</span></td>
         <td><div class="table-actions">${puedeEditarPacientes?`<button class="btn-small btn-secondary" onclick="editar(${p.id_paciente})">Editar</button><button class="btn-small btn-danger" onclick="eliminar(${p.id_paciente})">Desactivar</button>`:''}</div></td>
-    </tr>`).join(''):'<tr><td colspan="7" class="empty-state">No se encontraron pacientes.</td></tr>';
+    </tr>`).join(''):`<tr><td colspan="7" class="empty-state">No se encontraron ${personaPlural}.</td></tr>`;
 }
 function editar(id) {
     const p=pacientes.find(item=>Number(item.id_paciente)===Number(id)); if(!p)return;
@@ -116,14 +126,14 @@ function editar(id) {
 }
 // Exporta a Excel o PDF exactamente los pacientes que se ven en la lista.
 function exportarLista(formato){
-    if(!pacientesVisibles.length){Salus.toast('No hay pacientes en la lista para exportar.','warn');return;}
+    if(!pacientesVisibles.length){Salus.toast(`No hay ${personaPlural} en la lista para exportar.`,'warn');return;}
     const filtros=[];
     if(filtroPacientes.value.trim()) filtros.push('búsqueda "'+filtroPacientes.value.trim()+'"');
     if(filtroFecha.value) filtros.push('fecha de alta '+filtroFecha.value.split('-').reverse().join('/'));
     const form=document.createElement('form');
     form.method='POST'; form.action='backend/pacientesExportar.php';
     if(formato==='pdf') form.target='_blank';
-    const campos={formato, ids:pacientesVisibles.map(p=>p.id_paciente).join(','), filtro:filtros.join(', '), csrf_token:Salus.csrf};
+    const campos={formato, entidad:moduloPersonas, ids:pacientesVisibles.map(p=>p.id_paciente).join(','), filtro:filtros.join(', '), csrf_token:Salus.csrf};
     Object.entries(campos).forEach(([name,value])=>{
         const input=document.createElement('input'); input.type='hidden'; input.name=name; input.value=value; form.appendChild(input);
     });
@@ -144,11 +154,11 @@ async function buscarCedula(){
             if(Number(id_paciente.value)===r.id_paciente) return; // ya se está editando este paciente
             if(r.activo&&pacientes.some(p=>Number(p.id_paciente)===r.id_paciente)){
                 editar(r.id_paciente);
-                Salus.toast('Este paciente ya está registrado (ID '+r.id_paciente+'). Se cargaron sus datos para editar.','warn');
+                Salus.toast(`Este ${personaSingular} ya está registrado (ID ${r.id_paciente}). Se cargaron sus datos para editar.`,'warn');
             }else{
                 id_paciente.value='';
                 nombre.value=r.nombre||''; fecha_nacimiento.value=r.fecha_nacimiento||''; es_femenino.value=r.sexo==='F'?'1':'0';
-                Salus.toast('Esta cédula pertenece a un paciente desactivado (ID '+r.id_paciente+'). Reactívelo antes de volver a cargarlo.','warn');
+                Salus.toast(`Esta cédula pertenece a un ${personaSingular} desactivado (ID ${r.id_paciente}). Reactívelo antes de volver a cargarlo.`,'warn');
             }
             return;
         }
@@ -166,25 +176,25 @@ async function buscarCedula(){
     finally{btnBuscarCedula.disabled=false;}
 }
 function limpiar(){
-    frmPostulante.reset();id_paciente.value='';url_foto.value='';mensaje.textContent='';
+    frmPersona.reset();id_paciente.value='';url_foto.value='';mensaje.textContent='';
     seleccionarParaguay();
     // Foto oculta por ahora: vista_foto.src='';vista_foto.hidden=true;
 }
 async function eliminar(id){
-    if(!confirm('¿Desactivar este paciente?'))return;
-    try{await Salus.json('backend/postulantesDAO.php?q=eliminar',{method:'POST',body:Salus.form({id})});Salus.toast('Paciente desactivado.');cargar();}
+    if(!confirm(`¿Desactivar este ${personaSingular}?`))return;
+    try{await Salus.json('backend/postulantesDAO.php?q=eliminar',{method:'POST',body:Salus.form({id})});Salus.toast(`${personaSingularTitulo} desactivado.`);cargar();}
     catch(error){Salus.toast(error.message,'error');}
 }
-if (puedeEditarPacientes) frmPostulante.addEventListener('submit',async event=>{
+if (puedeEditarPacientes) frmPersona.addEventListener('submit',async event=>{
     event.preventDefault(); mensaje.textContent='';
     try{
-        await Salus.json('backend/postulantesDAO.php?q=guardar',{method:'POST',body:new FormData(frmPostulante)});
+        await Salus.json('backend/postulantesDAO.php?q=guardar',{method:'POST',body:new FormData(frmPersona)});
         // Foto oculta por ahora. Para reactivarla, guardar el resultado de arriba en "resultado" y descomentar:
         // if(foto_paciente.files[0]){
         //     const foto=Salus.form({tipo:'paciente_foto',id_paciente:resultado.id_paciente});foto.append('archivo',foto_paciente.files[0]);
         //     await Salus.json('backend/uploadDAO.php',{method:'POST',body:foto});
         // }
-        Salus.toast('Paciente guardado.');limpiar();cargar();
+        Salus.toast(`${personaSingularTitulo} guardado.`);limpiar();cargar();
     }catch(error){mensaje.textContent=error.message;}
 });
 // Enter en Documento busca en el padrón en vez de guardar el formulario.

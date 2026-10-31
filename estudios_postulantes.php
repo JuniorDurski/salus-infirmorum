@@ -2,12 +2,12 @@
 include 'conexion.php';
 $usuarioAutenticado = requerirAlgunPermiso($conexion, ['postulantes_estudios.ver', 'postulantes_estudios.editar']);
 $puedeEditar = tienePermiso($usuarioAutenticado, 'postulantes_estudios.editar');
-$tituloPagina = 'Estudios referenciales de postulantes';
+$tituloPagina = 'Estudios postulantes';
 include 'menu.php';
 ?>
 
 <div class="page-header">
-    <div><span class="eyebrow">Atenciones · Catálogo</span><h1>Estudios referenciales</h1><p>Define los estudios que pueden asignarse a los postulantes.</p></div>
+    <div><span class="eyebrow">Postulantes · Catálogo</span><h1>Estudios postulantes</h1><p>Define los estudios que pueden asignarse a los postulantes.</p></div>
     <div class="header-actions"><input class="search-box" type="search" id="buscar" placeholder="Buscar estudio…"></div>
 </div>
 

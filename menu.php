@@ -60,7 +60,8 @@ function renderizarMenus(array $menus, string $rutaActual, bool $esSubmenu = fal
 
 $titulosRuta = [
     'index.php' => 'Panel principal', 'designaciones.php' => 'Escuelas',
-    'pacientes.php' => 'Pacientes', 'imprimir.php' => 'Informe LAB',
+    'pacientes.php' => 'Pacientes', 'postulantes.php' => 'Postulantes',
+    'informe_lab.php' => 'Informe LAB',
     'informe_rx.php' => 'Informe RX',
     'informe_eco.php' => 'Informe ECO',
     'informe_audiometria.php' => 'Informe audiometría',
@@ -69,7 +70,7 @@ $titulosRuta = [
     'permisos.php' => 'Permisos', 'menus.php' => 'Menús',
     'universidades.php' => 'Universidades', 'titulos.php' => 'Títulos profesionales',
     'atenciones.php' => 'Asignaciones de atención',
-    'estudios_referenciales.php' => 'Estudios referenciales',
+    'estudios_postulantes.php' => 'Estudios postulantes',
     'perfil.php' => 'Mi perfil',
 ];
 $tituloActual = $tituloPagina ?? ($titulosRuta[$rutaActual] ?? 'Salus Infirmorum');
