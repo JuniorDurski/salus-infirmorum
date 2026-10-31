@@ -32,6 +32,10 @@ if (!in_array($formato, ['xls', 'pdf'], true)) {
 $entidad = strtolower((string) ($_POST['entidad'] ?? 'pacientes'));
 $esPostulantes = $entidad === 'postulantes';
 $entidad = $esPostulantes ? 'postulantes' : 'pacientes';
+$reporte = strtolower((string) ($_POST['reporte'] ?? 'lista'));
+if (!$esPostulantes || !in_array($reporte, ['lista', 'comision', 'clinica'], true)) {
+    $reporte = 'lista';
+}
 
 $ids = array_values(array_unique(array_filter(
     array_map('intval', explode(',', (string) ($_POST['ids'] ?? ''))),
@@ -59,9 +63,18 @@ $sql = 'SELECT p.id_paciente,
                e.nombre AS escuela,
                p.grupo_sanguineo,
                p.telefono,
-               DATE_FORMAT(p.creado_en, \'%d/%m/%Y\') AS fecha_alta
+               DATE_FORMAT(p.creado_en, \'%d/%m/%Y\') AS fecha_alta,
+               finanzas.comision_arreador,
+               finanzas.monto_clinica
           FROM pacientes p
           LEFT JOIN escuelas e ON e.id_escuela = p.id_escuela
+          LEFT JOIN (
+              SELECT ap.id_paciente, ae.comision_arreador, ae.monto_clinica
+              FROM postulantes_arreador_postulante ap
+              INNER JOIN postulantes_arreador_escuela ae
+                      ON ae.id_arreador_escuela = ap.id_arreador_escuela
+                     AND ae.anio = YEAR(CURDATE())
+          ) finanzas ON finanzas.id_paciente = p.id_paciente
          WHERE p.id_paciente IN (' . $placeholders . ')';
 $stmt = $conexion->prepare($sql);
 $stmt->bind_param(str_repeat('i', count($ids)), ...$ids);
@@ -93,14 +106,32 @@ foreach ($ids as $id) {
         'Teléfono' => $p['telefono'] ?? '',
         'Fecha alta' => $p['fecha_alta'],
     ];
+    if ($reporte === 'comision') {
+        $filas[array_key_last($filas)]['Comisión de gestión'] = importeEntero($p['comision_arreador']);
+    } elseif ($reporte === 'clinica') {
+        $filas[array_key_last($filas)]['Ganancia de la clínica'] = importeEntero($p['monto_clinica']);
+    }
 }
 
-$base = $entidad . '-' . date('Y-m-d_H-i');
+$titulosReporte = [
+    'lista' => 'Lista de postulantes',
+    'comision' => 'Postulantes y comisión de gestión',
+    'clinica' => 'Postulantes y ganancia de la clínica',
+];
+$columnasTotales = ['comision' => 'Comisión de gestión', 'clinica' => 'Ganancia de la clínica'];
+$columnaTotal = $columnasTotales[$reporte] ?? null;
+$totalReporte = $columnaTotal === null ? null : array_sum(array_map(
+    static fn(array $fila): int => (int) str_replace('.', '', (string) ($fila[$columnaTotal] ?? 0)),
+    $filas
+));
+$reloj = $conexion->query("SELECT DATE_FORMAT(NOW(), '%Y-%m-%d_%H-%i') AS archivo, DATE_FORMAT(NOW(), '%d/%m/%Y %H:%i') AS generado")->fetch_assoc();
+$base = $entidad . '-' . $reporte . '-' . $reloj['archivo'];
+$tituloReporte = $esPostulantes ? $titulosReporte[$reporte] : 'Lista de pacientes';
 
 if ($formato === 'xls') {
-    exportarExcel($filas, $base, $entidad);
+    exportarExcel($filas, $base, $tituloReporte, $columnaTotal, $totalReporte, $reloj['generado']);
 } else {
-    exportarPdf($filas, $base, $filtro, $entidad);
+    exportarPdf($filas, $base, $filtro, $tituloReporte, $columnaTotal, $totalReporte, $reloj['generado']);
 }
 
 /* ===========================
@@ -125,7 +156,12 @@ function grupoSanguineoCorto(?string $texto): string
     return $grupo . $signo;
 }
 
-function tablaHtml(array $filas): string
+function importeEntero($valor): string
+{
+    return number_format((float) ($valor ?? 0), 0, ',', '.');
+}
+
+function tablaHtml(array $filas, ?string $columnaTotal = null, ?int $total = null): string
 {
     $html = '<table class="lista" border="1"><thead><tr>';
     foreach (array_keys($filas[0]) as $cabecera) {
@@ -142,23 +178,84 @@ function tablaHtml(array $filas): string
         $html .= '</tr>';
     }
 
-    return $html . '</tbody></table>';
+    $html .= '</tbody>';
+    if ($columnaTotal !== null && $total !== null) {
+        $cantidadColumnas = count($filas[0]);
+        $html .= '<tfoot><tr><th colspan="' . ($cantidadColumnas - 1) . '" style="text-align:right">TOTAL</th>'
+            . '<th>' . h(importeEntero($total)) . '</th></tr></tfoot>';
+    }
+
+    return $html . '</table>';
 }
 
-function exportarExcel(array $filas, string $base, string $entidad): void
+function logoPng(): string
 {
-    header('Content-Type: application/vnd.ms-excel; charset=utf-8');
+    $ruta = __DIR__ . '/../images/img_logo_negro.png';
+    $datos = is_file($ruta) ? file_get_contents($ruta) : false;
+    return $datos === false ? '' : $datos;
+}
+
+/**
+ * Excel no muestra imágenes "data:" dentro de un .xls HTML, por eso se envía
+ * como MHTML (página web de un solo archivo): el HTML y el logo viajan juntos.
+ */
+function exportarExcel(
+    array $filas,
+    string $base,
+    string $titulo,
+    ?string $columnaTotal,
+    ?int $total,
+    string $generado
+): void
+{
+    $limite = '----=_SalusLimite_' . bin2hex(random_bytes(8));
+    $urlHtml = 'file:///C:/salus/reporte.htm';
+    $urlLogo = 'file:///C:/salus/logo.png';
+    $logo = logoPng();
+
+    $html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">'
+        . '<head><meta http-equiv="Content-Type" content="text/html; charset=utf-8">'
+        . '<style>body{font-family:Arial,sans-serif}.lista{border-collapse:collapse}.lista th{background:#dfece8}.lista th,.lista td{padding:5px}.lista tfoot th{background:#eef4f2}</style></head><body>'
+        . '<table><tr><td style="height:95px;width:130px;vertical-align:top">'
+        . ($logo !== '' ? '<img src="' . $urlLogo . '" width="110" height="88">' : '')
+        . '</td><td style="vertical-align:middle"><b style="font-size:16pt">' . h($titulo) . '</b><br>CLÍNICA MÉDICA FLORENTÍN<br><small>Generado: ' . h($generado) . '</small></td></tr></table><br>'
+        . ($filas === [] ? '<p>Sin registros.</p>' : tablaHtml($filas, $columnaTotal, $total))
+        . '</body></html>';
+
+    $salida = "MIME-Version: 1.0\r\n"
+        . "Content-Type: multipart/related; boundary=\"$limite\"; type=\"text/html\"\r\n\r\n"
+        . "--$limite\r\n"
+        . "Content-Location: $urlHtml\r\n"
+        . "Content-Transfer-Encoding: base64\r\n"
+        . "Content-Type: text/html; charset=\"utf-8\"\r\n\r\n"
+        . chunk_split(base64_encode($html), 76, "\r\n") . "\r\n";
+    if ($logo !== '') {
+        $salida .= "--$limite\r\n"
+            . "Content-Location: $urlLogo\r\n"
+            . "Content-Transfer-Encoding: base64\r\n"
+            . "Content-Type: image/png\r\n\r\n"
+            . chunk_split(base64_encode($logo), 76, "\r\n") . "\r\n";
+    }
+    $salida .= "--$limite--\r\n";
+
+    header('Content-Type: application/vnd.ms-excel');
     header('Content-Disposition: attachment; filename="' . $base . '.xls"');
-    echo "\xEF\xBB\xBF";
-    echo '<html><head><meta charset="utf-8"></head><body>';
-    echo $filas === [] ? '<p>Sin ' . h($entidad) . '.</p>' : tablaHtml($filas);
-    echo '</body></html>';
+    echo $salida;
     exit;
 }
 
-function exportarPdf(array $filas, string $base, string $filtro, string $entidad): void
+function exportarPdf(
+    array $filas,
+    string $base,
+    string $filtro,
+    string $titulo,
+    ?string $columnaTotal,
+    ?int $total,
+    string $generado
+): void
 {
     require_once __DIR__ . '/../mpdf/vendor/autoload.php';
+    require_once __DIR__ . '/../reportes/membrete_clinica.php';
 
     $mpdf = new \Mpdf\Mpdf([
         'mode'          => 'utf-8',
@@ -168,7 +265,7 @@ function exportarPdf(array $filas, string $base, string $filtro, string $entidad
         'margin_left'   => 10,
         'margin_right'  => 10,
     ]);
-    $mpdf->SetTitle('Listado de ' . $entidad);
+    $mpdf->SetTitle($titulo);
     $mpdf->SetHTMLFooter('<div style="font-size:8pt; text-align:right; color:#555">Página {PAGENO} de {nbpg}</div>');
 
     $html = '
@@ -180,12 +277,13 @@ function exportarPdf(array $filas, string $base, string $filtro, string $entidad
             table.lista th { background: #e8eeec; font-weight: bold; text-align: left; }
             table.lista th, table.lista td { border: 0.5px solid #999; padding: 3px 4px; }
         </style>
-        <h1>Listado de ' . h($entidad) . '</h1>
+        ' . membreteClinicaHtml() . '
+        <h1>' . h($titulo) . '</h1>
         <div class="meta">
-            Generado: ' . h(date('d/m/Y H:i')) . ' · ' . count($filas) . ' ' . h($entidad)
+            Generado: ' . h($generado) . ' · ' . count($filas) . ' registro(s)'
             . ($filtro !== '' ? ' · Filtro: ' . h($filtro) : '') . '
         </div>';
-    $html .= $filas === [] ? '<p>Sin ' . h($entidad) . '.</p>' : tablaHtml($filas);
+    $html .= $filas === [] ? '<p>Sin registros.</p>' : tablaHtml($filas, $columnaTotal, $total);
 
     $mpdf->WriteHTML($html);
     $mpdf->Output($base . '.pdf', 'I');

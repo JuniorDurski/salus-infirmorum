@@ -191,3 +191,8 @@ convenio tiene tarifas distintas para hombres y mujeres, mientras que la
 comisión y el importe que queda para la clínica se cargan manualmente. La
 pantalla `postulantes.php` conserva solamente la lista de postulantes,
 asignaciones, pagos y saldos; `pacientes.php` permanece independiente.
+
+El alta financiera se procesa de forma atómica: primero se valida el convenio y
+el saldo, luego se crea o actualiza `postulantes_arreador_postulante` y finalmente
+se insertan todos los registros de `postulantes_pago`. Si falla cualquier método
+o importe, la transacción completa se revierte.

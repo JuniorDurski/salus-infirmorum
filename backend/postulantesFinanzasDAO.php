@@ -6,7 +6,7 @@ require_once __DIR__ . '/seguridad.php';
 
 $q = $_GET['q'] ?? '';
 
-if (in_array($q, ['resumen', 'pagos'], true)) {
+if (in_array($q, ['resumen', 'configuracion', 'pagos'], true)) {
     requerirAutenticacion($conexion, 'pacientes.ver', true);
 } else {
     requerirAutenticacion($conexion, 'pacientes.editar', true);
@@ -17,6 +17,9 @@ try {
     switch ($q) {
         case 'resumen':
             resumenFinanciero($conexion);
+            break;
+        case 'configuracion':
+            configuracionFinanciera($conexion);
             break;
         case 'pagos':
             listarPagos($conexion);
@@ -38,6 +41,9 @@ try {
             break;
         case 'pagar':
             registrarPago($conexion);
+            break;
+        case 'registrar_cobro':
+            registrarCobroCompleto($conexion);
             break;
         default:
             errorFinanzas('Operación no válida.');
@@ -138,6 +144,35 @@ function listarPagos(mysqli $db): void
     $stmt->bind_param('i', $id);
     $stmt->execute();
     responderJson(['status' => 'ok', 'pagos' => $stmt->get_result()->fetch_all(MYSQLI_ASSOC)]);
+}
+
+function configuracionFinanciera(mysqli $db): void
+{
+    $anio = anioActualDb($db);
+    $arreadores = $db->query(
+        'SELECT a.id_arreador, a.id_pais, a.nombre, a.institucion, a.telefono, a.correo, a.activo,
+                COALESCE(p.nombre, \'\') AS pais
+         FROM postulantes_arreadores a
+         LEFT JOIN paises p ON p.id_pais = a.id_pais
+         ORDER BY a.activo DESC, a.nombre'
+    )->fetch_all(MYSQLI_ASSOC);
+    $convenios = $db->query(
+        'SELECT ae.id_arreador_escuela, ae.id_arreador, ae.id_escuela, ae.anio,
+                ae.monto_total_hombre, ae.monto_total_mujer,
+                ae.comision_arreador, ae.monto_clinica, ae.activo,
+                a.nombre AS arreador, e.nombre AS escuela
+         FROM postulantes_arreador_escuela ae
+         INNER JOIN postulantes_arreadores a ON a.id_arreador = ae.id_arreador
+         INNER JOIN escuelas e ON e.id_escuela = ae.id_escuela
+         ORDER BY ae.anio DESC, ae.activo DESC, e.nombre, a.nombre'
+    )->fetch_all(MYSQLI_ASSOC);
+
+    responderJson([
+        'status' => 'ok',
+        'anio' => $anio,
+        'arreadores' => $arreadores,
+        'convenios' => $convenios,
+    ]);
 }
 
 function guardarArreador(mysqli $db): void
@@ -409,13 +444,158 @@ function registrarPago(mysqli $db): void
     }
 }
 
+function registrarCobroCompleto(mysqli $db): void
+{
+    $idPaciente = enteroPositivo($_POST['id_paciente'] ?? 0, 'Seleccione un postulante.');
+    $idConvenio = enteroPositivo($_POST['id_arreador_escuela'] ?? 0, 'Seleccione un convenio.');
+    $fechaRecibida = trim((string) ($_POST['fecha'] ?? ''));
+    $observacion = textoNullable($_POST['observacion'] ?? null);
+    $pagosRecibidos = json_decode((string) ($_POST['pagos'] ?? ''), true);
+    $actor = usuarioSesionId();
+    $anio = anioActualDb($db);
+
+    $fecha = DateTimeImmutable::createFromFormat('!Y-m-d', $fechaRecibida);
+    if ($fecha === false || $fecha->format('Y-m-d') !== $fechaRecibida || $fechaRecibida > fechaActualDb($db)) {
+        errorFinanzas('La fecha de pago no es válida ni puede estar en el futuro.');
+    }
+    if (!is_array($pagosRecibidos) || $pagosRecibidos === [] || count($pagosRecibidos) > 20) {
+        errorFinanzas('Agregue entre uno y veinte métodos de pago.');
+    }
+
+    $pagos = [];
+    $metodosUsados = [];
+    foreach ($pagosRecibidos as $posicion => $pago) {
+        if (!is_array($pago)) {
+            errorFinanzas('Los datos de pago no son válidos.');
+        }
+        $idMetodo = enteroPositivo($pago['id_metodo_pago'] ?? 0, 'Seleccione el método de cada pago.');
+        if (isset($metodosUsados[$idMetodo])) {
+            errorFinanzas('Cada método de pago debe aparecer una sola vez.');
+        }
+        $metodosUsados[$idMetodo] = true;
+        $pagos[] = [
+            'id_metodo_pago' => $idMetodo,
+            'monto' => montoValido($pago['monto'] ?? '', 'El importe del pago ' . ($posicion + 1)),
+        ];
+    }
+
+    $db->begin_transaction();
+    try {
+        $stmt = $db->prepare(
+            'SELECT ae.id_arreador, ae.id_escuela,
+                    CASE WHEN p.es_femenino = 1
+                         THEN ae.monto_total_mujer ELSE ae.monto_total_hombre END AS monto_total
+             FROM postulantes_arreador_escuela ae
+             INNER JOIN postulantes_arreadores a ON a.id_arreador = ae.id_arreador
+             INNER JOIN escuelas e ON e.id_escuela = ae.id_escuela
+             INNER JOIN pacientes p ON p.id_paciente = ? AND p.id_escuela = ae.id_escuela
+             WHERE ae.id_arreador_escuela = ? AND ae.anio = ?
+               AND ae.activo = 1 AND a.activo = 1 AND e.activo = 1 AND p.activo = 1
+             FOR UPDATE'
+        );
+        $stmt->bind_param('iii', $idPaciente, $idConvenio, $anio);
+        $stmt->execute();
+        $convenio = $stmt->get_result()->fetch_assoc();
+        if ($convenio === null) {
+            errorFinanzas('El convenio debe estar activo, ser del año actual y corresponder a la escuela del postulante.');
+        }
+
+        $stmt = $db->prepare(
+            'SELECT ap.id_arreador_postulante, ap.id_arreador_escuela,
+                    COALESCE(SUM(pg.monto), 0) AS pagado
+             FROM postulantes_arreador_postulante ap
+             INNER JOIN postulantes_arreador_escuela ae
+                     ON ae.id_arreador_escuela = ap.id_arreador_escuela
+             LEFT JOIN postulantes_pago pg
+                    ON pg.id_arreador_postulante = ap.id_arreador_postulante
+             WHERE ap.id_paciente = ? AND ae.anio = ?
+             GROUP BY ap.id_arreador_postulante, ap.id_arreador_escuela
+             LIMIT 1 FOR UPDATE'
+        );
+        $stmt->bind_param('ii', $idPaciente, $anio);
+        $stmt->execute();
+        $asignacion = $stmt->get_result()->fetch_assoc();
+        $pagadoCentavos = $asignacion === null ? 0 : montoCentavos($asignacion['pagado']);
+
+        if ($asignacion !== null) {
+            if ((int) $asignacion['id_arreador_escuela'] !== $idConvenio && $pagadoCentavos > 0) {
+                errorFinanzas('El postulante ya tiene pagos en otro convenio y no puede cambiarse.');
+            }
+            $idAsignacion = (int) $asignacion['id_arreador_postulante'];
+            $stmt = $db->prepare(
+                'UPDATE postulantes_arreador_postulante
+                 SET id_arreador = ?, id_arreador_escuela = ?, observacion = ?,
+                     derivado_en = NOW(), registrado_por = ?
+                 WHERE id_arreador_postulante = ?'
+            );
+            $stmt->bind_param('iisii', $convenio['id_arreador'], $idConvenio, $observacion, $actor, $idAsignacion);
+            $stmt->execute();
+        } else {
+            $stmt = $db->prepare(
+                'INSERT INTO postulantes_arreador_postulante
+                    (id_arreador, id_arreador_escuela, id_paciente, observacion, registrado_por)
+                 VALUES (?, ?, ?, ?, ?)'
+            );
+            $stmt->bind_param('iiisi', $convenio['id_arreador'], $idConvenio, $idPaciente, $observacion, $actor);
+            $stmt->execute();
+            $idAsignacion = (int) $db->insert_id;
+        }
+
+        $saldoCentavos = montoCentavos($convenio['monto_total']) - $pagadoCentavos;
+        $stmtMetodo = $db->prepare(
+            'SELECT id_metodo_pago FROM metodos_pago WHERE id_metodo_pago = ? AND activo = 1'
+        );
+        $stmtPago = $db->prepare(
+            'INSERT INTO postulantes_pago
+                (id_arreador_postulante, id_metodo_pago, fecha, monto, saldo, observacion, registrado_por)
+             VALUES (?, ?, CONCAT(?, \' \', DATE_FORMAT(NOW(), \'%H:%i:%s\')), ?, ?, ?, ?)'
+        );
+        foreach ($pagos as $pago) {
+            $idMetodo = $pago['id_metodo_pago'];
+            $stmtMetodo->bind_param('i', $idMetodo);
+            $stmtMetodo->execute();
+            if ($stmtMetodo->get_result()->fetch_assoc() === null) {
+                errorFinanzas('Uno de los métodos de pago ya no está disponible.');
+            }
+
+            $saldoCentavos -= montoCentavos($pago['monto']);
+            if ($saldoCentavos < 0) {
+                errorFinanzas('La suma de los pagos supera el saldo pendiente.');
+            }
+            $saldo = number_format($saldoCentavos / 100, 2, '.', '');
+            $monto = $pago['monto'];
+            $stmtPago->bind_param(
+                'iissssi',
+                $idAsignacion, $idMetodo, $fechaRecibida, $monto, $saldo, $observacion, $actor
+            );
+            $stmtPago->execute();
+        }
+
+        $db->commit();
+        responderJson([
+            'status' => 'ok',
+            'id_arreador_postulante' => $idAsignacion,
+            'saldo' => number_format($saldoCentavos / 100, 2, '.', ''),
+        ]);
+    } catch (Throwable $e) {
+        $db->rollback();
+        throw $e;
+    }
+}
+
 function montoValido($valor, string $campo, bool $permiteCero = false): string
 {
-    $normalizado = trim((string) $valor);
-    if (!preg_match('/^\d{1,10}(?:\.\d{1,2})?$/', $normalizado)) {
-        errorFinanzas("{$campo} debe ser un importe válido con hasta dos decimales.");
+    $normalizado = preg_replace('/\s+/', '', trim((string) $valor));
+    if (preg_match('/^\d{1,10}$/', $normalizado)) {
+        $unidades = $normalizado;
+    } elseif (preg_match('/^\d{1,3}(?:\.\d{3})+$/', $normalizado)) {
+        $unidades = str_replace('.', '', $normalizado);
+    } elseif (preg_match('/^(\d{1,10})\.00$/', $normalizado, $partes)) {
+        $unidades = $partes[1];
+    } else {
+        errorFinanzas("{$campo} debe ser un importe entero válido.");
     }
-    $monto = number_format((float) $normalizado, 2, '.', '');
+    $monto = number_format((int) $unidades, 2, '.', '');
     if ((!$permiteCero && montoCentavos($monto) <= 0) || ($permiteCero && montoCentavos($monto) < 0)) {
         errorFinanzas($permiteCero ? "{$campo} no puede ser negativa." : "{$campo} debe ser mayor que cero.");
     }

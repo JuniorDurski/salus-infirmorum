@@ -58,3 +58,10 @@ parciales y saldos. La migración `V28` separa la configuración en
 `arreadores.php`, permite tarifas diferentes para hombres y mujeres y convierte
 el importe de la clínica en un dato manual. `postulantes.php` conserva la lista,
 las asignaciones y los pagos; `pacientes.php` no se modifica.
+
+La escuela y el convenio de cobro se conservan en el navegador hasta borrar la
+selección. Después de guardar o localizar un postulante se pueden preparar uno
+o varios medios de pago; la asignación y todos los pagos se registran juntos en
+una única transacción. Los listados de postulantes se exportan a Excel o PDF en
+versión básica, con comisión de gestión o con ganancia de la clínica, incluyendo
+el logo institucional.
