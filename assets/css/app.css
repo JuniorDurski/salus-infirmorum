@@ -168,6 +168,7 @@ table { border-collapse: collapse; }
 .badge-danger, .estado-inactivo { color: var(--danger); }
 .badge-danger { background: var(--danger-soft); }
 .badge-muted { background: var(--surface-2); color: var(--muted); border: 1px solid var(--border); }
+.badge-warn { background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
 .code { padding: .2rem .4rem; border-radius: 6px; background: var(--surface-2); color: var(--primary); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .82rem; }
 .previsualizacion, .preview-image { display: block; max-width: 210px; max-height: 120px; margin: 8px 0; border: 1px solid var(--border); border-radius: 10px; object-fit: contain; background: #fff; }
 
@@ -209,9 +210,9 @@ table { border-collapse: collapse; }
 .finance-filters { margin-bottom: 18px; }
 .finance-filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .finance-filter-grid .campo { margin-bottom: 0; }
-.payment-context-card { margin-bottom: 22px; }
-.payment-context-grid { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(300px, 1.5fr) auto; gap: 14px; align-items: end; }
-.payment-context-grid .campo { margin-bottom: 0; }
+.context-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 18px; padding: 10px 14px; }
+.context-bar label { margin: 0; font-weight: 700; white-space: nowrap; }
+.context-bar select { flex: 1 1 220px; width: auto; min-width: 0; }
 .payment-workflow fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .payment-workflow fieldset:disabled { opacity: .58; }
 .payment-summary-grid { display: grid; grid-template-columns: 1.5fr repeat(3, 1fr); gap: 10px; margin-bottom: 18px; }
@@ -219,7 +220,7 @@ table { border-collapse: collapse; }
 .payment-summary-grid span, .payment-row-balance span, .payment-final-balance span { color: var(--muted); font-size: .8rem; }
 .payment-date { width: min(260px, 100%); }
 .payment-method-list { display: grid; gap: 10px; margin-bottom: 10px; }
-.payment-method-row { display: grid; grid-template-columns: minmax(190px, 1.1fr) minmax(160px, .8fr) minmax(150px, .7fr) auto; gap: 10px; align-items: end; padding: 12px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-2); }
+.payment-method-row { display: grid; grid-template-columns: minmax(170px, 1fr) minmax(140px, .8fr) minmax(200px, 1.4fr) minmax(130px, .7fr) auto; gap: 10px; align-items: end; padding: 12px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-2); }
 .payment-method-row .campo { margin-bottom: 0; }
 .payment-row-balance { display: grid; gap: 6px; min-height: 42px; align-content: center; }
 .payment-final-balance { display: flex; justify-content: flex-end; align-items: baseline; gap: 12px; margin: 14px 0; font-size: 1.15rem; }
@@ -294,7 +295,7 @@ table { border-collapse: collapse; }
     .stats-grid { grid-template-columns: repeat(2, 1fr); }
     .grid-2, .seguridad-grid { grid-template-columns: 1fr; }
     .finance-catalog-grid { grid-template-columns: 1fr; }
-    .payment-context-grid, .payment-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .payment-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .payment-method-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .attention-selector-grid { grid-template-columns: 1fr; }
 }
@@ -309,7 +310,7 @@ table { border-collapse: collapse; }
     .topbar-title small, .topbar-actions .profile-link { display: none; }
     .page-content { padding: 20px 16px; }
     .field-grid { grid-template-columns: 1fr; }
-    .finance-filter-grid, .payment-context-grid, .payment-summary-grid, .payment-method-row { grid-template-columns: 1fr; }
+    .finance-filter-grid, .payment-summary-grid, .payment-method-row { grid-template-columns: 1fr; }
     .attention-summary { grid-template-columns: 1fr; }
     .comment-form { grid-template-columns: 1fr; }
     .page-header { align-items: flex-start; flex-direction: column; }

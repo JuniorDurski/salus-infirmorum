@@ -449,7 +449,6 @@ function registrarCobroCompleto(mysqli $db): void
     $idPaciente = enteroPositivo($_POST['id_paciente'] ?? 0, 'Seleccione un postulante.');
     $idConvenio = enteroPositivo($_POST['id_arreador_escuela'] ?? 0, 'Seleccione un convenio.');
     $fechaRecibida = trim((string) ($_POST['fecha'] ?? ''));
-    $observacion = textoNullable($_POST['observacion'] ?? null);
     $pagosRecibidos = json_decode((string) ($_POST['pagos'] ?? ''), true);
     $actor = usuarioSesionId();
     $anio = anioActualDb($db);
@@ -476,6 +475,7 @@ function registrarCobroCompleto(mysqli $db): void
         $pagos[] = [
             'id_metodo_pago' => $idMetodo,
             'monto' => montoValido($pago['monto'] ?? '', 'El importe del pago ' . ($posicion + 1)),
+            'observacion' => textoNullable(mb_substr((string) ($pago['observacion'] ?? ''), 0, 500, 'UTF-8')),
         ];
     }
 
@@ -524,19 +524,18 @@ function registrarCobroCompleto(mysqli $db): void
             $idAsignacion = (int) $asignacion['id_arreador_postulante'];
             $stmt = $db->prepare(
                 'UPDATE postulantes_arreador_postulante
-                 SET id_arreador = ?, id_arreador_escuela = ?, observacion = ?,
-                     derivado_en = NOW(), registrado_por = ?
+                 SET id_arreador = ?, id_arreador_escuela = ?, registrado_por = ?
                  WHERE id_arreador_postulante = ?'
             );
-            $stmt->bind_param('iisii', $convenio['id_arreador'], $idConvenio, $observacion, $actor, $idAsignacion);
+            $stmt->bind_param('iiii', $convenio['id_arreador'], $idConvenio, $actor, $idAsignacion);
             $stmt->execute();
         } else {
             $stmt = $db->prepare(
                 'INSERT INTO postulantes_arreador_postulante
-                    (id_arreador, id_arreador_escuela, id_paciente, observacion, registrado_por)
-                 VALUES (?, ?, ?, ?, ?)'
+                    (id_arreador, id_arreador_escuela, id_paciente, registrado_por)
+                 VALUES (?, ?, ?, ?)'
             );
-            $stmt->bind_param('iiisi', $convenio['id_arreador'], $idConvenio, $idPaciente, $observacion, $actor);
+            $stmt->bind_param('iiii', $convenio['id_arreador'], $idConvenio, $idPaciente, $actor);
             $stmt->execute();
             $idAsignacion = (int) $db->insert_id;
         }
@@ -564,6 +563,7 @@ function registrarCobroCompleto(mysqli $db): void
             }
             $saldo = number_format($saldoCentavos / 100, 2, '.', '');
             $monto = $pago['monto'];
+            $observacion = $pago['observacion'];
             $stmtPago->bind_param(
                 'iissssi',
                 $idAsignacion, $idMetodo, $fechaRecibida, $monto, $saldo, $observacion, $actor
