@@ -45,7 +45,7 @@ include 'menu.php';
     </div>
 </section>
 
-<section class="card" style="margin-top:20px">
+<section class="card" style="margin-top:12px">
     <div class="card-header" style="align-items:flex-end; flex-wrap:wrap">
         <div>
             <h2>Postulantes</h2>
@@ -55,7 +55,6 @@ include 'menu.php';
         <div class="rotulos-print-actions acciones-impresion">
             <span class="rotulos-formato-etiqueta">Imprimir formato:</span>
             <span class="rotulos-formatos" id="rotuloBotonesFormatos">Cargando formatos…</span>
-            <small>Si no selecciona postulantes, se imprimirá toda la tabla.</small>
         </div>
     </div>
     <div class="table-wrap">

@@ -31,7 +31,7 @@ include 'menu.php';
     </div>
 </section>
 
-<section class="card" style="margin-top:20px">
+<section class="card" style="margin-top:12px">
     <div class="card-header">
         <div>
             <h2>Resultados</h2>
