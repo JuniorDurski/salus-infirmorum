@@ -119,9 +119,14 @@ function resumenFinanciero(mysqli $db): void
     $stmt->execute();
     $asignaciones = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
+    // Orden fijo de uso: efectivo (predeterminado), transferencia, tarjeta, cheque;
+    // cualquier método nuevo va después, por nombre.
     $metodos = $db->query(
-        'SELECT id_metodo_pago, codigo, nombre
-         FROM metodos_pago WHERE activo = 1 ORDER BY nombre'
+        "SELECT id_metodo_pago, codigo, nombre
+         FROM metodos_pago WHERE activo = 1
+         ORDER BY FIELD(codigo, 'EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'CHEQUE') = 0,
+                  FIELD(codigo, 'EFECTIVO', 'TRANSFERENCIA', 'TARJETA', 'CHEQUE'),
+                  nombre"
     )->fetch_all(MYSQLI_ASSOC);
 
     responderJson([

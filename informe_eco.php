@@ -196,7 +196,7 @@ function renderEco() {
                <button class="btn-small btn-secondary" type="button" onclick="abrirSeleccionEco(${id}, 'imagenes')">Imágenes</button>`
             : '';
         return `<tr>
-            <td><strong>${Salus.escape(Salus.ordenNombre(paciente))}</strong><br><small>${Salus.escape(paciente.codigo_generado || paciente.codigo || '')}</small></td>
+            <td><strong>${Salus.escape(Salus.ordenNombre(paciente))}</strong><br><small>${Salus.escape(paciente.codigo_informe || '')}</small></td>
             <td>${Salus.escape(paciente.ci)}</td>
             <td>${Salus.escape(paciente.edad)} años<br><small>${Salus.escape(paciente.sexo)}</small></td>
             <td>${Salus.escape(paciente.escuela || '—')}</td>

@@ -55,6 +55,7 @@ function camposPacienteSql(): string
             p.codigo,
 
             " . sqlCodigoPaciente('p') . " AS codigo_generado,
+            " . sqlCodigoInforme('p') . " AS codigo_informe,
             " . sqlOrdenDiaPacienteTexto('p') . " AS orden_dia,
             DATE_FORMAT(" . sqlMomentoRegistroPaciente('p') . ", '%Y-%m-%d') AS fecha_alta,
             p.nombre,

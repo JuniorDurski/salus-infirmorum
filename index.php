@@ -14,6 +14,10 @@ if ($puedeVerPostulantes) {
     $indicadores[] = ['Registrados en el mes', number_format($contar("SELECT COUNT(*) $registroActivo WHERE ap.derivado_en >= DATE_FORMAT(CURDATE(), '%Y-%m-01')"), 0, ',', '.'), 'lista'];
     $indicadores[] = ['Cobrado hoy', 'Gs. ' . number_format($contar('SELECT COALESCE(SUM(monto), 0) FROM postulantes_pago WHERE DATE(fecha) = CURDATE()'), 0, ',', '.'), 'dinero'];
     $indicadores[] = ['Cobrado en el mes', 'Gs. ' . number_format($contar("SELECT COALESCE(SUM(monto), 0) FROM postulantes_pago WHERE fecha >= DATE_FORMAT(CURDATE(), '%Y-%m-01')"), 0, ',', '.'), 'grafico'];
+    // Ganancia de la clínica: el importe para la clínica de cada convenio, por postulante registrado.
+    $conGanancia = "$registroActivo INNER JOIN postulantes_arreador_escuela ae ON ae.id_arreador_escuela = ap.id_arreador_escuela";
+    $indicadores[] = ['Ganancia hoy', 'Gs. ' . number_format($contar("SELECT COALESCE(SUM(ae.monto_clinica), 0) $conGanancia WHERE DATE(ap.derivado_en) = CURDATE()"), 0, ',', '.'), 'dinero', true];
+    $indicadores[] = ['Ganancia del mes', 'Gs. ' . number_format($contar("SELECT COALESCE(SUM(ae.monto_clinica), 0) $conGanancia WHERE ap.derivado_en >= DATE_FORMAT(CURDATE(), '%Y-%m-01')"), 0, ',', '.'), 'grafico', true];
 
     $porDia = [];
     $resultado = $conexion->query("SELECT DATE(ap.derivado_en) dia, COUNT(*) total $registroActivo WHERE ap.derivado_en >= CURDATE() - INTERVAL 6 DAY GROUP BY dia");
@@ -28,7 +32,7 @@ if ($puedeVerPostulantes) {
     }
 
     $escuelasMes = $conexion->query(
-        "SELECT e.nombre, COUNT(*) total
+        "SELECT e.nombre, COUNT(*) total, COALESCE(SUM(ae.monto_clinica), 0) ganancia
          $registroActivo
          INNER JOIN postulantes_arreador_escuela ae ON ae.id_arreador_escuela = ap.id_arreador_escuela
          INNER JOIN escuelas e ON e.id_escuela = ae.id_escuela
@@ -80,8 +84,8 @@ $maxEscuela = max(1, ...array_map('intval', array_column($escuelasMes ?: [['tota
 
 <?php if ($indicadores): ?>
 <section class="dash-kpis">
-    <?php foreach ($indicadores as [$titulo, $valor, $icono]): ?>
-        <article class="dash-kpi">
+    <?php foreach ($indicadores as $indicador): [$titulo, $valor, $icono] = $indicador; ?>
+        <article class="dash-kpi<?= !empty($indicador[3]) ? ' dash-kpi-destacado' : '' ?>">
             <span class="dash-kpi-icon"><?= iconoSvg($icono) ?></span>
             <div><span><?= $e($titulo) ?></span><strong><?= $e($valor) ?></strong></div>
         </article>
@@ -104,12 +108,12 @@ $maxEscuela = max(1, ...array_map('intval', array_column($escuelasMes ?: [['tota
         </div>
     </article>
     <article class="card dash-panel">
-        <div class="card-header"><div><h2>Escuelas del mes</h2><p class="help-text">Postulantes registrados por escuela</p></div></div>
+        <div class="card-header"><div><h2>Escuelas del mes</h2><p class="help-text">Postulantes registrados y ganancia por escuela</p></div></div>
         <?php if ($escuelasMes): ?>
             <div class="dash-bars">
                 <?php foreach ($escuelasMes as $escuela): ?>
                     <div class="dash-bar">
-                        <div class="dash-bar-text"><span><?= $e($escuela['nombre']) ?></span><strong><?= (int) $escuela['total'] ?></strong></div>
+                        <div class="dash-bar-text"><span><?= $e($escuela['nombre']) ?></span><strong><?= (int) $escuela['total'] ?> <small>· Gs. <?= number_format((float) $escuela['ganancia'], 0, ',', '.') ?></small></strong></div>
                         <span class="dash-bar-track"><span style="width: <?= round($escuela['total'] / $maxEscuela * 100) ?>%"></span></span>
                     </div>
                 <?php endforeach; ?>

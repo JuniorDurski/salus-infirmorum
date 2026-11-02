@@ -80,7 +80,7 @@ async function buscar() {
         idsActuales = data.map(postulante => Number(postulante.id_postulante));
         resumen.textContent = `${data.length} postulante(s) encontrado(s)`;
         tabla.innerHTML = data.length ? data.map(postulante => `<tr>
-            <td><strong>${Salus.escape(Salus.ordenNombre(postulante))}</strong><br><small>${Salus.escape(postulante.codigo_generado || postulante.codigo || '')}</small></td>
+            <td><strong>${Salus.escape(Salus.ordenNombre(postulante))}</strong><br><small>${Salus.escape(postulante.codigo_informe || '')}</small></td>
             <td>${Salus.escape(postulante.ci)}</td>
             <td>${Salus.escape(postulante.edad)} años<br><small>${Salus.escape(postulante.sexo)}</small></td>
             <td>${Salus.escape(postulante.escuela || '—')}</td>

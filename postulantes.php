@@ -90,51 +90,46 @@ include 'menu.php';
     </section>
 </div>
 
-<?php if ($puedeEditar): ?>
-<dialog class="modal modal-wide" id="modalPagos">
-    <div class="modal-header"><div><span class="eyebrow">Cobro del postulante</span><h2 id="tituloPagos">Pagos</h2><p class="help-text" id="resumenCobro"></p></div><button class="icon-button" type="button" onclick="cerrarPagos()" aria-label="Cerrar">×</button></div>
-    <form id="formCobro" class="modal-body payment-workflow">
+<dialog class="modal modal-wide payment-modal" id="modalPagos">
+    <div class="modal-header">
+        <div><span class="eyebrow">Pagos del postulante</span><h2 id="tituloPagos">Pagos</h2><p class="help-text" id="resumenCobro"></p></div>
+        <button class="icon-button" type="button" onclick="cerrarPagos()" aria-label="Cerrar">×</button>
+    </div>
+    <div class="modal-body">
         <div class="payment-summary-grid">
             <div><span>Postulante</span><strong id="cobroPostulante">—</strong></div>
-            <div><span>Tarifa</span><strong id="cobroTarifa">Gs. 0</strong></div>
-            <div><span>Ya pagado</span><strong id="cobroPagado">Gs. 0</strong></div>
-            <div><span>Saldo pendiente</span><strong id="cobroSaldoInicial">Gs. 0</strong></div>
+            <div><span>Tarifa</span><strong id="cobroTarifa" class="finance-money">Gs. 0</strong></div>
+            <div><span>Pagado</span><strong id="cobroPagado" class="finance-money">Gs. 0</strong></div>
+            <div><span>Saldo pendiente</span><strong id="cobroSaldoInicial" class="finance-money">Gs. 0</strong></div>
         </div>
-        <div id="filasPago" class="payment-method-list"></div>
-        <button type="button" class="btn-secondary btn-small" id="btnAgregarMetodo">+ Agregar otro método</button>
-        <div class="payment-final-balance"><span>Saldo después de estos pagos</span><strong id="cobroSaldoFinal">Gs. 0</strong></div>
-        <small class="help-text">Los pagos se registran con la fecha de hoy. Puede confirmar sin pagos: el postulante queda registrado con el saldo total. Si cierra esta ventana, lo cargado queda como borrador.</small>
-        <div id="mensajeCobro" class="mensaje"></div>
-    </form>
+        <div class="payment-layout<?= $puedeEditar ? '' : ' solo-historial' ?>">
+            <section class="payment-section">
+                <header><h3>Pagos registrados</h3><small id="resumenHistorialPagos"></small></header>
+                <div class="table-wrap"><table class="data-table payment-history">
+                    <thead><tr><th>Fecha</th><th>Método</th><th>Importe</th><th>Saldo</th><th>Detalle</th><?php if ($puedeEditar): ?><th></th><?php endif; ?></tr></thead>
+                    <tbody id="tablaHistorialPagos"></tbody>
+                </table></div>
+            </section>
+            <?php if ($puedeEditar): ?>
+            <section class="payment-section">
+                <header><h3>Registrar pago</h3><small>Con fecha de hoy</small></header>
+                <form id="formCobro" class="payment-workflow" autocomplete="off">
+                    <div id="filasPago" class="payment-method-list"></div>
+                    <button type="button" class="btn-secondary btn-small" id="btnAgregarMetodo">+ Agregar otro método</button>
+                    <div class="payment-final-balance"><span>Saldo después de estos pagos</span><strong id="cobroSaldoFinal">Gs. 0</strong></div>
+                    <small class="help-text">Deje el importe vacío para no cargar esa fila; un 0 escrito se registra como pago de Gs. 0. Si cierra, lo cargado queda como borrador.</small>
+                    <div id="mensajeCobro" class="mensaje"></div>
+                </form>
+            </section>
+            <?php endif; ?>
+        </div>
+    </div>
     <div class="modal-footer" style="gap:10px">
-        <button type="button" class="btn-secondary" onclick="descartarBorrador()">Descartar borrador</button>
+        <?php if ($puedeEditar): ?><button type="button" class="btn-secondary" onclick="descartarBorrador()">Descartar borrador</button><?php endif; ?>
         <button type="button" class="btn-secondary" onclick="cerrarPagos()">Cerrar</button>
-        <button type="submit" form="formCobro" id="btnConfirmarCobro">Confirmar</button>
+        <?php if ($puedeEditar): ?><button type="submit" form="formCobro" id="btnConfirmarCobro">Confirmar</button><?php endif; ?>
     </div>
 </dialog>
-<?php endif; ?>
-
-<dialog class="modal modal-medium" id="modalHistorialPagos">
-    <div class="modal-header"><div><span class="eyebrow">Trazabilidad</span><h2 id="tituloHistorialPagos">Historial de pagos</h2></div><button class="icon-button" type="button" onclick="modalHistorialPagos.close()" aria-label="Cerrar">×</button></div>
-    <div class="modal-body"><div class="table-wrap"><table class="data-table"><thead><tr><th>Fecha</th><th>Método</th><th>Importe</th><th>Saldo</th><th>Registró / observación</th><?php if ($puedeEditar): ?><th></th><?php endif; ?></tr></thead><tbody id="tablaHistorialPagos"></tbody></table></div></div>
-    <div class="modal-footer"><button type="button" class="btn-secondary" onclick="modalHistorialPagos.close()">Cerrar</button></div>
-</dialog>
-<?php if ($puedeEditar): ?>
-<dialog class="modal" id="modalEditarPago">
-    <div class="modal-header"><div><span class="eyebrow">Corregir pago</span><h2 id="tituloEditarPago">Editar pago</h2></div><button class="icon-button" type="button" onclick="modalEditarPago.close()" aria-label="Cerrar">×</button></div>
-    <form id="formEditarPago" autocomplete="off">
-        <div class="modal-body">
-            <div class="field-grid">
-                <div class="campo"><label for="editarPagoMetodo">Método</label><select id="editarPagoMetodo" required></select></div>
-                <div class="campo"><label for="editarPagoMonto">Importe</label><input id="editarPagoMonto" class="money-input" inputmode="numeric" placeholder="0"><small>Puede ser 0.</small></div>
-                <div class="campo full"><label for="editarPagoObservacion">Observación</label><input id="editarPagoObservacion" maxlength="500" placeholder="Opcional"></div>
-            </div>
-            <div id="mensajeEditarPago" class="mensaje"></div>
-        </div>
-        <div class="modal-footer"><button class="btn-secondary" type="button" onclick="modalEditarPago.close()">Cancelar</button>&nbsp;<button type="submit">Guardar cambios</button></div>
-    </form>
-</dialog>
-<?php endif; ?>
 
 <script>
 const puedeEditarPacientes = <?= $puedeEditar ? 'true' : 'false' ?>;
@@ -159,7 +154,8 @@ function dinero(valor){
     return new Intl.NumberFormat('es-PY',{style:'currency',currency:'PYG',minimumFractionDigits:0,maximumFractionDigits:0}).format(Number(valor)||0);
 }
 function numeroMonto(valor){return Number(String(valor??'').replace(/\.00$/,'').replace(/\D/g,''))||0;}
-function formatearMiles(valor){const numero=numeroMonto(valor);return numero?numero.toLocaleString('es-PY'):'';}
+// Vacío queda vacío; un 0 escrito se conserva como "0".
+function formatearMiles(valor){if(String(valor??'').replace(/\.00$/,'').replace(/\D/g,'')==='')return '';return numeroMonto(valor).toLocaleString('es-PY');}
 function fechaHora(valor){
     if(!valor)return '—';
     const partes=String(valor).split(' ')[0].split('-');
@@ -268,9 +264,8 @@ function abrirMenuAcciones(event,idPaciente,idAsignacion,conSaldo){
     const boton=event.currentTarget;
     if(!menuAcciones.hidden&&menuAcciones.dataset.origen===String(idPaciente)){cerrarMenuAcciones();return;}
     const opciones=[
-        puedeEditarPacientes?['Pagar',()=>abrirPagos(idPaciente),'']:null,
-        ['Historial de pagos',()=>verHistorialPagos(idAsignacion),''],
-        puedeEditarPacientes?['Editar datos',()=>editar(idPaciente),'']:null,
+        puedeEditarPacientes||idAsignacion?['Gestion de Pagos',()=>abrirPagos(idPaciente),'']:null,
+        puedeEditarPacientes?['Editar Postulante',()=>editar(idPaciente),'']:null,
         puedeEditarPacientes?['Desactivar',()=>eliminar(idPaciente),'peligro']:null
     ].filter(Boolean);
     menuAcciones.innerHTML='';
@@ -292,34 +287,44 @@ document.addEventListener('keydown',event=>{if(event.key==='Escape')cerrarMenuAc
 window.addEventListener('scroll',cerrarMenuAcciones,true);
 window.addEventListener('resize',cerrarMenuAcciones);
 
-/* ---------- Modal de pagos con borrador ---------- */
+/* ---------- Modal único de pagos: historial, edición y nuevos pagos ---------- */
 // Sin registro previo usa el convenio de la barra superior; con registro, el suyo.
+let historialPagos=null; // {idAsignacion, pagos}
 function abrirPagos(idPaciente){
     const p=pacientes.find(item=>Number(item.id_paciente)===Number(idPaciente));if(!p)return;
     const a=asignacionDe(p.id_paciente);
     const convenio=a?(finanzas.convenios||[]).find(c=>Number(c.id_arreador_escuela)===Number(a.id_arreador_escuela)):convenioContexto();
     if(!convenio){Salus.toast('Seleccione la escuela y el convenio en la barra superior.','warn');selectorEscuelaCobro.focus();return;}
     const tarifa=tarifaPara(p,convenio),pagado=Number(a?.pagado||0),saldo=Math.max(0,tarifa-pagado);
-    cobro={paciente:p,convenio,tarifa,pagado,saldo,registrado:Boolean(a)};
-    tituloPagos.textContent=`${a?'Pagos':'Registro y pago'} de ${p.nombre}`;
-    resumenCobro.textContent=`${convenio.escuela} · ${convenio.arreador} · ${Number(p.es_femenino)?'Tarifa mujer':'Tarifa hombre'}`;
-    cobroPostulante.textContent=`${p.nombre} · ${p.ci}`;
+    cobro={paciente:p,convenio,tarifa,pagado,saldo,registrado:Boolean(a),idAsignacion:a?Number(a.id_arreador_postulante):null};
+    tituloPagos.textContent=Salus.ordenNombre(p);
+    resumenCobro.textContent=`${a?'':'Registro nuevo · '}${convenio.escuela} · ${convenio.arreador} · ${Number(p.es_femenino)?'Tarifa mujer':'Tarifa hombre'}`;
+    cobroPostulante.textContent=`CI ${p.ci}`;
     cobroTarifa.textContent=dinero(tarifa);cobroPagado.textContent=dinero(pagado);cobroSaldoInicial.textContent=dinero(saldo);
-    mensajeCobro.textContent='';filasPago.innerHTML='';
-    let borrador=null;try{borrador=JSON.parse(almacen.get(claveBorrador(p.id_paciente))||'null');}catch(e){}
-    const filas=Array.isArray(borrador?.filas)&&borrador.filas.length?borrador.filas:[{}];
-    filas.forEach(f=>agregarFilaPago(f));
-    almacen.set(storagePagoAbierto,String(p.id_paciente));
+    cobroSaldoInicial.classList.toggle('estado-activo',saldo<=0);
+    cargarHistorialPagos();
+    if(puedeEditarPacientes){
+        mensajeCobro.textContent='';filasPago.innerHTML='';
+        let borrador=null;try{borrador=JSON.parse(almacen.get(claveBorrador(p.id_paciente))||'null');}catch(e){}
+        const filas=Array.isArray(borrador?.filas)&&borrador.filas.length?borrador.filas:[{}];
+        filas.forEach(f=>agregarFilaPago(f));
+        almacen.set(storagePagoAbierto,String(p.id_paciente));
+    }
     if(!modalPagos.open)modalPagos.showModal();
+}
+// Efectivo es el predeterminado; las filas siguientes toman el próximo método libre.
+function metodoPredeterminado(){
+    const usados=new Set([...filasPago.querySelectorAll('.pago-metodo')].map(c=>c.value));
+    return (finanzas.metodos_pago||[]).find(m=>!usados.has(String(m.id_metodo_pago)))?.id_metodo_pago||'';
 }
 function agregarFilaPago(datos={}){
     const fila=document.createElement('div');fila.className='payment-method-row';
-    fila.innerHTML=`<div class="campo"><label>Método</label><select class="pago-metodo"><option value="">Seleccione</option>${(finanzas.metodos_pago||[]).map(m=>`<option value="${Number(m.id_metodo_pago)}">${Salus.escape(m.nombre)}</option>`).join('')}</select></div>
-        <div class="campo"><label>Importe</label><input class="pago-monto" inputmode="numeric" autocomplete="off" placeholder="0"></div>
-        <div class="campo"><label>Observación</label><input class="pago-observacion" maxlength="500" placeholder="Opcional"></div>
-        <div class="payment-row-balance"><span>Saldo después</span><strong class="pago-saldo">Gs. 0</strong></div>
-        <button type="button" class="btn-danger btn-small pago-quitar" aria-label="Quitar método">Quitar</button>`;
-    fila.querySelector('.pago-metodo').value=datos.metodo||'';
+    fila.innerHTML=`<div class="campo pago-campo-metodo"><label>Método</label><select class="pago-metodo"><option value="">Seleccione</option>${(finanzas.metodos_pago||[]).map(m=>`<option value="${Number(m.id_metodo_pago)}">${Salus.escape(m.nombre)}</option>`).join('')}</select></div>
+        <div class="campo pago-campo-monto"><label>Importe</label><input class="pago-monto money-input" inputmode="numeric" autocomplete="off" placeholder="Gs."></div>
+        <button type="button" class="btn-danger btn-small pago-quitar" aria-label="Quitar método">Quitar</button>
+        <div class="campo pago-campo-observacion"><label>Observación</label><input class="pago-observacion" maxlength="500" placeholder="Opcional"></div>
+        <div class="payment-row-balance"><span>Saldo después</span><strong class="pago-saldo">Gs. 0</strong></div>`;
+    fila.querySelector('.pago-metodo').value=String(datos.metodo||metodoPredeterminado()||'');
     fila.querySelector('.pago-monto').value=formatearMiles(datos.monto);
     fila.querySelector('.pago-observacion').value=datos.observacion||'';
     fila.querySelector('.pago-monto').addEventListener('input',event=>{event.target.value=formatearMiles(event.target.value);});
@@ -327,15 +332,16 @@ function agregarFilaPago(datos={}){
     filasPago.appendChild(fila);cambioEnCobro();
 }
 function leerFilasPago(){
-    return [...filasPago.querySelectorAll('.payment-method-row')].map(fila=>({
-        metodo:fila.querySelector('.pago-metodo').value,
-        monto:numeroMonto(fila.querySelector('.pago-monto').value),
-        observacion:fila.querySelector('.pago-observacion').value.trim()
-    }));
+    return [...filasPago.querySelectorAll('.payment-method-row')].map(fila=>{
+        const montoTexto=fila.querySelector('.pago-monto').value.trim();
+        return {metodo:fila.querySelector('.pago-metodo').value,montoTexto,monto:numeroMonto(montoTexto),observacion:fila.querySelector('.pago-observacion').value.trim()};
+    });
 }
+// Una fila cuenta como pago cuando tiene importe escrito (0 incluido) u observación.
+function filasConPago(){return leerFilasPago().filter(f=>f.montoTexto!==''||f.observacion);}
 // Recalcula saldos y guarda el borrador en el navegador.
 function cambioEnCobro(){
-    if(!cobro)return;
+    if(!cobro||!puedeEditarPacientes)return;
     validarMetodosRepetidos();
     let saldo=cobro.saldo;
     filasPago.querySelectorAll('.payment-method-row').forEach(fila=>{
@@ -344,10 +350,10 @@ function cambioEnCobro(){
     });
     cobroSaldoFinal.textContent=saldo<0?`Excede en ${dinero(-saldo)}`:dinero(saldo);cobroSaldoFinal.classList.toggle('estado-inactivo',saldo<0);
     cobro.saldoFinal=saldo;
-    const filas=leerFilasPago();
-    const conPago=filas.some(f=>f.metodo||f.monto);
-    btnConfirmarCobro.textContent=conPago?'Confirmar pagos':(cobro.registrado?'Confirmar pagos':'Registrar sin pago');
-    if(filas.some(f=>f.metodo||f.monto||f.observacion))almacen.set(claveBorrador(cobro.paciente.id_paciente),JSON.stringify({filas}));
+    const conPago=filasConPago().length>0;
+    btnConfirmarCobro.textContent=conPago||cobro.registrado?'Confirmar pagos':'Registrar sin pago';
+    const filas=leerFilasPago().map(({metodo,montoTexto,observacion})=>({metodo,monto:montoTexto,observacion}));
+    if(conPago)almacen.set(claveBorrador(cobro.paciente.id_paciente),JSON.stringify({filas}));
     else almacen.del(claveBorrador(cobro.paciente.id_paciente));
 }
 function validarMetodosRepetidos(){
@@ -355,49 +361,72 @@ function validarMetodosRepetidos(){
     filasPago.querySelectorAll('.pago-metodo').forEach(campo=>{campo.setCustomValidity('');if(campo.value&&vistos.has(campo.value)){campo.setCustomValidity('Este método ya fue seleccionado.');repetido=true;}vistos.add(campo.value);});
     return !repetido;
 }
-function cerrarPagos(){almacen.del(storagePagoAbierto);if(modalPagos.open)modalPagos.close();cobro=null;renderTabla();}
+function cerrarPagos(){almacen.del(storagePagoAbierto);if(modalPagos.open)modalPagos.close();cobro=null;historialPagos=null;renderTabla();}
 function descartarBorrador(){
     if(!cobro||!confirm('¿Descartar lo cargado en este cobro?'))return;
     almacen.del(claveBorrador(cobro.paciente.id_paciente));cerrarPagos();
 }
-async function verHistorialPagos(idAsignacion){
-    const a=(finanzas.asignaciones||[]).find(item=>Number(item.id_arreador_postulante)===Number(idAsignacion));
-    tituloHistorialPagos.textContent=a?`Pagos de ${a.postulante}`:'Historial de pagos';
-    tablaHistorialPagos.innerHTML='<tr><td colspan="5" class="empty-state">Cargando…</td></tr>';modalHistorialPagos.showModal();
+const columnasHistorial=puedeEditarPacientes?6:5;
+async function cargarHistorialPagos(){
+    historialPagos=null;
+    if(!cobro?.idAsignacion){
+        resumenHistorialPagos.textContent='';
+        tablaHistorialPagos.innerHTML=`<tr><td colspan="${columnasHistorial}" class="empty-state">Todavía no está registrado. Al confirmar queda registrado en postulantes.</td></tr>`;
+        return;
+    }
+    tablaHistorialPagos.innerHTML=`<tr><td colspan="${columnasHistorial}" class="empty-state">Cargando…</td></tr>`;
     try{
-        const r=await Salus.json(`backend/postulantesFinanzasDAO.php?q=pagos&id=${Number(idAsignacion)}`);
-        historialPagos={idAsignacion,pagos:r.pagos};
-        tablaHistorialPagos.innerHTML=r.pagos.length?r.pagos.map(p=>`<tr><td>${fechaHora(p.fecha)}<br><small>${Salus.escape(String(p.fecha).split(' ')[1]||'')}</small></td><td>${Salus.escape(p.metodo_pago)}</td><td class="finance-money">${dinero(p.monto)}</td><td class="finance-money">${dinero(p.saldo)}</td><td>${Salus.escape(p.registrado_por)}${p.observacion?`<br><small>${Salus.escape(p.observacion)}</small>`:''}${p.modificado_en?`<br><small>Modificado por ${Salus.escape(p.modificado_por||'—')} · ${fechaHora(p.modificado_en)}</small>`:''}</td>${puedeEditarPacientes?`<td><button type="button" class="btn-small btn-secondary" onclick="abrirEditarPago(${Number(p.id_pago)})">Editar</button></td>`:''}</tr>`).join(''):`<tr><td colspan="${puedeEditarPacientes?6:5}" class="empty-state">Todavía no se registraron pagos.</td></tr>`;
-    }catch(error){tablaHistorialPagos.innerHTML=`<tr><td colspan="5" class="empty-state">${Salus.escape(error.message)}</td></tr>`;}
+        const r=await Salus.json(`backend/postulantesFinanzasDAO.php?q=pagos&id=${cobro.idAsignacion}`);
+        historialPagos={idAsignacion:cobro.idAsignacion,pagos:r.pagos};
+        resumenHistorialPagos.textContent=`${r.pagos.length} pago(s)`;
+        pintarHistorialPagos();
+    }catch(error){tablaHistorialPagos.innerHTML=`<tr><td colspan="${columnasHistorial}" class="empty-state">${Salus.escape(error.message)}</td></tr>`;}
 }
-
-let historialPagos=null;
-function abrirEditarPago(idPago){
+function pintarHistorialPagos(){
+    const pagos=historialPagos?.pagos||[];
+    tablaHistorialPagos.innerHTML=pagos.length?pagos.map(p=>`<tr data-pago="${Number(p.id_pago)}">
+        <td>${fechaHora(p.fecha)}<br><small>${Salus.escape(String(p.fecha).split(' ')[1]||'')}</small></td>
+        <td>${Salus.escape(p.metodo_pago)}</td>
+        <td class="finance-money">${dinero(p.monto)}</td>
+        <td class="finance-money">${dinero(p.saldo)}</td>
+        <td><small>${Salus.escape(p.registrado_por)}</small>${p.observacion?`<br>${Salus.escape(p.observacion)}`:''}${p.modificado_en?`<br><small>Modificado por ${Salus.escape(p.modificado_por||'—')} · ${fechaHora(p.modificado_en)}</small>`:''}</td>
+        ${puedeEditarPacientes?`<td><button type="button" class="btn-small btn-secondary" onclick="editarPagoEnLinea(${Number(p.id_pago)})">Editar</button></td>`:''}
+    </tr>`).join(''):`<tr><td colspan="${columnasHistorial}" class="empty-state">Todavía no se registraron pagos.</td></tr>`;
+}
+// La edición se hace dentro de la misma fila del historial.
+function editarPagoEnLinea(idPago){
     const pago=historialPagos?.pagos.find(p=>Number(p.id_pago)===Number(idPago));if(!pago)return;
+    pintarHistorialPagos();
     const metodos=[...(finanzas.metodos_pago||[])];
     if(!metodos.some(m=>Number(m.id_metodo_pago)===Number(pago.id_metodo_pago)))metodos.push({id_metodo_pago:pago.id_metodo_pago,nombre:pago.metodo_pago});
-    editarPagoMetodo.innerHTML=metodos.map(m=>`<option value="${Number(m.id_metodo_pago)}">${Salus.escape(m.nombre)}</option>`).join('');
-    editarPagoMetodo.value=String(Number(pago.id_metodo_pago));
-    editarPagoMonto.value=formatearMiles(Math.round(Number(pago.monto)));
-    editarPagoObservacion.value=pago.observacion||'';
-    tituloEditarPago.textContent=`Pago del ${fechaHora(pago.fecha)}`;
-    formEditarPago.dataset.idPago=String(Number(pago.id_pago));mensajeEditarPago.textContent='';
-    modalEditarPago.showModal();editarPagoMonto.focus();
-}
-if(puedeEditarPacientes){
-    editarPagoMonto.addEventListener('input',event=>{event.target.value=formatearMiles(event.target.value);});
-    formEditarPago.addEventListener('submit',async event=>{
-        event.preventDefault();mensajeEditarPago.textContent='';
-        const boton=formEditarPago.querySelector('button[type="submit"]');boton.disabled=true;
+    const fila=tablaHistorialPagos.querySelector(`tr[data-pago="${Number(idPago)}"]`);
+    fila.classList.add('payment-editing');
+    fila.innerHTML=`<td colspan="${columnasHistorial}"><form class="payment-edit-form">
+        <div class="campo"><label>Método</label><select class="editar-metodo">${metodos.map(m=>`<option value="${Number(m.id_metodo_pago)}">${Salus.escape(m.nombre)}</option>`).join('')}</select></div>
+        <div class="campo"><label>Importe</label><input class="editar-monto money-input" inputmode="numeric" placeholder="0"></div>
+        <div class="campo"><label>Observación</label><input class="editar-observacion" maxlength="500" placeholder="Opcional"></div>
+        <div class="payment-edit-actions"><button type="button" class="btn-small btn-secondary editar-cancelar">Cancelar</button><button type="submit" class="btn-small">Guardar</button></div>
+        <div class="mensaje editar-mensaje"></div>
+    </form></td>`;
+    const form=fila.querySelector('form'),monto=form.querySelector('.editar-monto');
+    form.querySelector('.editar-metodo').value=String(Number(pago.id_metodo_pago));
+    monto.value=formatearMiles(Math.round(Number(pago.monto)));
+    form.querySelector('.editar-observacion').value=pago.observacion||'';
+    monto.addEventListener('input',e=>{e.target.value=formatearMiles(e.target.value);});
+    form.querySelector('.editar-cancelar').addEventListener('click',pintarHistorialPagos);
+    form.addEventListener('submit',async e=>{
+        e.preventDefault();const mensaje=form.querySelector('.editar-mensaje');mensaje.textContent='';
+        if(monto.value.trim()===''){mensaje.textContent='Ingrese el importe (puede ser 0).';return;}
+        const boton=form.querySelector('button[type="submit"]');boton.disabled=true;
         try{
             const r=await Salus.json('backend/postulantesFinanzasDAO.php?q=editar_pago',{method:'POST',body:Salus.form({
-                id_pago:formEditarPago.dataset.idPago,id_metodo_pago:editarPagoMetodo.value,
-                monto:String(numeroMonto(editarPagoMonto.value)),observacion:editarPagoObservacion.value.trim()})});
-            modalEditarPago.close();Salus.toast(`Pago actualizado. Saldo: ${dinero(r.saldo)}.`);
-            await Promise.all([cargar(),cargarFinanzas()]);verHistorialPagos(historialPagos.idAsignacion);
-        }catch(error){mensajeEditarPago.textContent=error.message;}
-        finally{boton.disabled=false;}
+                id_pago:idPago,id_metodo_pago:form.querySelector('.editar-metodo').value,
+                monto:String(numeroMonto(monto.value)),observacion:form.querySelector('.editar-observacion').value.trim()})});
+            Salus.toast(`Pago actualizado. Saldo: ${dinero(r.saldo)}.`);
+            await cargarFinanzas();if(cobro)abrirPagos(cobro.paciente.id_paciente);
+        }catch(error){mensaje.textContent=error.message;boton.disabled=false;}
     });
+    monto.focus();
 }
 
 /* ---------- Formulario del postulante ---------- */
@@ -507,8 +536,9 @@ if (puedeEditarPacientes) {
         event.preventDefault();mensajeCobro.textContent='';
         if(!cobro)return;
         if(!validarMetodosRepetidos()){formCobro.reportValidity();return;}
-        const filas=leerFilasPago().filter(f=>f.metodo||f.monto);
-        if(filas.some(f=>!f.metodo||f.monto<0)){mensajeCobro.textContent='Seleccione el método de cada fila con importe, o quite la fila.';return;}
+        const filas=filasConPago();
+        if(filas.some(f=>!f.metodo)){mensajeCobro.textContent='Seleccione el método de cada pago, o quite la fila.';return;}
+        if(filas.some(f=>f.montoTexto==='')){mensajeCobro.textContent='Ingrese el importe de cada pago (puede ser 0), o quite la fila.';return;}
         if(!filas.length&&cobro.registrado){mensajeCobro.textContent='Cargue al menos un pago.';return;}
         cambioEnCobro();if(cobro.saldoFinal<0){mensajeCobro.textContent='La suma de los pagos supera el saldo pendiente.';return;}
         const pagos=filas.map(f=>({id_metodo_pago:f.metodo,monto:String(f.monto),observacion:f.observacion}));

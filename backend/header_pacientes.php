@@ -27,14 +27,14 @@ if ($listaIds === []) {
 $placeholders = implode(',', array_fill(0, count($listaIds), '?'));
 $sql = "SELECT
             p.id_paciente,
-            " . sqlCodigoPaciente('p') . " AS codigo_paciente,
+            " . sqlCodigoInforme('p') . " AS codigo_paciente,
             p.nombre,
             p.documento,
             TIMESTAMPDIFF(YEAR, p.fecha_nacimiento, CURDATE()) AS edad,
             IF(p.es_femenino = 1, 'FEMENINO', 'MASCULINO') AS sexo,
             p.grupo_sanguineo AS tipi,
             DATE_FORMAT(" . sqlMomentoRegistroPaciente('p') . ", '%d/%m/%Y') AS fecha,
-            CONCAT(" . sqlCodigoPaciente('p') . ", ' - ', COALESCE(e.nombre, '')) AS codigo
+            CONCAT(" . sqlCodigoInforme('p') . ", ' - ', COALESCE(e.nombre, '')) AS codigo
         FROM pacientes p
         LEFT JOIN escuelas e ON e.id_escuela = p.id_escuela
         WHERE p.id_paciente IN ({$placeholders})

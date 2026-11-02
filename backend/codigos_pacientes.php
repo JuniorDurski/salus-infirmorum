@@ -58,6 +58,18 @@ function sqlCodigoPaciente(string $alias = 'p'): string
 }
 
 /**
+ * Expresión SQL con el código que se imprime en los informes de postulantes:
+ * solo el orden ("036") si no tiene código cargado, u "orden-código" ("036-A12")
+ * si lo tiene.
+ */
+function sqlCodigoInforme(string $alias = 'p'): string
+{
+    return "IF(NULLIF(TRIM({$alias}.codigo), '') IS NULL, "
+        . sqlOrdenDiaPacienteTexto($alias) . ", CONCAT("
+        . sqlOrdenDiaPacienteTexto($alias) . ", '-', TRIM({$alias}.codigo)))";
+}
+
+/**
  * Recalcula postulantes_arreador_postulante.orden y actualiza solo los registros
  * que cambiaron. Se numera por convenio y día desde el orden_inicio del convenio;
  * los registros de pacientes inactivos quedan sin orden.

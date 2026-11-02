@@ -395,3 +395,34 @@ table { border-collapse: collapse; }
 .dash-shortcut strong { display: block; font-size: .88rem; }
 .dash-shortcut small { display: block; font-size: .74rem; }
 @media (max-width: 900px) { .dash-grid { grid-template-columns: 1fr; } }
+
+/* Modal único de pagos */
+.payment-modal { width: min(1280px, calc(100vw - 30px)); }
+.payment-modal .payment-summary-grid { grid-template-columns: 1.2fr repeat(3, 1fr); margin-bottom: 14px; }
+.payment-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(340px, 1fr); gap: 16px; align-items: start; }
+.payment-layout.solo-historial { grid-template-columns: 1fr; }
+.payment-section { min-width: 0; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.payment-section > header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.payment-section h3 { margin: 0; font-size: .98rem; }
+.payment-history { min-width: 560px; }
+.payment-history th, .payment-history td { padding: 8px 10px; font-size: .86rem; }
+.payment-history tr.payment-editing { background: var(--primary-soft) !important; }
+.payment-edit-form { display: grid; grid-template-columns: 1fr 1fr 1.6fr auto; gap: 10px; align-items: end; }
+.payment-edit-form .campo { margin-bottom: 0; }
+.payment-edit-form .mensaje { grid-column: 1 / -1; margin: 0; min-height: 0; }
+.payment-edit-actions { display: flex; gap: 6px; padding-bottom: 3px; }
+.payment-layout .payment-method-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; grid-template-areas: "metodo monto quitar" "obs obs saldo"; gap: 8px 10px; padding: 10px; }
+.payment-layout .pago-campo-metodo { grid-area: metodo; }
+.payment-layout .pago-campo-monto { grid-area: monto; }
+.payment-layout .pago-quitar { grid-area: quitar; align-self: end; margin-bottom: 4px; }
+.payment-layout .pago-campo-observacion { grid-area: obs; }
+.payment-layout .payment-row-balance { grid-area: saldo; min-height: 0; align-self: end; text-align: right; padding-bottom: 8px; }
+.payment-layout .payment-final-balance { margin: 12px 0 8px; font-size: 1.05rem; }
+@media (max-width: 1000px) {
+    .payment-layout { grid-template-columns: 1fr; }
+    .payment-modal .payment-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .payment-edit-form { grid-template-columns: 1fr 1fr; }
+}
+.dash-kpi-destacado { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.dash-kpi-destacado .dash-kpi-icon { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); }
+.dash-bar-text small { color: var(--muted); font-weight: 600; }
