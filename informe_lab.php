@@ -16,14 +16,15 @@ include 'menu.php';
         <div class="campo"><label for="f_fecha">Fecha de registro</label><input type="date" id="f_fecha" value="<?= htmlspecialchars((string) $conexion->query('SELECT CURDATE() AS hoy')->fetch_assoc()['hoy'], ENT_QUOTES, 'UTF-8') ?>"></div>
         <div class="campo campo-boton"><button type="button" class="btn-secondary" data-ver-todos>Ver todos</button></div>
     </div>
-    <div class="form-actions">
-        <button type="button" class="btn-secondary btn-print" onclick="imprimirTodo()">Imprimir selección</button>
-        <button type="button" class="btn-secondary btn-print" onclick="imprimirTarjeta()">Tarjetas Rh</button>
-    </div>
 </section>
 
 <section class="card" style="margin-top:20px">
-    <div class="card-header"><div><h2>Resultados</h2><p class="help-text" id="resumen">Use los filtros para comenzar.</p></div></div>
+    <div class="card-header"><div><h2>Resultados</h2><p class="help-text" id="resumen">Use los filtros para comenzar.</p></div>
+        <div class="acciones-impresion">
+            <button type="button" class="btn-secondary btn-print" onclick="imprimirTodo()">Imprimir selección</button>
+            <button type="button" class="btn-secondary btn-print" onclick="imprimirTarjeta()">Tarjetas Rh</button>
+        </div>
+    </div>
     <div class="table-wrap"><table class="data-table">
         <thead><tr><th>Paciente</th><th>Documento</th><th>Edad / sexo</th><th>Escuela</th><th>Rh</th><th></th></tr></thead>
         <tbody id="tabla"><tr><td colspan="6" class="empty-state">No se realizó ninguna búsqueda.</td></tr></tbody>

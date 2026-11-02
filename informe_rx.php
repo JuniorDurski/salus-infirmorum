@@ -29,9 +29,6 @@ include 'menu.php';
         </div>
         <div class="campo campo-boton"><button type="button" class="btn-secondary" data-ver-todos>Ver todos</button></div>
     </div>
-    <div class="form-actions">
-        <button type="button" class="btn-secondary btn-print" onclick="imprimirTodos()">Imprimir todos</button>
-    </div>
 </section>
 
 <section class="card" style="margin-top:20px">
@@ -39,6 +36,9 @@ include 'menu.php';
         <div>
             <h2>Resultados</h2>
             <p class="help-text" id="resumen">Use los filtros para comenzar.</p>
+        </div>
+        <div class="acciones-impresion">
+            <button type="button" class="btn-secondary btn-print" onclick="imprimirTodos()">Imprimir todos</button>
         </div>
     </div>
     <div class="table-wrap">

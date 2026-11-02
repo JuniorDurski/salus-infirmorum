@@ -43,11 +43,6 @@ include 'menu.php';
         </div>
         <div class="campo campo-boton"><button type="button" class="btn-secondary" data-ver-todos>Ver todos</button></div>
     </div>
-    <div class="form-actions rotulos-print-actions">
-        <span class="rotulos-formato-etiqueta">Imprimir formato:</span>
-        <span class="rotulos-formatos" id="rotuloBotonesFormatos">Cargando formatos…</span>
-        <small>Si no selecciona postulantes, se imprimirá toda la tabla.</small>
-    </div>
 </section>
 
 <section class="card" style="margin-top:20px">
@@ -57,6 +52,11 @@ include 'menu.php';
             <p class="help-text" id="rotuloResumen">Use los filtros para buscar postulantes.</p>
         </div>
         <span class="rotulos-seleccion" id="rotuloCantidadSeleccionada">0 seleccionados</span>
+        <div class="rotulos-print-actions acciones-impresion">
+            <span class="rotulos-formato-etiqueta">Imprimir formato:</span>
+            <span class="rotulos-formatos" id="rotuloBotonesFormatos">Cargando formatos…</span>
+            <small>Si no selecciona postulantes, se imprimirá toda la tabla.</small>
+        </div>
     </div>
     <div class="table-wrap">
         <table class="data-table">

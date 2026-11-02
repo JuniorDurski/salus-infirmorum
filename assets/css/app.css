@@ -428,7 +428,7 @@ table { border-collapse: collapse; }
 .dash-bar-text small { color: var(--muted); font-weight: 600; }
 
 /* Filtros de informes: se aplican solos; "Ver todos" va en la misma fila. */
-.filtros-informe { grid-template-columns: 2fr 1.4fr 1fr auto; align-items: end; }
+.filtros-informe { grid-template-columns: minmax(180px, 2fr) minmax(150px, 1.4fr) minmax(140px, 1fr) auto; align-items: end; }
 .filtros-informe .campo-boton { align-self: end; }
 .filtros-informe .campo-boton button { min-height: 42px; white-space: nowrap; }
 @media (max-width: 820px) { .filtros-informe { grid-template-columns: 1fr; } }
@@ -438,4 +438,19 @@ table { border-collapse: collapse; }
     content: ""; flex: 0 0 auto; width: 15px; height: 15px; background: currentColor;
     -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 9V3h10v6'/%3E%3Crect x='3' y='9' width='18' height='8' rx='2'/%3E%3Cpath d='M7 14h10v7H7z'/%3E%3C/svg%3E") center / contain no-repeat;
     mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 9V3h10v6'/%3E%3Crect x='3' y='9' width='18' height='8' rx='2'/%3E%3Cpath d='M7 14h10v7H7z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* Botones de impresión en el encabezado de Resultados, a la derecha del título. */
+.card-header > .acciones-impresion { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 7px; margin: 0 0 0 auto; max-width: 680px; }
+.acciones-impresion .eco-print-label, .acciones-impresion .rotulos-formato-etiqueta { margin: 0; font-size: .82rem; }
+.acciones-impresion #botonesImpresionEco, .acciones-impresion .rotulos-formatos { display: flex; flex-wrap: wrap; gap: 7px; justify-content: flex-end; }
+.acciones-impresion > small { flex-basis: 100%; text-align: right; }
+.card-header > .rotulos-print-actions.acciones-impresion { max-width: 440px; }
+/* Un solo botón de imprimir: verde. Varios: intercalados verde / claro. */
+.acciones-impresion .btn-print:nth-child(odd) { background: var(--btn-bg); border-color: transparent; color: var(--btn-text); }
+.acciones-impresion .btn-print:nth-child(odd):hover { background: var(--btn-bg-hover); color: var(--btn-text); }
+@media (max-width: 820px) {
+    .card-header:has(> .acciones-impresion) { flex-wrap: wrap; }
+    .card-header > .acciones-impresion { justify-content: flex-start; margin: 0; }
+    .acciones-impresion > small { text-align: left; }
 }

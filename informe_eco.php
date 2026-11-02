@@ -56,15 +56,15 @@ include 'menu.php';
         </div>
         <div class="campo campo-boton"><button type="button" class="btn-secondary" data-ver-todos>Ver todos</button></div>
     </div>
-    <div class="form-actions eco-print-actions">
-        <span class="eco-print-label">Imprimir todos:</span>
-        <span id="botonesImpresionEco"></span>
-    </div>
 </section>
 
 <section class="card" style="margin-top:20px">
     <div class="card-header">
         <div><h2>Resultados</h2><p class="help-text" id="resumen">Use los filtros para buscar postulantes.</p></div>
+        <div class="eco-print-actions acciones-impresion">
+            <span class="eco-print-label">Imprimir todos:</span>
+            <span id="botonesImpresionEco"></span>
+        </div>
     </div>
     <div class="table-wrap"><table class="data-table">
         <thead><tr><th>Postulante</th><th>Documento</th><th>Edad / sexo</th><th>Escuela</th><th></th></tr></thead>
