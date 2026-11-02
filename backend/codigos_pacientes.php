@@ -10,7 +10,8 @@
  *   vez que algo lo afecta (nuevo registro, activación o desactivación del
  *   paciente, cambio del orden_inicio). Un paciente que nunca ingresó a
  *   postulantes no tiene orden guardado: se usa su número dentro de su día de alta.
- * - código: solo se guarda si se carga a mano. Para mostrar e imprimir se usa ese
+ * - código: solo se guarda si se carga a mano, en postulantes_arreador_postulante.codigo
+ *   (al lado del orden, en el último registro del paciente). Para mostrar e imprimir se usa ese
  *   o, si no hay, el generado "NNN-ID" (orden en tres dígitos e id). Ej.: "003-58".
  */
 
@@ -50,10 +51,23 @@ function sqlOrdenDiaPacienteTexto(string $alias = 'p'): string
     return 'LPAD(' . sqlOrdenDiaPaciente($alias) . ', 3, \'0\')';
 }
 
+/**
+ * Expresión SQL con el código cargado a mano (o NULL): el de su último registro
+ * en postulantes (postulantes_arreador_postulante.codigo, al lado del orden).
+ */
+function sqlCodigoManualPaciente(string $alias = 'p'): string
+{
+    return "(SELECT NULLIF(TRIM(ap_cod.codigo), '')
+               FROM postulantes_arreador_postulante ap_cod
+              WHERE ap_cod.id_paciente = {$alias}.id_paciente
+              ORDER BY ap_cod.derivado_en DESC, ap_cod.id_arreador_postulante DESC
+              LIMIT 1)";
+}
+
 /** Expresión SQL con el código a mostrar: el cargado a mano o el generado "NNN-ID". */
 function sqlCodigoPaciente(string $alias = 'p'): string
 {
-    return "COALESCE(NULLIF(TRIM({$alias}.codigo), ''), CONCAT("
+    return 'COALESCE(' . sqlCodigoManualPaciente($alias) . ', CONCAT('
         . sqlOrdenDiaPacienteTexto($alias) . ", '-', {$alias}.id_paciente))";
 }
 
@@ -64,9 +78,8 @@ function sqlCodigoPaciente(string $alias = 'p'): string
  */
 function sqlCodigoInforme(string $alias = 'p'): string
 {
-    return "IF(NULLIF(TRIM({$alias}.codigo), '') IS NULL, "
-        . sqlOrdenDiaPacienteTexto($alias) . ", CONCAT("
-        . sqlOrdenDiaPacienteTexto($alias) . ", '-', TRIM({$alias}.codigo)))";
+    return 'COALESCE(CONCAT(' . sqlOrdenDiaPacienteTexto($alias) . ", '-', "
+        . sqlCodigoManualPaciente($alias) . '), ' . sqlOrdenDiaPacienteTexto($alias) . ')';
 }
 
 /**

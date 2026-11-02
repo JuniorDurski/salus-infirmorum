@@ -167,7 +167,7 @@ function obtenerDetalleAsignacion(mysqli $db, int $id, array $identidad): array
 
     $stmt = $db->prepare(
         "SELECT pa.id_postulante_atencion, pa.id_paciente, p.nombre, p.documento,
-                p.codigo, e.nombre AS escuela, pa.llamado, pa.llamado_en,
+                " . sqlCodigoManualPaciente('p') . " AS codigo, e.nombre AS escuela, pa.llamado, pa.llamado_en,
                 pa.atendido, pa.atendido_en, pa.pagado, pa.observacion,
                 COALESCE(ua.nombre, '') AS atendido_por_nombre
          FROM postulantes_atencion pa

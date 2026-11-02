@@ -90,6 +90,22 @@ include 'menu.php';
     </section>
 </div>
 
+<dialog class="modal observation-modal" id="modalObservacionesRegistro">
+    <div class="modal-header"><div><span class="eyebrow">Observaciones del postulante</span><h2 id="tituloObservacionesRegistro">Observaciones</h2></div><button class="icon-button" type="button" onclick="modalObservacionesRegistro.close()" aria-label="Cerrar">×</button></div>
+    <div class="modal-body observation-body">
+        <p class="empty-state" id="observacionesRegistroVacio" hidden>Todavía no hay observaciones.</p>
+        <div class="observation-list" id="listaObservacionesRegistro"></div>
+        <?php if ($puedeEditar): ?>
+        <div class="observation-compose">
+            <label for="textoObservacionRegistro">Nueva observación</label>
+            <textarea id="textoObservacionRegistro" maxlength="1500" placeholder="Escriba una observación sobre el postulante…"></textarea>
+            <small>El sistema registra automáticamente su nombre y la fecha.</small>
+        </div>
+        <?php endif; ?>
+    </div>
+    <div class="modal-footer" style="gap:10px"><button class="btn-secondary" type="button" onclick="modalObservacionesRegistro.close()">Cerrar</button><?php if ($puedeEditar): ?><button type="button" id="btnGuardarObservacionRegistro" onclick="guardarObservacionRegistro()">Guardar observación</button><?php endif; ?></div>
+</dialog>
+
 <dialog class="modal modal-wide payment-modal" id="modalPagos">
     <div class="modal-header">
         <div><span class="eyebrow">Pagos del postulante</span><h2 id="tituloPagos">Pagos</h2><p class="help-text" id="resumenCobro"></p></div>
@@ -241,10 +257,11 @@ function renderTabla(){
         const estado=saldo<=0?'<span class="badge badge-success">Pagado</span>'
             :pagado>0?'<span class="badge badge-warn">Parcial</span>':'<span class="badge badge-muted">Pendiente</span>';
         const borrador=puedeEditarPacientes&&almacen.get(claveBorrador(p.id_paciente))?' <span class="badge badge-warn">Borrador</span>':'';
+        const notas=Number(a.observaciones)>0?` <span class="badge badge-muted" title="Observaciones">${Number(a.observaciones)} obs.</span>`:'';
         const codigo=p.codigo?` · Cód. ${Salus.escape(p.codigo)}`:'';
         const acciones=`<button type="button" class="btn-small btn-secondary" aria-haspopup="menu" onclick="abrirMenuAcciones(event,${Number(p.id_paciente)},${Number(a.id_arreador_postulante)},${saldo>0?1:0})">Acciones ▾</button>`;
         return `<tr>
-            <td><strong>${Salus.escape(p.orden_dia)} · ${Salus.escape(p.nombre)}</strong><br><small>ID ${Number(p.id_paciente)}${codigo} · ${Salus.escape(p.ci)} · ${Salus.escape(p.sexo)} · ${fechaHora(a.fecha_registro)}${idEscuela?'':' · '+Salus.escape(a.escuela)}</small><br>${estado}${borrador}</td>
+            <td><strong>${Salus.escape(p.orden_dia)} · ${Salus.escape(p.nombre)}</strong><br><small>ID ${Number(p.id_paciente)}${codigo} · ${Salus.escape(p.ci)} · ${Salus.escape(p.sexo)} · ${fechaHora(a.fecha_registro)}${idEscuela?'':' · '+Salus.escape(a.escuela)}</small><br>${estado}${borrador}${notas}</td>
             <td class="finance-money">${dinero(total)}</td>
             <td class="finance-money">${dinero(pagado)}</td>
             <td class="finance-money"><strong class="${saldo<=0?'estado-activo':''}">${dinero(saldo)}</strong></td>
@@ -265,6 +282,7 @@ function abrirMenuAcciones(event,idPaciente,idAsignacion,conSaldo){
     if(!menuAcciones.hidden&&menuAcciones.dataset.origen===String(idPaciente)){cerrarMenuAcciones();return;}
     const opciones=[
         puedeEditarPacientes||idAsignacion?['Gestion de Pagos',()=>abrirPagos(idPaciente),'']:null,
+        idAsignacion?['Observaciones',()=>abrirObservacionesRegistro(idAsignacion),'']:null,
         puedeEditarPacientes?['Editar Postulante',()=>editar(idPaciente),'']:null,
         puedeEditarPacientes?['Desactivar',()=>eliminar(idPaciente),'peligro']:null
     ].filter(Boolean);
@@ -287,25 +305,63 @@ document.addEventListener('keydown',event=>{if(event.key==='Escape')cerrarMenuAc
 window.addEventListener('scroll',cerrarMenuAcciones,true);
 window.addEventListener('resize',cerrarMenuAcciones);
 
+/* ---------- Observaciones del registro (comentarios por usuario, como en atención) ---------- */
+let observacionesRegistro=null; // {idAsignacion}
+function inicialesUsuario(nombre){
+    return String(nombre||'?').trim().split(/\s+/).slice(0,2).map(parte=>parte.charAt(0)).join('').toUpperCase();
+}
+function fechaComentario(valor){
+    const fecha=new Date(valor);return isNaN(fecha)?String(valor||''):fecha.toLocaleString('es-PY',{dateStyle:'short',timeStyle:'short'});
+}
+async function abrirObservacionesRegistro(idAsignacion){
+    const a=(finanzas.asignaciones||[]).find(x=>Number(x.id_arreador_postulante)===Number(idAsignacion));
+    const p=a&&pacientes.find(x=>Number(x.id_paciente)===Number(a.id_paciente));
+    observacionesRegistro={idAsignacion:Number(idAsignacion)};
+    tituloObservacionesRegistro.textContent=p?Salus.ordenNombre(p):(a?.postulante||'Observaciones');
+    listaObservacionesRegistro.innerHTML='';observacionesRegistroVacio.hidden=true;
+    if(puedeEditarPacientes)textoObservacionRegistro.value='';
+    if(!modalObservacionesRegistro.open)modalObservacionesRegistro.showModal();
+    try{
+        const r=await Salus.json(`backend/postulantesFinanzasDAO.php?q=observaciones&id=${Number(idAsignacion)}`);
+        listaObservacionesRegistro.innerHTML=r.comentarios.map(c=>`<article class="observation-message"><div class="observation-avatar">${Salus.escape(inicialesUsuario(c.usuario))}</div><div class="observation-content"><header><strong>${Salus.escape(c.usuario)}</strong><time>${Salus.escape(fechaComentario(c.fecha))}</time></header><p>${Salus.escape(c.texto)}</p></div></article>`).join('');
+        observacionesRegistroVacio.hidden=r.comentarios.length>0;
+        listaObservacionesRegistro.scrollTop=listaObservacionesRegistro.scrollHeight;
+    }catch(error){Salus.toast(error.message,'error');}
+    if(puedeEditarPacientes)textoObservacionRegistro.focus();
+}
+async function guardarObservacionRegistro(){
+    if(!observacionesRegistro)return;
+    const texto=textoObservacionRegistro.value.trim();
+    if(!texto){textoObservacionRegistro.focus();return;}
+    btnGuardarObservacionRegistro.disabled=true;
+    try{
+        const r=await Salus.json('backend/postulantesFinanzasDAO.php?q=comentar',{method:'POST',body:Salus.form({id_arreador_postulante:observacionesRegistro.idAsignacion,texto})});
+        Salus.toast(r.mensaje);await cargarFinanzas();await abrirObservacionesRegistro(observacionesRegistro.idAsignacion);
+    }catch(error){Salus.toast(error.message,'error');}
+    finally{btnGuardarObservacionRegistro.disabled=false;}
+}
+
 /* ---------- Modal único de pagos: historial, edición y nuevos pagos ---------- */
 // Sin registro previo usa el convenio de la barra superior; con registro, el suyo.
 let historialPagos=null; // {idAsignacion, pagos}
-function abrirPagos(idPaciente){
+function abrirPagos(idPaciente,opciones={}){
     const p=pacientes.find(item=>Number(item.id_paciente)===Number(idPaciente));if(!p)return;
     const a=asignacionDe(p.id_paciente);
     const convenio=a?(finanzas.convenios||[]).find(c=>Number(c.id_arreador_escuela)===Number(a.id_arreador_escuela)):convenioContexto();
     if(!convenio){Salus.toast('Seleccione la escuela y el convenio en la barra superior.','warn');selectorEscuelaCobro.focus();return;}
     const tarifa=tarifaPara(p,convenio),pagado=Number(a?.pagado||0),saldo=Math.max(0,tarifa-pagado);
-    cobro={paciente:p,convenio,tarifa,pagado,saldo,registrado:Boolean(a),idAsignacion:a?Number(a.id_arreador_postulante):null};
+    let borrador=null;try{borrador=JSON.parse(almacen.get(claveBorrador(p.id_paciente))||'null');}catch(e){}
+    // Sin registro, el código del formulario viaja con el cobro que crea el registro.
+    const codigoRegistro=a?'':String(opciones.codigo??borrador?.codigo??'').trim();
+    cobro={paciente:p,convenio,tarifa,pagado,saldo,registrado:Boolean(a),idAsignacion:a?Number(a.id_arreador_postulante):null,codigo:codigoRegistro};
     tituloPagos.textContent=Salus.ordenNombre(p);
-    resumenCobro.textContent=`${a?'':'Registro nuevo · '}${convenio.escuela} · ${convenio.arreador} · ${Number(p.es_femenino)?'Tarifa mujer':'Tarifa hombre'}`;
+    resumenCobro.textContent=`${a?'':'Registro nuevo · '}${codigoRegistro?`Código ${codigoRegistro} · `:''}${convenio.escuela} · ${convenio.arreador} · ${Number(p.es_femenino)?'Tarifa mujer':'Tarifa hombre'}`;
     cobroPostulante.textContent=`CI ${p.ci}`;
     cobroTarifa.textContent=dinero(tarifa);cobroPagado.textContent=dinero(pagado);cobroSaldoInicial.textContent=dinero(saldo);
     cobroSaldoInicial.classList.toggle('estado-activo',saldo<=0);
     cargarHistorialPagos();
     if(puedeEditarPacientes){
         mensajeCobro.textContent='';filasPago.innerHTML='';
-        let borrador=null;try{borrador=JSON.parse(almacen.get(claveBorrador(p.id_paciente))||'null');}catch(e){}
         const filas=Array.isArray(borrador?.filas)&&borrador.filas.length?borrador.filas:[{}];
         filas.forEach(f=>agregarFilaPago(f));
         almacen.set(storagePagoAbierto,String(p.id_paciente));
@@ -353,7 +409,7 @@ function cambioEnCobro(){
     const conPago=filasConPago().length>0;
     btnConfirmarCobro.textContent=conPago||cobro.registrado?'Confirmar pagos':'Registrar sin pago';
     const filas=leerFilasPago().map(({metodo,montoTexto,observacion})=>({metodo,monto:montoTexto,observacion}));
-    if(conPago)almacen.set(claveBorrador(cobro.paciente.id_paciente),JSON.stringify({filas}));
+    if(conPago||cobro.codigo)almacen.set(claveBorrador(cobro.paciente.id_paciente),JSON.stringify({filas,codigo:cobro.codigo}));
     else almacen.del(claveBorrador(cobro.paciente.id_paciente));
 }
 function validarMetodosRepetidos(){
@@ -518,11 +574,12 @@ if (puedeEditarPacientes) {
         if(esNuevo&&(!selectorEscuelaCobro.value||!selectorConvenioCobro.value)){mensaje.textContent='Seleccione primero la escuela y el convenio en la barra superior.';selectorEscuelaCobro.focus();return;}
         if(esNuevo)id_escuela.value=selectorEscuelaCobro.value;
         try{
+            const codigoFormulario=codigo.value.trim();
             const resultado=await Salus.json('backend/postulantesDAO.php?q=guardar',{method:'POST',body:new FormData(frmPersona)});
             Salus.toast('Postulante guardado.');
             await Promise.all([cargar(),cargarFinanzas()]);limpiar();
             const p=pacientes.find(item=>Number(item.id_paciente)===Number(resultado.id_paciente));
-            if(p&&!asignacionDe(p.id_paciente))abrirPagos(p.id_paciente);
+            if(p&&!asignacionDe(p.id_paciente))abrirPagos(p.id_paciente,{codigo:codigoFormulario});
         }catch(error){mensaje.textContent=error.message;}
     });
     // Enter en Documento busca en el padrón en vez de guardar el formulario.
@@ -542,7 +599,7 @@ if (puedeEditarPacientes) {
         if(!filas.length&&cobro.registrado){mensajeCobro.textContent='Cargue al menos un pago.';return;}
         cambioEnCobro();if(cobro.saldoFinal<0){mensajeCobro.textContent='La suma de los pagos supera el saldo pendiente.';return;}
         const pagos=filas.map(f=>({id_metodo_pago:f.metodo,monto:String(f.monto),observacion:f.observacion}));
-        const cuerpo=Salus.form({id_paciente:cobro.paciente.id_paciente,id_arreador_escuela:cobro.convenio.id_arreador_escuela,pagos:JSON.stringify(pagos)});
+        const cuerpo=Salus.form({id_paciente:cobro.paciente.id_paciente,id_arreador_escuela:cobro.convenio.id_arreador_escuela,codigo:cobro.codigo||'',pagos:JSON.stringify(pagos)});
         const boton=document.querySelector('button[form="formCobro"]');boton.disabled=true;
         try{
             const resultado=await Salus.json('backend/postulantesFinanzasDAO.php?q=registrar_cobro',{method:'POST',body:cuerpo});

@@ -52,7 +52,7 @@ function camposPacienteSql(): string
             p.id_escuela,
             p.id_escuela AS id_designacion,
             p.id_pais,
-            p.codigo,
+            " . sqlCodigoManualPaciente('p') . " AS codigo,
 
             " . sqlCodigoPaciente('p') . " AS codigo_generado,
             " . sqlCodigoInforme('p') . " AS codigo_informe,
@@ -132,31 +132,46 @@ function guardarPaciente(mysqli $conexion): void
 
     if ($id > 0) {
         $sql = 'UPDATE pacientes
-                SET codigo = ?, nombre = ?, documento = ?, grupo_sanguineo = ?,
+                SET nombre = ?, documento = ?, grupo_sanguineo = ?,
                     fecha_nacimiento = ?, es_femenino = ?, id_escuela = ?, id_pais = ?,
                     telefono = ?, url_foto = ?
                 WHERE id_paciente = ?';
         $stmt = $conexion->prepare($sql);
         $stmt->bind_param(
-            'sssssiiissi',
-            $codigo, $nombre, $documento, $grupo, $fechaNacimiento,
+            'ssssiiissi',
+            $nombre, $documento, $grupo, $fechaNacimiento,
             $esFemenino, $idEscuela, $idPais, $telefono, $urlFoto, $id
         );
     } else {
         $sql = 'INSERT INTO pacientes
-                    (codigo, nombre, documento, grupo_sanguineo, fecha_nacimiento,
+                    (nombre, documento, grupo_sanguineo, fecha_nacimiento,
                      es_femenino, id_escuela, id_pais, telefono, url_foto)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
         $stmt = $conexion->prepare($sql);
         $stmt->bind_param(
-            'sssssiiiss',
-            $codigo, $nombre, $documento, $grupo, $fechaNacimiento,
+            'ssssiiiss',
+            $nombre, $documento, $grupo, $fechaNacimiento,
             $esFemenino, $idEscuela, $idPais, $telefono, $urlFoto
         );
     }
 
     $stmt->execute();
     $idGuardado = $id > 0 ? $id : (int) $conexion->insert_id;
+    // El código vive en el registro de postulantes. Si todavía no está registrado,
+    // la pantalla lo envía junto con el cobro que crea el registro.
+    if ($codigo !== null && mb_strlen($codigo, 'UTF-8') > 20) {
+        responderPacienteError('El código admite hasta 20 caracteres.');
+    }
+    $stmt = $conexion->prepare(
+        'UPDATE postulantes_arreador_postulante SET codigo = ?
+         WHERE id_arreador_postulante = (
+             SELECT id FROM (
+                 SELECT id_arreador_postulante AS id FROM postulantes_arreador_postulante
+                 WHERE id_paciente = ? ORDER BY derivado_en DESC, id_arreador_postulante DESC LIMIT 1
+             ) ultimo)'
+    );
+    $stmt->bind_param('si', $codigo, $idGuardado);
+    $stmt->execute();
     recalcularOrdenPacientes($conexion);
     echo json_encode(['status' => 'ok', 'id_paciente' => $idGuardado]);
 }

@@ -55,7 +55,7 @@ $filtro = trim((string) ($_POST['filtro'] ?? ''));
 =========================== */
 $placeholders = implode(',', array_fill(0, count($ids), '?'));
 $sql = 'SELECT p.id_paciente,
-               NULLIF(TRIM(p.codigo), \'\') AS codigo_manual,
+               ' . sqlCodigoManualPaciente('p') . ' AS codigo_manual,
                ' . sqlOrdenDiaPaciente('p') . ' AS orden,
                DATE(' . sqlMomentoRegistroPaciente('p') . ') AS dia_registro,
                p.nombre,

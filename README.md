@@ -73,3 +73,11 @@ permisos `menu.informes.*` pasan a `menu.postulantes.*` conservando su
 `id_permiso`, por lo que los roles mantienen sus accesos. También reemplaza los
 emojis del menú por claves de iconos minimalistas (SVG monocromo) definidos en
 `backend/iconos.php`; un texto que no sea una clave conocida se muestra tal cual.
+
+## Código del postulante
+
+La migración `V37` mueve `pacientes.codigo` a `postulantes_arreador_postulante.codigo`,
+al lado de `orden`: el código pertenece al registro del postulante en un convenio.
+Si el postulante todavía no está registrado, el código del formulario se guarda
+junto con el cobro que crea el registro. En los informes se imprime solo el orden
+(`036`) o `orden-código` (`036-A12`) cuando hay código cargado.

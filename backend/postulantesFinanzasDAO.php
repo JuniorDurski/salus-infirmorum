@@ -6,10 +6,10 @@ require_once __DIR__ . '/seguridad.php';
 
 $q = $_GET['q'] ?? '';
 
-if (in_array($q, ['resumen', 'configuracion', 'pagos'], true)) {
-    requerirAutenticacion($conexion, 'pacientes.ver', true);
+if (in_array($q, ['resumen', 'configuracion', 'pagos', 'observaciones'], true)) {
+    $identidadFinanzas = requerirAutenticacion($conexion, 'pacientes.ver', true);
 } else {
-    requerirAutenticacion($conexion, 'pacientes.editar', true);
+    $identidadFinanzas = requerirAutenticacion($conexion, 'pacientes.editar', true);
     validarCsrf();
 }
 
@@ -48,6 +48,12 @@ try {
         case 'editar_pago':
             editarPago($conexion);
             break;
+        case 'observaciones':
+            listarObservacionesRegistro($conexion);
+            break;
+        case 'comentar':
+            comentarRegistro($conexion, $identidadFinanzas);
+            break;
         default:
             errorFinanzas('Operación no válida.');
     }
@@ -83,7 +89,8 @@ function resumenFinanciero(mysqli $db): void
 
     $stmt = $db->prepare(
         'SELECT ap.id_arreador_postulante, ap.id_paciente, ap.id_arreador,
-                ap.id_arreador_escuela, ap.derivado_en, ap.observacion,
+                ap.id_arreador_escuela, ap.derivado_en,
+                COALESCE(JSON_LENGTH(ap.observacion), 0) AS observaciones,
                 p.nombre AS postulante, p.documento, p.id_escuela,
                 ae.id_escuela AS id_escuela_convenio,
                 DATE(ap.derivado_en) AS fecha_registro,
@@ -340,7 +347,12 @@ function asignarPostulante(mysqli $db): void
 {
     $idPaciente = enteroPositivo($_POST['id_paciente'] ?? 0, 'Postulante no válido.');
     $idConvenio = enteroPositivo($_POST['id_arreador_escuela'] ?? 0, 'Seleccione un convenio.');
-    $observacion = textoNullable($_POST['observacion'] ?? null);
+    $textoObservacion = textoNullable($_POST['observacion'] ?? null);
+    // Se guarda como lista JSON de comentarios (ver comentarRegistro).
+    $observacion = $textoObservacion === null ? null : json_encode(
+        [comentarioObservacion($textoObservacion, $GLOBALS['identidadFinanzas'])],
+        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES
+    );
     $anio = anioActualDb($db);
     $actor = usuarioSesionId();
 
@@ -384,11 +396,13 @@ function asignarPostulante(mysqli $db): void
             $idAsignacion = (int) $actual['id_arreador_postulante'];
             $stmt = $db->prepare(
                 'UPDATE postulantes_arreador_postulante
-                 SET id_arreador = ?, id_arreador_escuela = ?, observacion = ?,
+                 SET id_arreador = ?, id_arreador_escuela = ?,
+                     observacion = IF(? IS NULL, observacion,
+                         JSON_MERGE_PRESERVE(COALESCE(observacion, JSON_ARRAY()), ?)),
                      derivado_en = NOW(), registrado_por = ?
                  WHERE id_arreador_postulante = ?'
             );
-            $stmt->bind_param('iisii', $convenio['id_arreador'], $idConvenio, $observacion, $actor, $idAsignacion);
+            $stmt->bind_param('iissii', $convenio['id_arreador'], $idConvenio, $observacion, $observacion, $actor, $idAsignacion);
         } else {
             $stmt = $db->prepare(
                 'INSERT INTO postulantes_arreador_postulante
@@ -480,6 +494,8 @@ function registrarCobroCompleto(mysqli $db): void
     $idPaciente = enteroPositivo($_POST['id_paciente'] ?? 0, 'Seleccione un postulante.');
     $idConvenio = enteroPositivo($_POST['id_arreador_escuela'] ?? 0, 'Seleccione un convenio.');
     $pagosRecibidos = json_decode((string) ($_POST['pagos'] ?? '[]'), true);
+    // Código cargado a mano en el formulario; se guarda al crear el registro.
+    $codigoRegistro = textoNullable(mb_substr((string) ($_POST['codigo'] ?? ''), 0, 20, 'UTF-8'));
     $actor = usuarioSesionId();
     $anio = anioActualDb($db);
     $hoy = fechaActualDb($db);
@@ -558,10 +574,10 @@ function registrarCobroCompleto(mysqli $db): void
         } else {
             $stmt = $db->prepare(
                 'INSERT INTO postulantes_arreador_postulante
-                    (id_arreador, id_arreador_escuela, id_paciente, registrado_por)
-                 VALUES (?, ?, ?, ?)'
+                    (id_arreador, id_arreador_escuela, id_paciente, codigo, registrado_por)
+                 VALUES (?, ?, ?, ?, ?)'
             );
-            $stmt->bind_param('iiii', $convenio['id_arreador'], $idConvenio, $idPaciente, $actor);
+            $stmt->bind_param('iiisi', $convenio['id_arreador'], $idConvenio, $idPaciente, $codigoRegistro, $actor);
             $stmt->execute();
             $idAsignacion = (int) $db->insert_id;
             $pagadoCentavos = 0;
@@ -707,6 +723,55 @@ function editarPago(mysqli $db): void
         'id_arreador_postulante' => $idAsignacion,
         'saldo' => number_format($saldoCentavos / 100, 2, '.', ''),
     ]);
+}
+
+/** Comentario con autor y fecha, en el mismo formato que las observaciones de atención. */
+function comentarioObservacion(string $texto, array $identidad): array
+{
+    return [
+        'id' => bin2hex(random_bytes(8)),
+        'texto' => $texto,
+        'id_usuario' => (int) $identidad['id_usuario'],
+        'usuario' => (string) $identidad['nombre'],
+        'fecha' => date(DATE_ATOM),
+    ];
+}
+
+/** Comentarios del registro del postulante, del más antiguo al más nuevo. */
+function listarObservacionesRegistro(mysqli $db): void
+{
+    $id = enteroPositivo($_GET['id'] ?? 0, 'Registro no válido.');
+    $stmt = $db->prepare('SELECT observacion FROM postulantes_arreador_postulante WHERE id_arreador_postulante = ?');
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $fila = $stmt->get_result()->fetch_assoc();
+    if ($fila === null) {
+        errorFinanzas('No se encontró el registro del postulante.');
+    }
+    $comentarios = json_decode((string) $fila['observacion'], true);
+    responderJson(['status' => 'ok', 'comentarios' => is_array($comentarios) ? array_values($comentarios) : []]);
+}
+
+/** Agrega un comentario a nombre del usuario actual. Los anteriores no se modifican. */
+function comentarRegistro(mysqli $db, array $identidad): void
+{
+    $id = enteroPositivo($_POST['id_arreador_postulante'] ?? 0, 'Registro no válido.');
+    $texto = trim((string) ($_POST['texto'] ?? ''));
+    if ($texto === '' || mb_strlen($texto, 'UTF-8') > 1500) {
+        errorFinanzas('Escriba una observación de hasta 1500 caracteres.');
+    }
+    $comentario = json_encode(comentarioObservacion($texto, $identidad), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $stmt = $db->prepare(
+        'UPDATE postulantes_arreador_postulante
+         SET observacion = JSON_ARRAY_APPEND(COALESCE(observacion, JSON_ARRAY()), \'$\', JSON_EXTRACT(?, \'$\'))
+         WHERE id_arreador_postulante = ?'
+    );
+    $stmt->bind_param('si', $comentario, $id);
+    $stmt->execute();
+    if ($stmt->affected_rows !== 1) {
+        errorFinanzas('No se encontró el registro del postulante.');
+    }
+    responderJson(['status' => 'ok', 'mensaje' => 'Observación agregada.']);
 }
 
 function montoValido($valor, string $campo, bool $permiteCero = false): string
