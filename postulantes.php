@@ -60,7 +60,6 @@ include 'menu.php';
             <div class="field-grid">
                 <div class="campo"><label for="fecha_nacimiento">Fecha de nacimiento *</label><input type="date" name="fecha_nacimiento" id="fecha_nacimiento" max="<?= htmlspecialchars($hoyAplicacion, ENT_QUOTES, 'UTF-8') ?>" required></div>
                 <div class="campo"><label for="es_femenino">Sexo *</label><select name="es_femenino" id="es_femenino" required><option value="">Seleccione</option><option value="0">Masculino</option><option value="1">Femenino</option></select></div>
-                <div class="campo"><label for="id_escuela">Escuela</label><select name="id_escuela" id="id_escuela"><option value="">Cargando…</option></select></div>
                 <div class="campo"><label for="grupo_sanguineo">Grupo sanguíneo</label><select name="grupo_sanguineo" id="grupo_sanguineo"><option value="">Sin especificar</option><option>A Rh Positivo</option><option>A Rh Negativo</option><option>B Rh Positivo</option><option>B Rh Negativo</option><option>AB Rh Positivo</option><option>AB Rh Negativo</option><option>O Rh Positivo</option><option>O Rh Negativo</option></select></div>
             </div>
             <!--
@@ -183,7 +182,6 @@ async function cargarCatalogos() {
     escuelas = await Salus.json('backend/designacionesDAO.php?q=listar');
     const opcionesEscuela=escuelas.map(d=>`<option value="${Number(d.id_escuela)}">${Salus.escape(d.nombre)}</option>`).join('');
     selectorEscuelaCobro.innerHTML='<option value="">Todas las escuelas</option>'+opcionesEscuela;
-    if (puedeEditarPacientes) id_escuela.innerHTML='<option value="">Sin especificar</option>'+opcionesEscuela;
 }
 async function cargar(){
     try{pacientes=await Salus.json('backend/postulantesDAO.php?q=listar');renderTabla();}
@@ -222,12 +220,10 @@ function restaurarContexto(){
     const escuelaGuardada=almacen.get(storageEscuela)||'';
     if([...selectorEscuelaCobro.options].some(o=>o.value===escuelaGuardada))selectorEscuelaCobro.value=escuelaGuardada;
     cargarConveniosContexto(almacen.get(storageConvenio)||'');
-    if(puedeEditarPacientes&&!id_paciente.value)id_escuela.value=selectorEscuelaCobro.value;
 }
 function borrarContexto(){
     almacen.del(storageEscuela);almacen.del(storageConvenio);
     selectorEscuelaCobro.value='';cargarConveniosContexto();
-    if(puedeEditarPacientes&&!id_paciente.value)id_escuela.value='';
     renderTabla();
 }
 
@@ -284,7 +280,7 @@ function abrirMenuAcciones(event,idPaciente,idAsignacion,conSaldo){
         puedeEditarPacientes||idAsignacion?['Gestion de Pagos',()=>abrirPagos(idPaciente),'']:null,
         idAsignacion?['Observaciones',()=>abrirObservacionesRegistro(idAsignacion),'']:null,
         puedeEditarPacientes?['Editar Postulante',()=>editar(idPaciente),'']:null,
-        puedeEditarPacientes?['Desactivar',()=>eliminar(idPaciente),'peligro']:null
+        puedeEditarPacientes?['Desactivar',()=>idAsignacion?desactivarRegistro(idAsignacion):eliminar(idPaciente),'peligro']:null
     ].filter(Boolean);
     menuAcciones.innerHTML='';
     opciones.forEach(([texto,accion,clase])=>{
@@ -490,12 +486,11 @@ function editar(id) {
     const p=pacientes.find(item=>Number(item.id_paciente)===Number(id)); if(!p)return;
     id_paciente.value=p.id_paciente; nombre.value=p.nombre; codigo.value=p.codigo||''; ci.value=p.ci;
     fecha_nacimiento.value=p.fecha_nacimiento; es_femenino.value=p.es_femenino; grupo_sanguineo.value=p.grupo_sanguineo||'';
-    id_escuela.value=p.id_escuela||''; telefono.value=p.telefono||''; url_foto.value=p.url_foto||''; id_pais.value=p.id_pais||'';
+    telefono.value=p.telefono||''; url_foto.value=p.url_foto||''; id_pais.value=p.id_pais||'';
     nombre.focus();
 }
 function limpiar(){
     frmPersona.reset();id_paciente.value='';url_foto.value='';id_pais.value='';telefono.value='';mensaje.textContent='';
-    if(selectorEscuelaCobro.value)id_escuela.value=selectorEscuelaCobro.value;
 }
 // Exporta a Excel o PDF exactamente los postulantes que se ven en la tabla.
 function exportarLista(formato){
@@ -551,6 +546,14 @@ async function buscarCedula(){
     }catch(error){Salus.toast(error.message,'error');}
     finally{btnBuscarCedula.disabled=false;}
 }
+// Desactiva solo su registro en postulantes; el paciente queda activo.
+async function desactivarRegistro(idAsignacion){
+    if(!confirm('¿Desactivar este postulante? Dejará de aparecer en postulantes, informes y totales, y se renumerará el orden del día.'))return;
+    try{
+        const r=await Salus.json('backend/postulantesFinanzasDAO.php?q=desactivar_registro',{method:'POST',body:Salus.form({id_arreador_postulante:idAsignacion})});
+        Salus.toast(r.mensaje);await Promise.all([cargar(),cargarFinanzas()]);
+    }catch(error){Salus.toast(error.message,'error');}
+}
 async function eliminar(id){
     if(!confirm('¿Desactivar este postulante?'))return;
     try{await Salus.json('backend/postulantesDAO.php?q=eliminar',{method:'POST',body:Salus.form({id})});Salus.toast('Postulante desactivado.');cargar();}
@@ -560,7 +563,6 @@ async function eliminar(id){
 /* ---------- Eventos ---------- */
 selectorEscuelaCobro.addEventListener('change',()=>{
     cargarConveniosContexto();
-    if(puedeEditarPacientes&&!id_paciente.value)id_escuela.value=selectorEscuelaCobro.value;
     renderTabla();
 });
 btnBorrarContexto.addEventListener('click',borrarContexto);
@@ -572,7 +574,6 @@ if (puedeEditarPacientes) {
         event.preventDefault(); mensaje.textContent='';
         const esNuevo=!id_paciente.value;
         if(esNuevo&&(!selectorEscuelaCobro.value||!selectorConvenioCobro.value)){mensaje.textContent='Seleccione primero la escuela y el convenio en la barra superior.';selectorEscuelaCobro.focus();return;}
-        if(esNuevo)id_escuela.value=selectorEscuelaCobro.value;
         try{
             const codigoFormulario=codigo.value.trim();
             const resultado=await Salus.json('backend/postulantesDAO.php?q=guardar',{method:'POST',body:new FormData(frmPersona)});

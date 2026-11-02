@@ -86,10 +86,11 @@ function sincronizarAsignacion(mysqli $db, int $idAsignacion): int
          FROM postulantes_asignar_atencion a
          INNER JOIN postulantes_asignar_atencion_escuelas ae
                  ON ae.id_asignar_atencion = a.id_asignar_atencion
-         INNER JOIN pacientes p ON p.id_escuela = ae.id_escuela
+         INNER JOIN pacientes p ON " . sqlIdEscuelaPaciente('p') . " = ae.id_escuela
          WHERE a.id_asignar_atencion = ?
            AND a.activo = 1
            AND p.activo = 1
+           AND " . sqlVisibleEnPostulantes('p') . "
            AND " . sqlFechaRegistroPaciente('p') . " = a.fecha"
     );
     $stmt->bind_param('i', $idAsignacion);
@@ -172,10 +173,11 @@ function obtenerDetalleAsignacion(mysqli $db, int $id, array $identidad): array
                 COALESCE(ua.nombre, '') AS atendido_por_nombre
          FROM postulantes_atencion pa
          INNER JOIN pacientes p ON p.id_paciente = pa.id_paciente
-         LEFT JOIN escuelas e ON e.id_escuela = p.id_escuela
+         LEFT JOIN escuelas e ON e.id_escuela = " . sqlIdEscuelaPaciente('p') . "
          LEFT JOIN usuarios ua ON ua.id_usuario = pa.atendido_por
          WHERE pa.id_asignar_atencion = ?
            AND p.activo = 1
+           AND " . sqlVisibleEnPostulantes('p') . "
          ORDER BY p.id_paciente ASC"
     );
     $stmt->bind_param('i', $id);

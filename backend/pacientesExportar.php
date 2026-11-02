@@ -69,13 +69,14 @@ $sql = 'SELECT p.id_paciente,
                finanzas.monto_clinica,
                finanzas.id_arreador_escuela
           FROM pacientes p
-          LEFT JOIN escuelas e ON e.id_escuela = p.id_escuela
+          LEFT JOIN escuelas e ON e.id_escuela = ' . sqlIdEscuelaPaciente('p') . '
           LEFT JOIN (
               SELECT ap.id_paciente, ap.id_arreador_escuela, ae.comision_arreador, ae.monto_clinica
               FROM postulantes_arreador_postulante ap
               INNER JOIN postulantes_arreador_escuela ae
                       ON ae.id_arreador_escuela = ap.id_arreador_escuela
                      AND ae.anio = YEAR(CURDATE())
+              WHERE ap.activo = 1
           ) finanzas ON finanzas.id_paciente = p.id_paciente
          WHERE p.id_paciente IN (' . $placeholders . ')';
 $stmt = $conexion->prepare($sql);
@@ -98,9 +99,7 @@ foreach ($pacientes as $p) {
     if (!empty($p['escuela'])) $escuelasReporte[$p['escuela']] = true;
     if (!empty($p['id_arreador_escuela'])) $conveniosReporte[(int) $p['id_arreador_escuela']] = true;
     $fila = [
-        'N°' => count($filas) + 1,
         'Orden' => str_pad((string) (int) $p['orden'], 3, '0', STR_PAD_LEFT),
-        'ID' => $p['id_paciente'],
     ];
     if ($hayCodigo) {
         $fila['Código'] = $p['codigo_manual'] ?? '';
@@ -175,8 +174,6 @@ if ($formato === 'xls') {
         $datosExcel['Convenio'] = $convenioFiltro !== '' ? $convenioFiltro : (count($conveniosReporte) > 1 ? 'Varios' : 'Sin convenio');
         $datosExcel['Fecha de registro'] = preg_match('#^\d{2}/\d{2}/\d{4}$#', $fechaFiltro) ? $fechaFiltro : 'Todas';
     }
-    // En el Excel el número de orden ya identifica la fila: sin columna N°.
-    $filas = array_map(static function (array $fila): array { unset($fila['N°']); return $fila; }, $filas);
     exportarExcel($filas, $base, $tituloReporte, $columnaTotal, $totalReporte, $reloj['generado'], $datosExcel, $filtro);
 } else {
     exportarPdf($filas, $base, $filtro, $tituloReporte, $columnaTotal, $totalReporte, $reloj['generado'], $datosCabecera);

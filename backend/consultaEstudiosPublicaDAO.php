@@ -3,6 +3,7 @@
 header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/conexion.php';
 require_once __DIR__ . '/seguridad.php';
+require_once __DIR__ . '/codigos_pacientes.php';
 
 $q = $_GET['q'] ?? 'consultar';
 if ($q !== 'consultar') responderJson(['status' => 'error', 'mensaje' => 'Operación no válida.'], 400);
@@ -26,7 +27,7 @@ $stmt = $conexion->prepare(
      INNER JOIN postulantes_asignar_atencion a
              ON a.id_asignar_atencion = pa.id_asignar_atencion AND a.activo = 1
      INNER JOIN pacientes p ON p.id_paciente = pa.id_paciente AND p.activo = 1
-     INNER JOIN escuelas e ON e.id_escuela = p.id_escuela
+     INNER JOIN escuelas e ON e.id_escuela = ' . sqlIdEscuelaPaciente('p') . '
      WHERE p.documento = ? AND a.fecha = ?
      ORDER BY p.id_paciente
      LIMIT 1'

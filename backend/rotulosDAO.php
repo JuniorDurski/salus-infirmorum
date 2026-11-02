@@ -55,12 +55,12 @@ function buscarPostulantesRotulos(mysqli $db): void
         responderJson(['status' => 'error', 'mensaje' => 'La fecha del filtro no es válida.'], 400);
     }
 
-    $where = ['p.activo = 1'];
+    $where = ['p.activo = 1', sqlVisibleEnPostulantes('p')];
     $params = [];
     $types = '';
 
     if ($idEscuela > 0) {
-        $where[] = 'p.id_escuela = ?';
+        $where[] = sqlIdEscuelaPaciente('p') . ' = ?';
         $params[] = $idEscuela;
         $types .= 'i';
     }
@@ -83,7 +83,7 @@ function buscarPostulantesRotulos(mysqli $db): void
                    DATE_FORMAT(' . sqlMomentoRegistroPaciente('p') . ', \'%Y-%m-%d\') AS fecha_alta,
                    e.nombre AS escuela
             FROM pacientes p
-            LEFT JOIN escuelas e ON e.id_escuela = p.id_escuela
+            LEFT JOIN escuelas e ON e.id_escuela = ' . sqlIdEscuelaPaciente('p') . '
             WHERE ' . implode(' AND ', $where) . '
             ORDER BY p.id_paciente DESC';
     $stmt = $db->prepare($sql);

@@ -20,7 +20,23 @@ function sqlMomentoRegistroPaciente(string $alias = 'p'): string
 {
     return "COALESCE((SELECT MAX(ap_reg.derivado_en)
                         FROM postulantes_arreador_postulante ap_reg
-                       WHERE ap_reg.id_paciente = {$alias}.id_paciente), {$alias}.creado_en)";
+                       WHERE ap_reg.id_paciente = {$alias}.id_paciente AND ap_reg.activo = 1), {$alias}.creado_en)";
+}
+
+/**
+ * Expresión SQL con la escuela del postulante. No se guarda en pacientes: sale de
+ * su último registro activo en postulantes y del convenio de ese registro.
+ *   pacientes -> postulantes_arreador_postulante -> postulantes_arreador_escuela -> escuelas
+ */
+function sqlIdEscuelaPaciente(string $alias = 'p'): string
+{
+    return "(SELECT ae_esc.id_escuela
+               FROM postulantes_arreador_postulante ap_esc
+              INNER JOIN postulantes_arreador_escuela ae_esc
+                      ON ae_esc.id_arreador_escuela = ap_esc.id_arreador_escuela
+              WHERE ap_esc.id_paciente = {$alias}.id_paciente AND ap_esc.activo = 1
+              ORDER BY ap_esc.derivado_en DESC, ap_esc.id_arreador_postulante DESC
+              LIMIT 1)";
 }
 
 /** Expresión SQL con el día de registro del paciente (YYYY-MM-DD). */
@@ -35,7 +51,7 @@ function sqlOrdenDiaPaciente(string $alias = 'p'): string
     return "COALESCE(
         (SELECT ap_ord.orden
            FROM postulantes_arreador_postulante ap_ord
-          WHERE ap_ord.id_paciente = {$alias}.id_paciente
+          WHERE ap_ord.id_paciente = {$alias}.id_paciente AND ap_ord.activo = 1
           ORDER BY ap_ord.derivado_en DESC, ap_ord.id_arreador_postulante DESC
           LIMIT 1),
         (SELECT COUNT(*) FROM pacientes p_dia
@@ -59,9 +75,22 @@ function sqlCodigoManualPaciente(string $alias = 'p'): string
 {
     return "(SELECT NULLIF(TRIM(ap_cod.codigo), '')
                FROM postulantes_arreador_postulante ap_cod
-              WHERE ap_cod.id_paciente = {$alias}.id_paciente
+              WHERE ap_cod.id_paciente = {$alias}.id_paciente AND ap_cod.activo = 1
               ORDER BY ap_cod.derivado_en DESC, ap_cod.id_arreador_postulante DESC
               LIMIT 1)";
+}
+
+/**
+ * Condición SQL: el paciente se muestra en los módulos de postulantes. Se oculta
+ * cuando todos sus registros en postulantes están desactivados; un paciente sin
+ * ningún registro todavía se muestra (está en proceso de registrarse).
+ */
+function sqlVisibleEnPostulantes(string $alias = 'p'): string
+{
+    return "(EXISTS (SELECT 1 FROM postulantes_arreador_postulante ap_vis
+                      WHERE ap_vis.id_paciente = {$alias}.id_paciente AND ap_vis.activo = 1)
+             OR NOT EXISTS (SELECT 1 FROM postulantes_arreador_postulante ap_vis
+                             WHERE ap_vis.id_paciente = {$alias}.id_paciente))";
 }
 
 /** Expresión SQL con el código a mostrar: el cargado a mano o el generado "NNN-ID". */
@@ -85,15 +114,16 @@ function sqlCodigoInforme(string $alias = 'p'): string
 /**
  * Recalcula postulantes_arreador_postulante.orden y actualiza solo los registros
  * que cambiaron. Se numera por convenio y día desde el orden_inicio del convenio;
- * los registros de pacientes inactivos quedan sin orden.
+ * los registros desactivados (o de pacientes inactivos) quedan sin orden y los
+ * demás de su convenio y día se renumeran sin huecos.
  */
 function recalcularOrdenPacientes(mysqli $db): void
 {
     $filas = $db->query(
         'SELECT ap.id_arreador_postulante, ap.orden AS actual,
-                IF(p.activo = 1,
+                IF(p.activo = 1 AND ap.activo = 1,
                    ae.orden_inicio - 1 + ROW_NUMBER() OVER (
-                       PARTITION BY p.activo, ap.id_arreador_escuela, DATE(ap.derivado_en)
+                       PARTITION BY (p.activo = 1 AND ap.activo = 1), ap.id_arreador_escuela, DATE(ap.derivado_en)
                        ORDER BY ap.derivado_en, ap.id_arreador_postulante
                    ),
                    NULL) AS nuevo

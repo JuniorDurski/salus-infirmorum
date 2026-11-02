@@ -40,7 +40,6 @@ include 'menu.php';
             <div class="field-grid">
                 <div class="campo"><label for="fecha_nacimiento">Fecha de nacimiento *</label><input type="date" name="fecha_nacimiento" id="fecha_nacimiento" max="<?= date('Y-m-d') ?>" required></div>
                 <div class="campo"><label for="es_femenino">Sexo *</label><select name="es_femenino" id="es_femenino" required><option value="">Seleccione</option><option value="0">Masculino</option><option value="1">Femenino</option></select></div>
-                <div class="campo"><label for="id_escuela">Escuela</label><select name="id_escuela" id="id_escuela"><option value="">Cargando…</option></select></div>
                 <div class="campo"><label for="grupo_sanguineo">Grupo sanguíneo</label><select name="grupo_sanguineo" id="grupo_sanguineo"><option value="">Sin especificar</option><option>A Rh Positivo</option><option>A Rh Negativo</option><option>B Rh Positivo</option><option>B Rh Negativo</option><option>AB Rh Positivo</option><option>AB Rh Negativo</option><option>O Rh Positivo</option><option>O Rh Negativo</option></select></div>
                 <div class="campo"><label for="id_pais">País</label><select name="id_pais" id="id_pais"><option value="">Cargando…</option></select></div>
                 <div class="campo"><label for="telefono">Teléfono internacional</label><input type="tel" name="telefono" id="telefono" placeholder="+595981123456" pattern="\+[1-9][0-9]{7,14}"></div>
@@ -86,7 +85,6 @@ async function cargarCatalogos() {
         Salus.json('backend/designacionesDAO.php?q=listar'), Salus.json('backend/referencialesDAO.php?q=paises')
     ]);
     if (puedeEditarPacientes) {
-        id_escuela.innerHTML='<option value="">Sin especificar</option>'+escuelas.map(d=>`<option value="${d.id_escuela}">${Salus.escape(d.nombre)} · ${Salus.escape(d.periodo)}</option>`).join('');
         id_pais.innerHTML=paises.map(p=>`<option value="${p.id_pais}">${Salus.escape(p.nombre)} (${Salus.escape(p.prefijo_telefonico)})</option>`).join('');
         seleccionarParaguay();
     }
@@ -97,7 +95,7 @@ function seleccionarParaguay(){
     if(paraguay) id_pais.value=paraguay.id_pais;
 }
 async function cargar() {
-    try { pacientes=await Salus.json('backend/postulantesDAO.php?q=listar'); renderPacientes(); }
+    try { pacientes=await Salus.json('backend/postulantesDAO.php?q=listar&todos=1'); renderPacientes(); }
     catch(error){ Salus.toast(error.message,'error'); }
 }
 function renderPacientes() {
@@ -119,7 +117,7 @@ function editar(id) {
     const p=pacientes.find(item=>Number(item.id_paciente)===Number(id)); if(!p)return;
     id_paciente.value=p.id_paciente; nombre.value=p.nombre; codigo.value=p.codigo||''; ci.value=p.ci;
     fecha_nacimiento.value=p.fecha_nacimiento; es_femenino.value=p.es_femenino; grupo_sanguineo.value=p.grupo_sanguineo||'';
-    id_escuela.value=p.id_escuela||''; telefono.value=p.telefono||''; url_foto.value=p.url_foto||'';
+    telefono.value=p.telefono||''; url_foto.value=p.url_foto||'';
     if(p.id_pais) id_pais.value=p.id_pais; else seleccionarParaguay();
     // Foto oculta por ahora: vista_foto.src=p.url_foto||''; vista_foto.hidden=!p.url_foto;
     nombre.focus();

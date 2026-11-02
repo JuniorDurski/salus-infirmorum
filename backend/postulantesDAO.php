@@ -49,8 +49,8 @@ function camposPacienteSql(): string
     // codigo: el cargado a mano (para editar); codigo_generado: el que se muestra e imprime.
     return "p.id_paciente,
             p.id_paciente AS id_postulante,
-            p.id_escuela,
-            p.id_escuela AS id_designacion,
+            " . sqlIdEscuelaPaciente('p') . " AS id_escuela,
+            " . sqlIdEscuelaPaciente('p') . " AS id_designacion,
             p.id_pais,
             " . sqlCodigoManualPaciente('p') . " AS codigo,
 
@@ -81,10 +81,12 @@ function camposPacienteSql(): string
 
 function listarPacientes(mysqli $conexion): void
 {
+    // El módulo Pacientes pide todos; los de postulantes ocultan los registros desactivados.
+    $filtroPostulantes = ($_GET['todos'] ?? '') === '1' ? '' : ' AND ' . sqlVisibleEnPostulantes('p');
     $sql = 'SELECT ' . camposPacienteSql() . '
             FROM pacientes p
-            LEFT JOIN escuelas e ON e.id_escuela = p.id_escuela
-            WHERE p.activo = 1
+            LEFT JOIN escuelas e ON e.id_escuela = ' . sqlIdEscuelaPaciente('p') . '
+            WHERE p.activo = 1' . $filtroPostulantes . '
             ORDER BY p.id_paciente DESC';
     $rs = $conexion->query($sql);
     echo json_encode($rs->fetch_all(MYSQLI_ASSOC), JSON_UNESCAPED_UNICODE);
@@ -99,8 +101,6 @@ function guardarPaciente(mysqli $conexion): void
     $grupo = valorNullable($_POST['grupo_sanguineo'] ?? null);
     $fechaNacimiento = trim($_POST['fecha_nacimiento'] ?? '');
     $sexoRecibido = $_POST['es_femenino'] ?? $_POST['sexo'] ?? '';
-    $idEscuelaRecibida = $_POST['id_escuela'] ?? $_POST['id_designacion'] ?? '';
-    $idEscuela = $idEscuelaRecibida !== '' ? (int) $idEscuelaRecibida : null;
     // Sin país elegido se asume Paraguay.
     $idPais = ($_POST['id_pais'] ?? '') !== '' ? (int) $_POST['id_pais'] : idPaisParaguay($conexion);
     $telefono = valorNullable($_POST['telefono'] ?? null);
@@ -130,28 +130,42 @@ function guardarPaciente(mysqli $conexion): void
         responderPacienteError('La URL de la foto no es válida.');
     }
 
+    // Volver a cargar a alguien cuyo registro en postulantes fue desactivado: se
+    // reutiliza su paciente (el documento es único) y se actualizan sus datos.
+    if ($id === 0) {
+        $stmt = $conexion->prepare(
+            'SELECT p.id_paciente FROM pacientes p
+             WHERE p.id_pais <=> ? AND p.documento = ? AND p.activo = 1
+               AND NOT ' . sqlVisibleEnPostulantes('p') . '
+             LIMIT 1'
+        );
+        $stmt->bind_param('is', $idPais, $documento);
+        $stmt->execute();
+        $id = (int) ($stmt->get_result()->fetch_assoc()['id_paciente'] ?? 0);
+    }
+
     if ($id > 0) {
         $sql = 'UPDATE pacientes
                 SET nombre = ?, documento = ?, grupo_sanguineo = ?,
-                    fecha_nacimiento = ?, es_femenino = ?, id_escuela = ?, id_pais = ?,
+                    fecha_nacimiento = ?, es_femenino = ?, id_pais = ?,
                     telefono = ?, url_foto = ?
                 WHERE id_paciente = ?';
         $stmt = $conexion->prepare($sql);
         $stmt->bind_param(
-            'ssssiiissi',
+            'ssssiissi',
             $nombre, $documento, $grupo, $fechaNacimiento,
-            $esFemenino, $idEscuela, $idPais, $telefono, $urlFoto, $id
+            $esFemenino, $idPais, $telefono, $urlFoto, $id
         );
     } else {
         $sql = 'INSERT INTO pacientes
                     (nombre, documento, grupo_sanguineo, fecha_nacimiento,
-                     es_femenino, id_escuela, id_pais, telefono, url_foto)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)';
+                     es_femenino, id_pais, telefono, url_foto)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)';
         $stmt = $conexion->prepare($sql);
         $stmt->bind_param(
-            'ssssiiiss',
+            'ssssiiss',
             $nombre, $documento, $grupo, $fechaNacimiento,
-            $esFemenino, $idEscuela, $idPais, $telefono, $urlFoto
+            $esFemenino, $idPais, $telefono, $urlFoto
         );
     }
 
@@ -167,7 +181,7 @@ function guardarPaciente(mysqli $conexion): void
          WHERE id_arreador_postulante = (
              SELECT id FROM (
                  SELECT id_arreador_postulante AS id FROM postulantes_arreador_postulante
-                 WHERE id_paciente = ? ORDER BY derivado_en DESC, id_arreador_postulante DESC LIMIT 1
+                 WHERE id_paciente = ? AND activo = 1 ORDER BY derivado_en DESC, id_arreador_postulante DESC LIMIT 1
              ) ultimo)'
     );
     $stmt->bind_param('si', $codigo, $idGuardado);
@@ -208,7 +222,7 @@ function buscarPacientes(mysqli $conexion): void
     $texto = trim($_GET['texto'] ?? '');
     $idEscuela = (int) ($_GET['escuela'] ?? $_GET['designacion'] ?? 0);
     $fecha = trim($_GET['fecha'] ?? '');
-    $where = ['p.activo = 1'];
+    $where = ['p.activo = 1', sqlVisibleEnPostulantes('p')];
     $params = [];
     $types = '';
 
@@ -220,7 +234,7 @@ function buscarPacientes(mysqli $conexion): void
         $types .= 'sss';
     }
     if ($idEscuela > 0) {
-        $where[] = 'p.id_escuela = ?';
+        $where[] = sqlIdEscuelaPaciente('p') . ' = ?';
         $params[] = $idEscuela;
         $types .= 'i';
     }
@@ -232,7 +246,7 @@ function buscarPacientes(mysqli $conexion): void
 
     $sql = 'SELECT ' . camposPacienteSql() . '
             FROM pacientes p
-            LEFT JOIN escuelas e ON e.id_escuela = p.id_escuela
+            LEFT JOIN escuelas e ON e.id_escuela = ' . sqlIdEscuelaPaciente('p') . '
             WHERE ' . implode(' AND ', $where) . '
             ORDER BY p.id_paciente DESC';
     $stmt = $conexion->prepare($sql);

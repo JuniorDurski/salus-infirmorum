@@ -135,7 +135,7 @@ function renderAudiometria() {
             <td>${Salus.escape(paciente.edad)} años<br><small>${Salus.escape(paciente.sexo)}</small></td>
             <td>${Salus.escape(paciente.escuela || '—')}</td>
             <td>${estado}</td>
-            <td><div class="table-actions">${editar}<button class="btn-small btn-secondary" type="button" onclick="enviarInformeAudiometria([${id}])">Imprimir</button></div></td>
+            <td><div class="table-actions">${editar}<button class="btn-small btn-secondary" type="button" onclick="enviarInformeAudiometria([${id}])">Imprimir individualmente</button></div></td>
         </tr>`;
     }).join('');
 }

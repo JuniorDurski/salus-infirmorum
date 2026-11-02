@@ -36,9 +36,10 @@ $sql = "SELECT
             DATE_FORMAT(" . sqlMomentoRegistroPaciente('p') . ", '%d/%m/%Y') AS fecha,
             CONCAT(" . sqlCodigoInforme('p') . ", ' - ', COALESCE(e.nombre, '')) AS codigo
         FROM pacientes p
-        LEFT JOIN escuelas e ON e.id_escuela = p.id_escuela
+        LEFT JOIN escuelas e ON e.id_escuela = " . sqlIdEscuelaPaciente('p') . "
         WHERE p.id_paciente IN ({$placeholders})
           AND p.activo = 1
+          AND " . sqlVisibleEnPostulantes('p') . "
         ORDER BY p.id_paciente";
 
 $stmt = $conexion->prepare($sql);

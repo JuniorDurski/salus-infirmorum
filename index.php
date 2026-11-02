@@ -11,11 +11,13 @@ $indicadores = [];
 $registrosSemana = [];
 $escuelasMes = [];
 if ($puedeVerPostulantes) {
-    $registroActivo = 'FROM postulantes_arreador_postulante ap INNER JOIN pacientes p ON p.id_paciente = ap.id_paciente AND p.activo = 1';
+    $registroActivo = 'FROM postulantes_arreador_postulante ap INNER JOIN pacientes p ON p.id_paciente = ap.id_paciente AND p.activo = 1 AND ap.activo = 1';
+    // Pagos de registros desactivados no cuentan.
+    $pagosActivos = "FROM postulantes_pago pg INNER JOIN postulantes_arreador_postulante ap ON ap.id_arreador_postulante = pg.id_arreador_postulante AND ap.activo = 1";
     $indicadores[] = ['Registrados hoy', number_format($contar("SELECT COUNT(*) $registroActivo WHERE DATE(ap.derivado_en) = CURDATE()"), 0, ',', '.'), 'postulantes'];
     $indicadores[] = ['Registrados en el mes', number_format($contar("SELECT COUNT(*) $registroActivo WHERE ap.derivado_en >= DATE_FORMAT(CURDATE(), '%Y-%m-01')"), 0, ',', '.'), 'lista'];
-    $indicadores[] = ['Cobrado hoy', 'Gs. ' . number_format($contar('SELECT COALESCE(SUM(monto), 0) FROM postulantes_pago WHERE DATE(fecha) = CURDATE()'), 0, ',', '.'), 'dinero'];
-    $indicadores[] = ['Cobrado en el mes', 'Gs. ' . number_format($contar("SELECT COALESCE(SUM(monto), 0) FROM postulantes_pago WHERE fecha >= DATE_FORMAT(CURDATE(), '%Y-%m-01')"), 0, ',', '.'), 'grafico'];
+    $indicadores[] = ['Cobrado hoy', 'Gs. ' . number_format($contar("SELECT COALESCE(SUM(pg.monto), 0) $pagosActivos WHERE DATE(pg.fecha) = CURDATE()"), 0, ',', '.'), 'dinero'];
+    $indicadores[] = ['Cobrado en el mes', 'Gs. ' . number_format($contar("SELECT COALESCE(SUM(pg.monto), 0) $pagosActivos WHERE pg.fecha >= DATE_FORMAT(CURDATE(), '%Y-%m-01')"), 0, ',', '.'), 'grafico'];
     // Ganancia de la clínica: el importe para la clínica de cada convenio, por postulante registrado.
     $conGanancia = "$registroActivo INNER JOIN postulantes_arreador_escuela ae ON ae.id_arreador_escuela = ap.id_arreador_escuela";
     $indicadores[] = ['Ganancia hoy', 'Gs. ' . number_format($contar("SELECT COALESCE(SUM(ae.monto_clinica), 0) $conGanancia WHERE DATE(ap.derivado_en) = CURDATE()"), 0, ',', '.'), 'dinero', true];

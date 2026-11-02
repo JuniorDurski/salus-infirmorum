@@ -200,7 +200,7 @@ function renderEco() {
             <td>${Salus.escape(paciente.ci)}</td>
             <td>${Salus.escape(paciente.edad)} años<br><small>${Salus.escape(paciente.sexo)}</small></td>
             <td>${Salus.escape(paciente.escuela || '—')}</td>
-            <td><div class="table-actions">${editar}<button class="btn-small btn-secondary" type="button" onclick="abrirSeleccionEco(${id}, 'imprimir')">Imprimir</button></div></td>
+            <td><div class="table-actions">${editar}<button class="btn-small btn-secondary" type="button" onclick="abrirSeleccionEco(${id}, 'imprimir')">Imprimir individualmente</button></div></td>
         </tr>`;
     }).join('');
 }

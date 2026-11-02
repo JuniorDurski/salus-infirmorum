@@ -25,8 +25,8 @@ include 'menu.php';
 <section class="card" style="margin-top:20px">
     <div class="card-header"><div><h2>Resultados</h2><p class="help-text" id="resumen">Use los filtros para comenzar.</p></div></div>
     <div class="table-wrap"><table class="data-table">
-        <thead><tr><th>Paciente</th><th>Documento</th><th>Edad / sexo</th><th>Escuela</th><th>Rh</th><th>Alta</th><th></th></tr></thead>
-        <tbody id="tabla"><tr><td colspan="7" class="empty-state">No se realizó ninguna búsqueda.</td></tr></tbody>
+        <thead><tr><th>Paciente</th><th>Documento</th><th>Edad / sexo</th><th>Escuela</th><th>Rh</th><th></th></tr></thead>
+        <tbody id="tabla"><tr><td colspan="6" class="empty-state">No se realizó ninguna búsqueda.</td></tr></tbody>
     </table></div>
 </section>
 
@@ -43,9 +43,9 @@ async function buscar(){
         tabla.innerHTML=data.length?data.map(p=>`<tr>
             <td><strong>${Salus.escape(Salus.ordenNombre(p))}</strong><br><small>${Salus.escape(p.codigo_informe || '')}</small></td><td>${Salus.escape(p.ci)}</td>
             <td>${Salus.escape(p.edad)} años<br><small>${Salus.escape(p.sexo)}</small></td><td>${Salus.escape(p.escuela||'—')}</td>
-            <td><span class="badge badge-muted">${Salus.escape(formatoGrupoSanguineo(p.grupo_sanguineo)||'—')}</span></td><td>${Salus.escape(p.fecha)}</td>
-            <td><button class="btn-small btn-secondary" onclick="imprimirUno(${Number(p.id_postulante)})">Imprimir</button></td>
-        </tr>`).join(''):'<tr><td colspan="7" class="empty-state">No hay coincidencias para esos filtros.</td></tr>';
+            <td><span class="badge badge-muted">${Salus.escape(formatoGrupoSanguineo(p.grupo_sanguineo)||'—')}</span></td>
+            <td><button class="btn-small btn-secondary" onclick="imprimirUno(${Number(p.id_postulante)})">Imprimir individualmente</button></td>
+        </tr>`).join(''):'<tr><td colspan="6" class="empty-state">No hay coincidencias para esos filtros.</td></tr>';
     }catch(error){Salus.toast(error.message,'error');}
 }
 function obtenerDesignacionTexto(){if(!f_designacion.value)return '';return f_designacion.options[f_designacion.selectedIndex].text.split(' · ')[0].trim();}

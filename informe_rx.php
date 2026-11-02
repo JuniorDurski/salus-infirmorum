@@ -44,10 +44,10 @@ include 'menu.php';
     <div class="table-wrap">
         <table class="data-table">
             <thead>
-                <tr><th>Postulante</th><th>Documento</th><th>Edad / sexo</th><th>Escuela</th><th>Alta</th><th></th></tr>
+                <tr><th>Postulante</th><th>Documento</th><th>Edad / sexo</th><th>Escuela</th><th></th></tr>
             </thead>
             <tbody id="tabla">
-                <tr><td colspan="6" class="empty-state">No se realizó ninguna búsqueda.</td></tr>
+                <tr><td colspan="5" class="empty-state">No se realizó ninguna búsqueda.</td></tr>
             </tbody>
         </table>
     </div>
@@ -84,13 +84,12 @@ async function buscar() {
             <td>${Salus.escape(postulante.ci)}</td>
             <td>${Salus.escape(postulante.edad)} años<br><small>${Salus.escape(postulante.sexo)}</small></td>
             <td>${Salus.escape(postulante.escuela || '—')}</td>
-            <td>${Salus.escape(postulante.fecha)}</td>
-            <td><button class="btn-small btn-secondary" type="button" onclick="imprimirUno(${Number(postulante.id_postulante)})">Imprimir</button></td>
-        </tr>`).join('') : '<tr><td colspan="6" class="empty-state">No hay coincidencias para esos filtros.</td></tr>';
+            <td><button class="btn-small btn-secondary" type="button" onclick="imprimirUno(${Number(postulante.id_postulante)})">Imprimir individualmente</button></td>
+        </tr>`).join('') : '<tr><td colspan="5" class="empty-state">No hay coincidencias para esos filtros.</td></tr>';
     } catch (error) {
         idsActuales = [];
         resumen.textContent = 'No se pudo completar la búsqueda.';
-        tabla.innerHTML = '<tr><td colspan="6" class="empty-state">No fue posible cargar los resultados.</td></tr>';
+        tabla.innerHTML = '<tr><td colspan="5" class="empty-state">No fue posible cargar los resultados.</td></tr>';
         Salus.toast(error.message, 'error');
     }
 }

@@ -48,6 +48,9 @@ try {
         case 'editar_pago':
             editarPago($conexion);
             break;
+        case 'desactivar_registro':
+            desactivarRegistro($conexion);
+            break;
         case 'observaciones':
             listarObservacionesRegistro($conexion);
             break;
@@ -88,10 +91,10 @@ function resumenFinanciero(mysqli $db): void
     $convenios = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
     $stmt = $db->prepare(
-        'SELECT ap.id_arreador_postulante, ap.id_paciente, ap.id_arreador,
+        'SELECT ap.id_arreador_postulante, ap.id_paciente, ae.id_arreador,
                 ap.id_arreador_escuela, ap.derivado_en,
                 COALESCE(JSON_LENGTH(ap.observacion), 0) AS observaciones,
-                p.nombre AS postulante, p.documento, p.id_escuela,
+                p.nombre AS postulante, p.documento, ae.id_escuela,
                 ae.id_escuela AS id_escuela_convenio,
                 DATE(ap.derivado_en) AS fecha_registro,
                 a.nombre AS arreador, e.nombre AS escuela,
@@ -108,16 +111,16 @@ function resumenFinanciero(mysqli $db): void
                 MAX(pg.fecha) AS ultimo_pago
          FROM postulantes_arreador_postulante ap
          INNER JOIN pacientes p ON p.id_paciente = ap.id_paciente
-         INNER JOIN postulantes_arreadores a ON a.id_arreador = ap.id_arreador
          INNER JOIN postulantes_arreador_escuela ae
                  ON ae.id_arreador_escuela = ap.id_arreador_escuela
+         INNER JOIN postulantes_arreadores a ON a.id_arreador = ae.id_arreador
          INNER JOIN escuelas e ON e.id_escuela = ae.id_escuela
          LEFT JOIN postulantes_pago pg
                 ON pg.id_arreador_postulante = ap.id_arreador_postulante
-         WHERE ae.anio = ? AND p.activo = 1
-         GROUP BY ap.id_arreador_postulante, ap.id_paciente, ap.id_arreador,
+         WHERE ae.anio = ? AND p.activo = 1 AND ap.activo = 1
+         GROUP BY ap.id_arreador_postulante, ap.id_paciente, ae.id_arreador,
                   ap.id_arreador_escuela, ap.derivado_en, ap.observacion,
-                  p.nombre, p.documento, p.id_escuela, a.nombre, e.nombre,
+                  p.nombre, p.documento, a.nombre, e.nombre,
                   ae.id_escuela, ae.anio, p.es_femenino, ae.monto_total_hombre,
                   ae.monto_total_mujer, ae.comision_arreador, ae.monto_clinica
          ORDER BY p.nombre'
@@ -363,7 +366,7 @@ function asignarPostulante(mysqli $db): void
              FROM postulantes_arreador_escuela ae
              INNER JOIN postulantes_arreadores a ON a.id_arreador = ae.id_arreador
              INNER JOIN escuelas e ON e.id_escuela = ae.id_escuela
-             INNER JOIN pacientes p ON p.id_paciente = ? AND p.id_escuela = ae.id_escuela
+             INNER JOIN pacientes p ON p.id_paciente = ?
              WHERE ae.id_arreador_escuela = ? AND ae.anio = ?
                AND ae.activo = 1 AND a.activo = 1 AND e.activo = 1 AND p.activo = 1
              FOR UPDATE'
@@ -382,7 +385,7 @@ function asignarPostulante(mysqli $db): void
              FROM postulantes_arreador_postulante ap
              INNER JOIN postulantes_arreador_escuela ae
                      ON ae.id_arreador_escuela = ap.id_arreador_escuela
-             WHERE ap.id_paciente = ? AND ae.anio = ?
+             WHERE ap.id_paciente = ? AND ae.anio = ? AND ap.activo = 1
              LIMIT 1 FOR UPDATE'
         );
         $stmt->bind_param('ii', $idPaciente, $anio);
@@ -396,20 +399,20 @@ function asignarPostulante(mysqli $db): void
             $idAsignacion = (int) $actual['id_arreador_postulante'];
             $stmt = $db->prepare(
                 'UPDATE postulantes_arreador_postulante
-                 SET id_arreador = ?, id_arreador_escuela = ?,
+                 SET id_arreador_escuela = ?,
                      observacion = IF(? IS NULL, observacion,
                          JSON_MERGE_PRESERVE(COALESCE(observacion, JSON_ARRAY()), ?)),
                      derivado_en = NOW(), registrado_por = ?
                  WHERE id_arreador_postulante = ?'
             );
-            $stmt->bind_param('iissii', $convenio['id_arreador'], $idConvenio, $observacion, $observacion, $actor, $idAsignacion);
+            $stmt->bind_param('issii', $idConvenio, $observacion, $observacion, $actor, $idAsignacion);
         } else {
             $stmt = $db->prepare(
                 'INSERT INTO postulantes_arreador_postulante
-                    (id_arreador, id_arreador_escuela, id_paciente, observacion, registrado_por)
-                 VALUES (?, ?, ?, ?, ?)'
+                    (id_arreador_escuela, id_paciente, observacion, registrado_por)
+                 VALUES (?, ?, ?, ?)'
             );
-            $stmt->bind_param('iiisi', $convenio['id_arreador'], $idConvenio, $idPaciente, $observacion, $actor);
+            $stmt->bind_param('iisi', $idConvenio, $idPaciente, $observacion, $actor);
         }
         $stmt->execute();
         $db->commit();
@@ -442,7 +445,7 @@ function registrarPago(mysqli $db): void
              INNER JOIN postulantes_arreador_escuela ae
                      ON ae.id_arreador_escuela = ap.id_arreador_escuela
              INNER JOIN pacientes p ON p.id_paciente = ap.id_paciente
-             WHERE ap.id_arreador_postulante = ?
+             WHERE ap.id_arreador_postulante = ? AND ap.activo = 1
              FOR UPDATE'
         );
         $stmt->bind_param('i', $idAsignacion);
@@ -553,7 +556,7 @@ function registrarCobroCompleto(mysqli $db): void
                      ON ae.id_arreador_escuela = ap.id_arreador_escuela
              LEFT JOIN postulantes_pago pg
                     ON pg.id_arreador_postulante = ap.id_arreador_postulante
-             WHERE ap.id_paciente = ? AND ae.anio = ?
+             WHERE ap.id_paciente = ? AND ae.anio = ? AND ap.activo = 1
              GROUP BY ap.id_arreador_postulante, ap.id_arreador_escuela
              LIMIT 1 FOR UPDATE'
         );
@@ -574,17 +577,13 @@ function registrarCobroCompleto(mysqli $db): void
         } else {
             $stmt = $db->prepare(
                 'INSERT INTO postulantes_arreador_postulante
-                    (id_arreador, id_arreador_escuela, id_paciente, codigo, registrado_por)
-                 VALUES (?, ?, ?, ?, ?)'
+                    (id_arreador_escuela, id_paciente, codigo, registrado_por)
+                 VALUES (?, ?, ?, ?)'
             );
-            $stmt->bind_param('iiisi', $convenio['id_arreador'], $idConvenio, $idPaciente, $codigoRegistro, $actor);
+            $stmt->bind_param('iisi', $idConvenio, $idPaciente, $codigoRegistro, $actor);
             $stmt->execute();
             $idAsignacion = (int) $db->insert_id;
             $pagadoCentavos = 0;
-
-            $stmt = $db->prepare('UPDATE pacientes SET id_escuela = ? WHERE id_paciente = ?');
-            $stmt->bind_param('ii', $convenio['id_escuela'], $idPaciente);
-            $stmt->execute();
         }
 
         $saldoCentavos = montoCentavos($convenio['monto_total']) - $pagadoCentavos;
@@ -659,7 +658,7 @@ function editarPago(mysqli $db): void
              INNER JOIN postulantes_arreador_postulante ap ON ap.id_arreador_postulante = pg.id_arreador_postulante
              INNER JOIN postulantes_arreador_escuela ae ON ae.id_arreador_escuela = ap.id_arreador_escuela
              INNER JOIN pacientes p ON p.id_paciente = ap.id_paciente
-             WHERE pg.id_pago = ?
+             WHERE pg.id_pago = ? AND ap.activo = 1
              FOR UPDATE'
         );
         $stmt->bind_param('i', $idPago);
@@ -725,6 +724,30 @@ function editarPago(mysqli $db): void
     ]);
 }
 
+/**
+ * Desactiva solo el registro del postulante (el paciente sigue activo). El
+ * registro deja de aparecer en los módulos de postulantes, informes y totales, y
+ * se renumera el orden de su convenio y día.
+ */
+function desactivarRegistro(mysqli $db): void
+{
+    $id = enteroPositivo($_POST['id_arreador_postulante'] ?? 0, 'Registro no válido.');
+    $actor = usuarioSesionId();
+    $stmt = $db->prepare(
+        'UPDATE postulantes_arreador_postulante
+         SET activo = 0, eliminado_en = NOW(), eliminado_por = ?
+         WHERE id_arreador_postulante = ? AND activo = 1'
+    );
+    $stmt->bind_param('ii', $actor, $id);
+    $stmt->execute();
+    if ($stmt->affected_rows !== 1) {
+        errorFinanzas('El registro no existe o ya estaba desactivado.');
+    }
+    require_once __DIR__ . '/codigos_pacientes.php';
+    recalcularOrdenPacientes($db);
+    responderJson(['status' => 'ok', 'mensaje' => 'Postulante desactivado.']);
+}
+
 /** Comentario con autor y fecha, en el mismo formato que las observaciones de atención. */
 function comentarioObservacion(string $texto, array $identidad): array
 {
@@ -741,7 +764,7 @@ function comentarioObservacion(string $texto, array $identidad): array
 function listarObservacionesRegistro(mysqli $db): void
 {
     $id = enteroPositivo($_GET['id'] ?? 0, 'Registro no válido.');
-    $stmt = $db->prepare('SELECT observacion FROM postulantes_arreador_postulante WHERE id_arreador_postulante = ?');
+    $stmt = $db->prepare('SELECT observacion FROM postulantes_arreador_postulante WHERE id_arreador_postulante = ? AND activo = 1');
     $stmt->bind_param('i', $id);
     $stmt->execute();
     $fila = $stmt->get_result()->fetch_assoc();
@@ -764,7 +787,7 @@ function comentarRegistro(mysqli $db, array $identidad): void
     $stmt = $db->prepare(
         'UPDATE postulantes_arreador_postulante
          SET observacion = JSON_ARRAY_APPEND(COALESCE(observacion, JSON_ARRAY()), \'$\', JSON_EXTRACT(?, \'$\'))
-         WHERE id_arreador_postulante = ?'
+         WHERE id_arreador_postulante = ? AND activo = 1'
     );
     $stmt->bind_param('si', $comentario, $id);
     $stmt->execute();
