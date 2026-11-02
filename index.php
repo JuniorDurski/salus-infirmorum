@@ -2,7 +2,9 @@
 include 'conexion.php';
 $tituloPagina = 'Panel principal';
 
-$puedeVerPostulantes = tienePermiso($usuarioAutenticado, 'pacientes.ver');
+// Indicadores, cobros, ganancias y gráficos: solo con el permiso dashboard.ver.
+$puedeVerDatos = tienePermiso($usuarioAutenticado, 'dashboard.ver');
+$puedeVerPostulantes = $puedeVerDatos && tienePermiso($usuarioAutenticado, 'pacientes.ver');
 $contar = static fn(string $sql): float => (float) ($conexion->query($sql)->fetch_row()[0] ?? 0);
 
 $indicadores = [];
@@ -42,7 +44,7 @@ if ($puedeVerPostulantes) {
          LIMIT 6"
     )->fetch_all(MYSQLI_ASSOC);
 }
-if (tienePermiso($usuarioAutenticado, 'usuarios.ver')) {
+if ($puedeVerDatos && tienePermiso($usuarioAutenticado, 'usuarios.ver')) {
     $indicadores[] = ['Usuarios activos', number_format($contar('SELECT COUNT(*) FROM usuarios WHERE activo = 1'), 0, ',', '.'), 'usuarios'];
 }
 
