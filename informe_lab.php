@@ -13,7 +13,7 @@ include 'menu.php';
     <div class="field-grid" style="grid-template-columns:2fr 1.4fr 1fr">
         <div class="campo"><label for="txtBuscar">Nombre o documento</label><input type="search" id="txtBuscar" placeholder="Escriba para buscar…"></div>
         <div class="campo"><label for="f_designacion">Escuela</label><select id="f_designacion"><option value="">Cargando…</option></select></div>
-        <div class="campo"><label for="f_fecha">Fecha de registro</label><input type="date" id="f_fecha"></div>
+        <div class="campo"><label for="f_fecha">Fecha de registro</label><input type="date" id="f_fecha" value="<?= htmlspecialchars((string) $conexion->query('SELECT CURDATE() AS hoy')->fetch_assoc()['hoy'], ENT_QUOTES, 'UTF-8') ?>"></div>
     </div>
     <div class="form-actions">
         <button type="button" onclick="buscar()">Buscar postulantes</button>
@@ -33,7 +33,7 @@ include 'menu.php';
 <script>
 let idsActuales=[];
 async function cargarEscuelas(){
-    try{const data=await Salus.json('backend/designacionesDAO.php?q=listar');f_designacion.innerHTML='<option value="">Todas las escuelas</option>'+data.map(d=>`<option value="${d.id_escuela}">${Salus.escape(d.nombre)} · ${Salus.escape(d.periodo)}</option>`).join('');}
+    try{const data=await Salus.json('backend/designacionesDAO.php?q=listar');f_designacion.innerHTML='<option value="">Todas las escuelas</option>'+data.map(d=>`<option value="${d.id_escuela}">${Salus.escape(d.nombre)}</option>`).join('');}
     catch(error){Salus.toast(error.message,'error');}
 }
 async function buscar(){

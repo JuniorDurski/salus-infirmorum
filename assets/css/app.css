@@ -179,6 +179,12 @@ table { border-collapse: collapse; }
 .modal > .campo { margin: 18px 22px 12px; }
 .modal-body { padding: 18px 22px; overflow-y: auto; }
 .modal-wide { width: min(1180px, calc(100vw - 30px)); max-height: 92vh; }
+.modal-medium { width: min(960px, calc(100vw - 30px)); max-height: 88vh; }
+.actions-menu { position: fixed; z-index: 1000; display: grid; gap: 2px; min-width: 190px; padding: 6px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: var(--shadow); }
+.actions-menu[hidden] { display: none; }
+.actions-menu button { justify-content: flex-start; width: 100%; padding: 9px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--text); font-weight: 700; text-align: left; }
+.actions-menu button:hover, .actions-menu button:focus-visible { transform: none; background: var(--surface-2); color: var(--text); }
+.actions-menu button.peligro { color: var(--danger); }
 .modal-form { margin: 0; }
 .attention-detail { padding: 20px 22px; overflow-y: auto; }
 .attention-selector-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }

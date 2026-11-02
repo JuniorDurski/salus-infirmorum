@@ -6,7 +6,7 @@ include 'menu.php';
 ?>
 
 <style>
-.rotulos-filtros { grid-template-columns: 1.4fr 1.2fr 1fr; }
+.rotulos-filtros { grid-template-columns: 2fr 1.4fr 1fr; }
 .rotulos-print-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 9px; }
 .rotulos-formato-etiqueta { color: var(--muted); font-size: .9rem; font-weight: 700; margin-left: 6px; }
 .rotulos-formatos { display: flex; flex-wrap: wrap; gap: 7px; }
@@ -30,16 +30,16 @@ include 'menu.php';
 <section class="card">
     <div class="field-grid rotulos-filtros">
         <div class="campo">
+            <label for="rotuloTexto">Nombre o documento</label>
+            <input type="search" id="rotuloTexto" placeholder="Escriba para buscar…">
+        </div>
+        <div class="campo">
             <label for="rotuloEscuela">Escuela</label>
             <select id="rotuloEscuela"><option value="">Cargando…</option></select>
         </div>
         <div class="campo">
             <label for="rotuloFecha">Fecha de registro</label>
-            <input type="date" id="rotuloFecha">
-        </div>
-        <div class="campo">
-            <label for="rotuloTexto">Nombre o cédula</label>
-            <input type="search" id="rotuloTexto" placeholder="Búsqueda opcional">
+            <input type="date" id="rotuloFecha" value="<?= htmlspecialchars((string) $conexion->query('SELECT CURDATE() AS hoy')->fetch_assoc()['hoy'], ENT_QUOTES, 'UTF-8') ?>">
         </div>
     </div>
     <div class="form-actions rotulos-print-actions">
@@ -86,7 +86,7 @@ async function iniciarRotulos() {
             Salus.json('backend/rotulosDAO.php?q=formatos')
         ]);
         rotuloEscuela.innerHTML = '<option value="">Todas las escuelas</option>' + escuelas.map(escuela =>
-            `<option value="${Number(escuela.id_escuela)}">${Salus.escape(escuela.nombre)} · ${Salus.escape(escuela.periodo)}</option>`
+            `<option value="${Number(escuela.id_escuela)}">${Salus.escape(escuela.nombre)}</option>`
         ).join('');
         formatosRotulos = formatos;
         renderBotonesFormatos();

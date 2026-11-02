@@ -33,7 +33,7 @@ include 'menu.php';
         </div>
         <div class="campo">
             <label for="f_fecha">Fecha de registro</label>
-            <input type="date" id="f_fecha">
+            <input type="date" id="f_fecha" value="<?= htmlspecialchars((string) $conexion->query('SELECT CURDATE() AS hoy')->fetch_assoc()['hoy'], ENT_QUOTES, 'UTF-8') ?>">
         </div>
     </div>
     <div class="form-actions">
@@ -86,7 +86,7 @@ async function iniciarAudiometria() {
     try {
         const escuelas = await Salus.json('backend/designacionesDAO.php?q=listar');
         f_designacion.innerHTML = '<option value="">Todas las escuelas</option>' + escuelas.map(escuela =>
-            `<option value="${Number(escuela.id_escuela)}">${Salus.escape(escuela.nombre)} · ${Salus.escape(escuela.periodo)}</option>`
+            `<option value="${Number(escuela.id_escuela)}">${Salus.escape(escuela.nombre)}</option>`
         ).join('');
     } catch (error) {
         Salus.toast(error.message, 'error');

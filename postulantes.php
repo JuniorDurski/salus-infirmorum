@@ -114,7 +114,7 @@ include 'menu.php';
 </dialog>
 <?php endif; ?>
 
-<dialog class="modal" id="modalHistorialPagos">
+<dialog class="modal modal-medium" id="modalHistorialPagos">
     <div class="modal-header"><div><span class="eyebrow">Trazabilidad</span><h2 id="tituloHistorialPagos">Historial de pagos</h2></div><button class="icon-button" type="button" onclick="modalHistorialPagos.close()" aria-label="Cerrar">×</button></div>
     <div class="modal-body"><div class="table-wrap"><table class="data-table"><thead><tr><th>Fecha</th><th>Método</th><th>Importe</th><th>Saldo</th><th>Registró / observación</th></tr></thead><tbody id="tablaHistorialPagos"></tbody></table></div></div>
     <div class="modal-footer"><button type="button" class="btn-secondary" onclick="modalHistorialPagos.close()">Cerrar</button></div>
@@ -230,13 +230,9 @@ function renderTabla(){
             :pagado>0?'<span class="badge badge-warn">Parcial</span>':'<span class="badge badge-muted">Pendiente</span>';
         const borrador=puedeEditarPacientes&&almacen.get(claveBorrador(p.id_paciente))?' <span class="badge badge-warn">Borrador</span>':'';
         const codigo=p.codigo?` · Cód. ${Salus.escape(p.codigo)}`:'';
-        const acciones=[
-            puedeEditarPacientes&&saldo>0?`<button class="btn-small" onclick="abrirPagos(${Number(p.id_paciente)})">Pagar</button>`:'',
-            `<button class="btn-small btn-secondary" onclick="verHistorialPagos(${Number(a.id_arreador_postulante)})">Historial</button>`,
-            puedeEditarPacientes?`<button class="btn-small btn-secondary" onclick="editar(${Number(p.id_paciente)})">Editar</button><button class="btn-small btn-danger" onclick="eliminar(${Number(p.id_paciente)})">Desactivar</button>`:''
-        ].join('');
+        const acciones=`<button type="button" class="btn-small btn-secondary" aria-haspopup="menu" onclick="abrirMenuAcciones(event,${Number(p.id_paciente)},${Number(a.id_arreador_postulante)},${saldo>0?1:0})">Acciones ▾</button>`;
         return `<tr>
-            <td><strong>${Salus.escape(p.nombre)}</strong><br><small>ID ${Number(p.id_paciente)} · Orden ${Salus.escape(p.orden_dia)}${codigo} · ${Salus.escape(p.ci)} · ${Salus.escape(p.sexo)} · ${fechaHora(a.fecha_registro)}${idEscuela?'':' · '+Salus.escape(a.escuela)}</small><br>${estado}${borrador}</td>
+            <td><strong>${Salus.escape(p.orden_dia)} · ${Salus.escape(p.nombre)}</strong><br><small>ID ${Number(p.id_paciente)}${codigo} · ${Salus.escape(p.ci)} · ${Salus.escape(p.sexo)} · ${fechaHora(a.fecha_registro)}${idEscuela?'':' · '+Salus.escape(a.escuela)}</small><br>${estado}${borrador}</td>
             <td class="finance-money">${dinero(total)}</td>
             <td class="finance-money">${dinero(pagado)}</td>
             <td class="finance-money"><strong class="${saldo<=0?'estado-activo':''}">${dinero(saldo)}</strong></td>
@@ -245,6 +241,40 @@ function renderTabla(){
     }).join(''):'<tr><td colspan="5" class="empty-state">No se encontraron postulantes.</td></tr>';
     resumen.textContent=`${filas.length} postulante(s) · Total ${dinero(sumaTotal)} · Pagado ${dinero(sumaPagado)} · Saldo ${dinero(sumaSaldo)}`;
 }
+
+/* ---------- Menú de acciones de cada fila ---------- */
+const menuAcciones=document.createElement('div');
+menuAcciones.className='actions-menu';menuAcciones.setAttribute('role','menu');menuAcciones.hidden=true;
+document.body.appendChild(menuAcciones);
+function cerrarMenuAcciones(){menuAcciones.hidden=true;}
+function abrirMenuAcciones(event,idPaciente,idAsignacion,conSaldo){
+    event.stopPropagation();
+    const boton=event.currentTarget;
+    if(!menuAcciones.hidden&&menuAcciones.dataset.origen===String(idPaciente)){cerrarMenuAcciones();return;}
+    const opciones=[
+        puedeEditarPacientes&&conSaldo?['Pagar',()=>abrirPagos(idPaciente),'']:null,
+        ['Historial de pagos',()=>verHistorialPagos(idAsignacion),''],
+        puedeEditarPacientes?['Editar datos',()=>editar(idPaciente),'']:null,
+        puedeEditarPacientes?['Desactivar',()=>eliminar(idPaciente),'peligro']:null
+    ].filter(Boolean);
+    menuAcciones.innerHTML='';
+    opciones.forEach(([texto,accion,clase])=>{
+        const item=document.createElement('button');item.type='button';item.setAttribute('role','menuitem');item.textContent=texto;if(clase)item.className=clase;
+        item.addEventListener('click',()=>{cerrarMenuAcciones();accion();});
+        menuAcciones.appendChild(item);
+    });
+    menuAcciones.dataset.origen=String(idPaciente);menuAcciones.hidden=false;
+    // Se ubica debajo del botón; si no entra, arriba.
+    const caja=boton.getBoundingClientRect(),alto=menuAcciones.offsetHeight,ancho=menuAcciones.offsetWidth;
+    const arriba=caja.bottom+alto+8>window.innerHeight?caja.top-alto-4:caja.bottom+4;
+    menuAcciones.style.top=`${Math.max(8,arriba)}px`;
+    menuAcciones.style.left=`${Math.max(8,Math.min(caja.right-ancho,window.innerWidth-ancho-8))}px`;
+    menuAcciones.querySelector('button')?.focus();
+}
+document.addEventListener('click',event=>{if(!menuAcciones.contains(event.target))cerrarMenuAcciones();});
+document.addEventListener('keydown',event=>{if(event.key==='Escape')cerrarMenuAcciones();});
+window.addEventListener('scroll',cerrarMenuAcciones,true);
+window.addEventListener('resize',cerrarMenuAcciones);
 
 /* ---------- Modal de pagos con borrador ---------- */
 // Sin registro previo usa el convenio de la barra superior; con registro, el suyo.

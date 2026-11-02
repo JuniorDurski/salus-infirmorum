@@ -134,7 +134,7 @@ function renderSelectores(seleccion={usuarios:[],escuelas:[],estudios:[]}){
     if(!puedeCrearAsignacion)return;
     const ids=a=>a.map(Number);
     listaUsuarios.innerHTML=catalogos.usuarios.map(u=>`<label><input type="checkbox" name="usuarios[]" value="${u.id_usuario}" ${ids(seleccion.usuarios).includes(Number(u.id_usuario))?'checked':''}><span><strong>${esc(u.nombre)}</strong><br><small>@${esc(u.usuario)}</small></span></label>`).join('')||'<small>No hay usuarios con permiso para atender.</small>';
-    listaEscuelas.innerHTML=catalogos.escuelas.map(e=>`<label><input type="checkbox" name="escuelas[]" value="${e.id_escuela}" ${ids(seleccion.escuelas).includes(Number(e.id_escuela))?'checked':''}><span><strong>${esc(e.nombre)}</strong><br><small>${esc(e.periodo)}</small></span></label>`).join('');
+    listaEscuelas.innerHTML=catalogos.escuelas.map(e=>`<label><input type="checkbox" name="escuelas[]" value="${e.id_escuela}" ${ids(seleccion.escuelas).includes(Number(e.id_escuela))?'checked':''}><span><strong>${esc(e.nombre)}</strong></span></label>`).join('');
     listaEstudios.innerHTML=catalogos.estudios.map(e=>`<label><input type="checkbox" name="estudios[]" value="${e.id_estudio}" ${ids(seleccion.estudios).includes(Number(e.id_estudio))?'checked':''}><span>${esc(e.estudio_referencial)}</span></label>`).join('')||'<small>Cree primero un estudio referencial.</small>';
 }
 
