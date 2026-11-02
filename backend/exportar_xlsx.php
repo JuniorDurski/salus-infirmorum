@@ -2,13 +2,15 @@
 
 /*
  * Excel real (.xlsx, Office Open XML) generado sin librerías externas.
- * Lo usa backend/pacientesExportar.php. Arma: imagen de cabecera, título y datos
- * en celdas combinadas, la lista con bordes y el total.
+ * Lo usa backend/pacientesExportar.php. Arma el mismo membrete del PDF (logo a la
+ * izquierda; nombre, direcciones y celular a la derecha), los datos del informe en
+ * celdas combinadas, la lista con bordes y el total.
  */
 
+/** Logo del membrete: el mismo que usa el PDF (reportes/membrete_clinica.php). */
 function imagenCabeceraExcel(): string
 {
-    $ruta = __DIR__ . '/../images/img_cabecera_excel.png';
+    $ruta = __DIR__ . '/../images/img_logo_negro.png';
     $datos = is_file($ruta) ? file_get_contents($ruta) : false;
     return $datos === false ? '' : $datos;
 }
@@ -80,10 +82,12 @@ function estilosXlsx(): string
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         . '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
         . '<numFmts count="1"><numFmt numFmtId="164" formatCode="#,##0"/></numFmts>'
-        . '<fonts count="3">'
+        . '<fonts count="5">'
         . '<font><sz val="10"/><name val="Arial"/></font>'
         . '<font><b/><sz val="10"/><name val="Arial"/></font>'
         . '<font><b/><sz val="14"/><color rgb="FFFFFFFF"/><name val="Arial"/></font>'
+        . '<font><b/><sz val="14"/><name val="Times New Roman"/></font>'
+        . '<font><sz val="9"/><name val="Arial"/></font>'
         . '</fonts>'
         . '<fills count="6">'
         . '<fill><patternFill patternType="none"/></fill>'
@@ -93,12 +97,12 @@ function estilosXlsx(): string
         . '<fill><patternFill patternType="solid"><fgColor rgb="FFDFECE8"/></patternFill></fill>'
         . '<fill><patternFill patternType="solid"><fgColor rgb="FFF6F9F8"/></patternFill></fill>'
         . '</fills>'
-        . '<borders count="2"><border/><border>'
+        . '<borders count="3"><border/><border>'
         . '<left style="thin">' . $borde . '</left><right style="thin">' . $borde . '</right>'
         . '<top style="thin">' . $borde . '</top><bottom style="thin">' . $borde . '</bottom>'
-        . '</border></borders>'
+        . '</border><border><bottom style="medium"><color rgb="FF000000"/></bottom></border></borders>'
         . '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-        . '<cellXfs count="13">'
+        . '<cellXfs count="17">'
         // 0 normal
         . $xf('numFmtId="0" fontId="0" fillId="0" borderId="0"')
         // 1 título
@@ -120,6 +124,12 @@ function estilosXlsx(): string
         . $xf('numFmtId="49" fontId="0" fillId="5" borderId="1" applyNumberFormat="1" applyFill="1" applyBorder="1"')
         . $xf('numFmtId="164" fontId="0" fillId="5" borderId="1" applyNumberFormat="1" applyFill="1" applyBorder="1"')
         . $xf('numFmtId="1" fontId="0" fillId="5" borderId="1" applyNumberFormat="1" applyFill="1" applyBorder="1"')
+        // 13 membrete: nombre de la clínica; 14 membrete: dirección o celular
+        . $xf('numFmtId="0" fontId="3" fillId="0" borderId="0" applyFont="1"', '<alignment horizontal="right" vertical="center"/>')
+        . $xf('numFmtId="0" fontId="4" fillId="0" borderId="0" applyFont="1"', '<alignment horizontal="right" vertical="center"/>')
+        // 15 última línea del membrete con la raya inferior; 16 celda vacía con la raya
+        . $xf('numFmtId="0" fontId="4" fillId="0" borderId="2" applyFont="1" applyBorder="1"', '<alignment horizontal="right" vertical="center"/>')
+        . $xf('numFmtId="0" fontId="0" fillId="0" borderId="2" applyBorder="1"')
         . '</cellXfs>'
         . '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
         . '</styleSheet>';
@@ -156,10 +166,30 @@ function exportarExcel(
     $filasXml = [];
     $combinadas = [];
 
-    // Fila 1: espacio para la imagen de cabecera.
-    $filasXml[] = $logo !== ''
-        ? '<row r="1" ht="56" customHeight="1"/>'
-        : '<row r="1">' . celdaTexto('A1', 'CLÍNICA MÉDICA FLORENTÍN', 0) . '</row>';
+    // Filas 1 a 4: membrete como el del PDF. El logo ocupa la izquierda y el texto
+    // va a la derecha, en celdas combinadas; la fila 4 lleva la raya inferior.
+    $membrete = [
+        ['CLÍNICA MÉDICA FLORENTÍN', 13, 20],
+        ['Villa Elisa: Calle 7 y Von Polesky', 14, 13],
+        ['Guajayvi: Barrio Centro Santa Rosa', 14, 13],
+        ['Celular: +595 987 67 88 88', 15, 13],
+    ];
+    $inicioTexto = min(3, $n - 1);
+    foreach ($membrete as $i => [$texto, $estilo, $alto]) {
+        $filaM = $i + 1;
+        $ultimaFila = $filaM === count($membrete);
+        $xml = '<row r="' . $filaM . '" ht="' . $alto . '" customHeight="1">';
+        for ($c = 0; $c < $n; $c++) {
+            $ref = columnaExcel($c) . $filaM;
+            if ($c === $inicioTexto) {
+                $xml .= celdaTexto($ref, $texto, $estilo);
+            } elseif ($ultimaFila) {
+                $xml .= celdaVacia($ref, $c > $inicioTexto ? 15 : 16);
+            }
+        }
+        $filasXml[] = $xml . '</row>';
+        $combinadas[] = columnaExcel($inicioTexto) . $filaM . ':' . $ultima . $filaM;
+    }
 
     // Filas siguientes: informe y convenio a la izquierda; fecha de generación
     // y, debajo, fecha de registro a la derecha.
@@ -176,7 +206,7 @@ function exportarExcel(
     if ($fechaDerecha !== []) {
         $derechas[] = $fechaDerecha;
     }
-    $fila = 2;
+    $fila = count($membrete) + 1;
     $cantidadInfo = max(count($izquierdas), count($derechas));
     for ($i = 0; $i < $cantidadInfo; $i++, $fila++) {
         $xml = '<row r="' . $fila . '" ht="18" customHeight="1">';
@@ -259,9 +289,9 @@ function exportarExcel(
         . ($logo !== '' ? '<drawing r:id="rId1"/>' : '')
         . '</worksheet>';
 
-    // La imagen original mide 3000x638 px; se muestra a 330x70 px (1 px = 9525 EMU).
-    $cx = 330 * 9525;
-    $cy = 70 * 9525;
+    // Logo con la misma proporción que en el PDF (30x24 mm), a 80x64 px (1 px = 9525 EMU).
+    $cx = 80 * 9525;
+    $cy = 64 * 9525;
     $dibujo = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         . '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
         . '<xdr:oneCellAnchor>'

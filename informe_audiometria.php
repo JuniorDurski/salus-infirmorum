@@ -130,7 +130,7 @@ function renderAudiometria() {
             ? `<button class="btn-small btn-secondary" type="button" onclick="editarAudiometria(${id})">Editar DX</button>`
             : '';
         return `<tr>
-            <td><strong>${Salus.escape(paciente.nombre)}</strong><br><small>${Salus.escape(paciente.codigo_generado || paciente.codigo || '')}</small></td>
+            <td><strong>${Salus.escape(Salus.ordenNombre(paciente))}</strong><br><small>${Salus.escape(paciente.codigo_generado || paciente.codigo || '')}</small></td>
             <td>${Salus.escape(paciente.ci)}</td>
             <td>${Salus.escape(paciente.edad)} años<br><small>${Salus.escape(paciente.sexo)}</small></td>
             <td>${Salus.escape(paciente.escuela || '—')}</td>
@@ -147,7 +147,7 @@ async function editarAudiometria(id) {
     try {
         const detalle = await Salus.json('backend/informesAudiometriaDAO.php?' + new URLSearchParams({q:'detalle', id_postulante:id}));
         postulanteAudiometriaActual = Number(id);
-        auPostulanteTitulo.textContent = paciente.nombre;
+        auPostulanteTitulo.textContent = Salus.ordenNombre(paciente);
         auDx.value = detalle.dx || '';
         modalAudiometria.showModal();
         auDx.focus();

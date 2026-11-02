@@ -6,7 +6,7 @@
  * POST backend/pacientesExportar.php
  *   formato = xls | pdf
  *   entidad = pacientes | postulantes
- *   ids     = "12,11,10"  (ids separados por coma, en el orden de la lista)
+ *   ids     = "12,11,10"  (ids separados por coma; se ordenan por número de orden)
  *   filtro  = texto que describe los filtros aplicados (se imprime en el PDF)
  *   csrf_token
  *
@@ -55,7 +55,9 @@ $filtro = trim((string) ($_POST['filtro'] ?? ''));
 =========================== */
 $placeholders = implode(',', array_fill(0, count($ids), '?'));
 $sql = 'SELECT p.id_paciente,
-               ' . sqlCodigoPaciente('p') . ' AS codigo,
+               NULLIF(TRIM(p.codigo), \'\') AS codigo_manual,
+               ' . sqlOrdenDiaPaciente('p') . ' AS orden,
+               DATE(' . sqlMomentoRegistroPaciente('p') . ') AS dia_registro,
                p.nombre,
                p.documento,
                DATE_FORMAT(p.fecha_nacimiento, \'%d/%m/%Y\') AS fecha_nacimiento,
@@ -63,19 +65,14 @@ $sql = 'SELECT p.id_paciente,
                IF(p.es_femenino = 1, \'FEMENINO\', \'MASCULINO\') AS sexo,
                e.nombre AS escuela,
                p.grupo_sanguineo,
-               p.telefono,
-               DATE_FORMAT(' . sqlMomentoRegistroPaciente('p') . ', \'%d/%m/%Y\') AS fecha_alta,
-               p.orden,
                finanzas.comision_arreador,
                finanzas.monto_clinica,
-               finanzas.arreador,
                finanzas.id_arreador_escuela
           FROM pacientes p
           LEFT JOIN escuelas e ON e.id_escuela = p.id_escuela
           LEFT JOIN (
-              SELECT ap.id_paciente, ap.id_arreador_escuela, ae.comision_arreador, ae.monto_clinica, a.nombre AS arreador
+              SELECT ap.id_paciente, ap.id_arreador_escuela, ae.comision_arreador, ae.monto_clinica
               FROM postulantes_arreador_postulante ap
-              INNER JOIN postulantes_arreadores a ON a.id_arreador = ap.id_arreador
               INNER JOIN postulantes_arreador_escuela ae
                       ON ae.id_arreador_escuela = ap.id_arreador_escuela
                      AND ae.anio = YEAR(CURDATE())
@@ -84,28 +81,31 @@ $sql = 'SELECT p.id_paciente,
 $stmt = $conexion->prepare($sql);
 $stmt->bind_param(str_repeat('i', count($ids)), ...$ids);
 $stmt->execute();
+$pacientes = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
 
-$porId = [];
-foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $fila) {
-    $porId[(int) $fila['id_paciente']] = $fila;
-}
+// Por orden de menor a mayor (dentro de cada día de registro, si hay varios días).
+usort($pacientes, static fn(array $a, array $b): int =>
+    [$a['dia_registro'], (int) $a['orden'], (int) $a['id_paciente']]
+    <=> [$b['dia_registro'], (int) $b['orden'], (int) $b['id_paciente']]);
 
-// Mismo orden que la lista en pantalla
+// La columna Código solo aparece si algún paciente tiene un código cargado a mano.
+$hayCodigo = array_filter(array_column($pacientes, 'codigo_manual')) !== [];
+
 $filas = [];
 $escuelasReporte = [];
 $conveniosReporte = [];
-foreach ($ids as $id) {
-    if (!isset($porId[$id])) {
-        continue;
-    }
-    $p = $porId[$id];
+foreach ($pacientes as $p) {
     if (!empty($p['escuela'])) $escuelasReporte[$p['escuela']] = true;
     if (!empty($p['id_arreador_escuela'])) $conveniosReporte[(int) $p['id_arreador_escuela']] = true;
-    $filas[] = [
+    $fila = [
         'N°' => count($filas) + 1,
+        'Orden' => str_pad((string) (int) $p['orden'], 3, '0', STR_PAD_LEFT),
         'ID' => $p['id_paciente'],
-        'Orden' => $p['orden'] === null ? '' : str_pad((string) $p['orden'], 3, '0', STR_PAD_LEFT),
-        'Código' => $p['codigo'],
+    ];
+    if ($hayCodigo) {
+        $fila['Código'] = $p['codigo_manual'] ?? '';
+    }
+    $fila += [
         'Nombre' => $p['nombre'],
         'Documento' => $p['documento'],
         'Fecha nac.' => $p['fecha_nacimiento'],
@@ -115,10 +115,11 @@ foreach ($ids as $id) {
         'Rh' => grupoSanguineoCorto($p['grupo_sanguineo']),
     ];
     if ($reporte === 'comision') {
-        $filas[array_key_last($filas)]['Comisión de gestión'] = importeEntero($p['comision_arreador']);
+        $fila['Comisión de gestión'] = importeEntero($p['comision_arreador']);
     } elseif ($reporte === 'clinica') {
-        $filas[array_key_last($filas)]['Ganancia de la clínica'] = importeEntero($p['monto_clinica']);
+        $fila['Ganancia de la clínica'] = importeEntero($p['monto_clinica']);
     }
+    $filas[] = $fila;
 }
 
 $titulosReporte = [
@@ -174,6 +175,8 @@ if ($formato === 'xls') {
         $datosExcel['Convenio'] = $convenioFiltro !== '' ? $convenioFiltro : (count($conveniosReporte) > 1 ? 'Varios' : 'Sin convenio');
         $datosExcel['Fecha de registro'] = preg_match('#^\d{2}/\d{2}/\d{4}$#', $fechaFiltro) ? $fechaFiltro : 'Todas';
     }
+    // En el Excel el número de orden ya identifica la fila: sin columna N°.
+    $filas = array_map(static function (array $fila): array { unset($fila['N°']); return $fila; }, $filas);
     exportarExcel($filas, $base, $tituloReporte, $columnaTotal, $totalReporte, $reloj['generado'], $datosExcel, $filtro);
 } else {
     exportarPdf($filas, $base, $filtro, $tituloReporte, $columnaTotal, $totalReporte, $reloj['generado'], $datosCabecera);
@@ -249,7 +252,7 @@ function exportarPdf(
 
     $mpdf = new \Mpdf\Mpdf([
         'mode'          => 'utf-8',
-        'format'        => 'A4-L',
+        'format'        => 'Legal', // oficio (legal) vertical
         'margin_top'    => 14,
         'margin_bottom' => 14,
         'margin_left'   => 10,

@@ -78,6 +78,7 @@ function buscarPostulantesRotulos(mysqli $db): void
 
     $sql = 'SELECT p.id_paciente AS id_postulante,
                    p.nombre,
+                   ' . sqlOrdenDiaPacienteTexto('p') . ' AS orden_dia,
                    p.documento AS cedula,
                    DATE_FORMAT(' . sqlMomentoRegistroPaciente('p') . ', \'%Y-%m-%d\') AS fecha_alta,
                    e.nombre AS escuela

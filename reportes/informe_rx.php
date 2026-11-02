@@ -50,16 +50,16 @@ $membrete = membreteClinicaHtml();
 $css = '
 <style>
     body { color: #000; font-family: "Times New Roman", freeserif, serif; font-size: 10pt; }
-    .rx-content { margin-left: auto; margin-right: auto; margin-top: 4mm; width: 92%; }
+    .rx-content { margin: 4mm 0 0; width: 100%; }
     .rx-patient { border-collapse: collapse; font-family: "Times New Roman", freeserif, serif; font-size: 12pt; line-height: 1.1; margin: 0; table-layout: fixed; width: 100%; }
-    .rx-patient td { padding: 0.5mm 0; vertical-align: top; }
+    .rx-patient td { height: 6mm; padding: 0; vertical-align: middle; white-space: nowrap; }
     .rx-patient-label { width: 35%; }
     .rx-patient-separator { width: 3%; }
     .rx-patient-value { width: 17%; }
     .rx-patient-secondary-label { width: 9%; }
     .rx-patient-secondary-separator { width: 3%; }
     .rx-patient-secondary-value { width: 33%; }
-    .rx-patient-rule { border-top: 0.25mm solid #000; margin: 0; width: 100%; }
+    .rx-patient-rule { border-top: 0.25mm solid #000; margin: 1mm 0 0; width: 100%; }
     .rx-study-title { font-size: 14pt; font-weight: normal; margin: 19mm 0 11mm; text-align: center; }
     .rx-report-title { font-size: 11pt; margin: 0 0 5mm; text-decoration: underline; }
     .rx-findings { font-size: 11.5pt; font-style: italic; line-height: 1.25; margin: 0 0 0 9mm; padding-left: 4mm; }
@@ -108,7 +108,7 @@ foreach ($pacientes as $indice => $paciente) {
             <tr>
                 <td class="rx-patient-label" width="35%"><b>EDAD</b></td>
                 <td class="rx-patient-separator" width="3%">:</td>
-                <td class="rx-patient-value" width="17%">' . $edad . '&nbsp; AÑOS</td>
+                <td class="rx-patient-value" width="17%">' . $edad . ' AÑOS</td>
                 <td class="rx-patient-secondary-label" width="9%"><b>CI</b></td>
                 <td class="rx-patient-secondary-separator" width="3%">:</td>
                 <td class="rx-patient-secondary-value" width="33%">' . $documento . '</td>
@@ -116,7 +116,7 @@ foreach ($pacientes as $indice => $paciente) {
         </table>
         <div class="rx-patient-rule"></div>
 
-        <div class="rx-study-title">RADIOGRAFÍA DE TÓRAX PA Y LATERAL</div>
+        <div class="rx-study-title">RADIOGRAFÍA DE TÓRAX PA</div>
         <div class="rx-report-title">INFORME RADIOLÓGICO:</div>
 
         <ul class="rx-findings">

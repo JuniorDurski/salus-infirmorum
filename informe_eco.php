@@ -196,7 +196,7 @@ function renderEco() {
                <button class="btn-small btn-secondary" type="button" onclick="abrirSeleccionEco(${id}, 'imagenes')">Imágenes</button>`
             : '';
         return `<tr>
-            <td><strong>${Salus.escape(paciente.nombre)}</strong><br><small>${Salus.escape(paciente.codigo_generado || paciente.codigo || '')}</small></td>
+            <td><strong>${Salus.escape(Salus.ordenNombre(paciente))}</strong><br><small>${Salus.escape(paciente.codigo_generado || paciente.codigo || '')}</small></td>
             <td>${Salus.escape(paciente.ci)}</td>
             <td>${Salus.escape(paciente.edad)} años<br><small>${Salus.escape(paciente.sexo)}</small></td>
             <td>${Salus.escape(paciente.escuela || '—')}</td>
@@ -221,7 +221,7 @@ function abrirSeleccionEco(id, accion) {
         editar: 'Editar resultado ECO',
         imagenes: 'Imágenes del informe ECO',
     }[accion] || 'Imprimir informe ECO';
-    seleccionPostulanteEco.textContent = paciente.nombre;
+    seleccionPostulanteEco.textContent = Salus.ordenNombre(paciente);
     seleccionEstudiosEco.innerHTML = estudios.map(plantilla =>
         `<button type="button" class="btn-secondary" data-eco-estudio="${Salus.escape(plantilla.codigo)}">${Salus.escape(plantilla.nombre)}</button>`
     ).join('');
@@ -250,7 +250,7 @@ async function editarEco(id, codigo) {
         postulanteEcoActual = Number(id);
         estudioEcoActual = codigo;
         ecoEstudioTitulo.textContent = detalle.plantilla.nombre;
-        ecoPostulanteTitulo.textContent = paciente.nombre;
+        ecoPostulanteTitulo.textContent = Salus.ordenNombre(paciente);
         const resultado = detalle.resultado;
         const campos = detalle.plantilla.campos.map(campo => `<div class="campo">
             <label>${Salus.escape(campo.etiqueta)}</label>
@@ -277,7 +277,7 @@ async function abrirImagenesEco(id, codigo) {
         postulanteEcoActual = Number(id);
         estudioEcoActual = codigo;
         imagenesEstudioTitulo.textContent = 'Imágenes · ' + detalle.plantilla.nombre;
-        imagenesPostulanteTitulo.textContent = paciente.nombre;
+        imagenesPostulanteTitulo.textContent = Salus.ordenNombre(paciente);
         const imagenes = Array.isArray(detalle.imagenes) ? detalle.imagenes : [null, null];
         ecoImagenesSlots.innerHTML = [1, 2].map(posicion => bloqueImagenEco(posicion, imagenes[posicion - 1] || '')).join('');
         configurarControlesImagenEco(imagenes);

@@ -25,6 +25,12 @@
             if (!response.ok || data?.status === 'error') throw new Error(data?.mensaje || 'No se pudo completar la operación.');
             return data;
         },
+        // "001 · NOMBRE" cuando el postulante tiene orden en su registro; si no, solo el nombre.
+        ordenNombre(persona) {
+            const orden = String(persona?.orden_dia ?? '').trim();
+            const nombre = persona?.nombre ?? '';
+            return orden ? `${orden} · ${nombre}` : nombre;
+        },
         toast(message, type = 'ok') {
             let region = document.querySelector('.toast-region');
             if (!region) {

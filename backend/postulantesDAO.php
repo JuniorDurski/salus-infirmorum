@@ -53,7 +53,7 @@ function camposPacienteSql(): string
             p.id_escuela AS id_designacion,
             p.id_pais,
             p.codigo,
-            p.orden,
+
             " . sqlCodigoPaciente('p') . " AS codigo_generado,
             " . sqlOrdenDiaPacienteTexto('p') . " AS orden_dia,
             DATE_FORMAT(" . sqlMomentoRegistroPaciente('p') . ", '%Y-%m-%d') AS fecha_alta,

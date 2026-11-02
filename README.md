@@ -65,3 +65,11 @@ o varios medios de pago; la asignación y todos los pagos se registran juntos en
 una única transacción. Los listados de postulantes se exportan a Excel o PDF en
 versión básica, con comisión de gestión o con ganancia de la clínica, incluyendo
 el logo institucional.
+
+## Permisos de POSTULANTES e iconos
+
+La migración `V34` renombra el área heredada `informes` a `postulantes`: los
+permisos `menu.informes.*` pasan a `menu.postulantes.*` conservando su
+`id_permiso`, por lo que los roles mantienen sus accesos. También reemplaza los
+emojis del menú por claves de iconos minimalistas (SVG monocromo) definidos en
+`backend/iconos.php`; un texto que no sea una clave conocida se muestra tal cual.

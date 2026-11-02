@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/backend/menu_service.php';
+require_once __DIR__ . '/backend/iconos.php';
 $identidadMenu = $usuarioAutenticado ?? requerirAutenticacion($conexion);
 $menusNavegacion = obtenerMenusVisibles($conexion, (int) $identidadMenu['id_usuario']);
 $rutaActual = basename((string) parse_url($_SERVER['REQUEST_URI'] ?? 'index.php', PHP_URL_PATH));
@@ -36,7 +37,7 @@ function renderizarMenus(array $menus, string $rutaActual, bool $esSubmenu = fal
     if ($esSubmenu) echo '<div class="nav-children">';
     foreach ($menus as $menu) {
         $etiqueta = htmlspecialchars($menu['etiqueta'], ENT_QUOTES, 'UTF-8');
-        $icono = htmlspecialchars($menu['icono'] ?: '•', ENT_QUOTES, 'UTF-8');
+        $icono = iconoMenuHtml($menu['icono'] ?? null);
         $url = $menu['url'] ? htmlspecialchars($menu['url'], ENT_QUOTES, 'UTF-8') : null;
         $hijos = $menu['hijos'] ?? [];
         $activo = menuContieneRuta($menu, $rutaActual);

@@ -45,6 +45,9 @@ try {
         case 'registrar_cobro':
             registrarCobroCompleto($conexion);
             break;
+        case 'editar_pago':
+            editarPago($conexion);
+            break;
         default:
             errorFinanzas('Operación no válida.');
     }
@@ -135,11 +138,13 @@ function listarPagos(mysqli $db): void
 {
     $id = enteroPositivo($_GET['id'] ?? 0, 'Asignación no válida.');
     $stmt = $db->prepare(
-        'SELECT pg.id_pago, pg.fecha, pg.monto, pg.saldo, pg.observacion,
-                mp.nombre AS metodo_pago, COALESCE(u.nombre, \'SISTEMA\') AS registrado_por
+        'SELECT pg.id_pago, pg.id_metodo_pago, pg.fecha, pg.monto, pg.saldo, pg.observacion,
+                mp.nombre AS metodo_pago, COALESCE(u.nombre, \'SISTEMA\') AS registrado_por,
+                pg.modificado_en, um.nombre AS modificado_por
          FROM postulantes_pago pg
          INNER JOIN metodos_pago mp ON mp.id_metodo_pago = pg.id_metodo_pago
          LEFT JOIN usuarios u ON u.id_usuario = pg.registrado_por
+         LEFT JOIN usuarios um ON um.id_usuario = pg.modificado_por
          WHERE pg.id_arreador_postulante = ?
          ORDER BY pg.fecha DESC, pg.id_pago DESC'
     );
@@ -400,7 +405,7 @@ function registrarPago(mysqli $db): void
 {
     $idAsignacion = enteroPositivo($_POST['id_arreador_postulante'] ?? 0, 'Asignación no válida.');
     $idMetodo = enteroPositivo($_POST['id_metodo_pago'] ?? 0, 'Seleccione un método de pago.');
-    $monto = montoValido($_POST['monto'] ?? '', 'El importe');
+    $monto = montoValido($_POST['monto'] ?? '', 'El importe', true);
     $fechaRecibida = trim((string) ($_POST['fecha'] ?? ''));
     $observacion = textoNullable($_POST['observacion'] ?? null);
     $actor = usuarioSesionId();
@@ -492,7 +497,7 @@ function registrarCobroCompleto(mysqli $db): void
         $metodosUsados[$idMetodo] = true;
         $pagos[] = [
             'id_metodo_pago' => $idMetodo,
-            'monto' => montoValido($pago['monto'] ?? '', 'El importe del pago ' . ($posicion + 1)),
+            'monto' => montoValido($pago['monto'] ?? '', 'El importe del pago ' . ($posicion + 1), true),
             'observacion' => textoNullable(mb_substr((string) ($pago['observacion'] ?? ''), 0, 500, 'UTF-8')),
         ];
     }
@@ -605,6 +610,95 @@ function registrarCobroCompleto(mysqli $db): void
     responderJson([
         'status' => 'ok',
         'nuevo' => $nuevo,
+        'id_arreador_postulante' => $idAsignacion,
+        'saldo' => number_format($saldoCentavos / 100, 2, '.', ''),
+    ]);
+}
+
+/**
+ * Corrige método, importe u observación de un pago ya registrado, aunque el
+ * postulante tenga el saldo cancelado. La suma de pagos no puede superar la
+ * tarifa; después se recalcula el saldo acumulado de cada pago de la asignación.
+ */
+function editarPago(mysqli $db): void
+{
+    $idPago = enteroPositivo($_POST['id_pago'] ?? 0, 'Pago no válido.');
+    $idMetodo = enteroPositivo($_POST['id_metodo_pago'] ?? 0, 'Seleccione un método de pago.');
+    $monto = montoValido($_POST['monto'] ?? '', 'El importe', true);
+    $observacion = textoNullable(mb_substr((string) ($_POST['observacion'] ?? ''), 0, 500, 'UTF-8'));
+    $actor = usuarioSesionId();
+
+    $db->begin_transaction();
+    try {
+        $stmt = $db->prepare(
+            'SELECT pg.id_arreador_postulante, pg.id_metodo_pago,
+                    CASE WHEN p.es_femenino = 1
+                         THEN ae.monto_total_mujer ELSE ae.monto_total_hombre END AS monto_total
+             FROM postulantes_pago pg
+             INNER JOIN postulantes_arreador_postulante ap ON ap.id_arreador_postulante = pg.id_arreador_postulante
+             INNER JOIN postulantes_arreador_escuela ae ON ae.id_arreador_escuela = ap.id_arreador_escuela
+             INNER JOIN pacientes p ON p.id_paciente = ap.id_paciente
+             WHERE pg.id_pago = ?
+             FOR UPDATE'
+        );
+        $stmt->bind_param('i', $idPago);
+        $stmt->execute();
+        $pago = $stmt->get_result()->fetch_assoc();
+        if ($pago === null) {
+            errorFinanzas('No se encontró el pago.');
+        }
+        $idAsignacion = (int) $pago['id_arreador_postulante'];
+
+        // Un método desactivado se acepta solo si es el que el pago ya tenía.
+        $stmt = $db->prepare('SELECT activo FROM metodos_pago WHERE id_metodo_pago = ?');
+        $stmt->bind_param('i', $idMetodo);
+        $stmt->execute();
+        $metodo = $stmt->get_result()->fetch_assoc();
+        if ($metodo === null || ((int) $metodo['activo'] !== 1 && $idMetodo !== (int) $pago['id_metodo_pago'])) {
+            errorFinanzas('El método de pago no está disponible.');
+        }
+
+        $stmt = $db->prepare(
+            'SELECT id_pago, monto FROM postulantes_pago
+             WHERE id_arreador_postulante = ?
+             ORDER BY fecha, id_pago
+             FOR UPDATE'
+        );
+        $stmt->bind_param('i', $idAsignacion);
+        $stmt->execute();
+        $pagos = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+
+        $saldoCentavos = montoCentavos($pago['monto_total']);
+        $saldos = [];
+        foreach ($pagos as $fila) {
+            $importe = (int) $fila['id_pago'] === $idPago ? $monto : $fila['monto'];
+            $saldoCentavos -= montoCentavos($importe);
+            if ($saldoCentavos < 0) {
+                errorFinanzas('Con ese importe la suma de los pagos supera la tarifa del postulante.');
+            }
+            $saldos[(int) $fila['id_pago']] = number_format($saldoCentavos / 100, 2, '.', '');
+        }
+
+        $stmt = $db->prepare(
+            'UPDATE postulantes_pago
+             SET id_metodo_pago = ?, monto = ?, observacion = ?, modificado_por = ?, modificado_en = NOW()
+             WHERE id_pago = ?'
+        );
+        $stmt->bind_param('issii', $idMetodo, $monto, $observacion, $actor, $idPago);
+        $stmt->execute();
+
+        $stmt = $db->prepare('UPDATE postulantes_pago SET saldo = ? WHERE id_pago = ?');
+        foreach ($saldos as $id => $saldo) {
+            $stmt->bind_param('si', $saldo, $id);
+            $stmt->execute();
+        }
+        $db->commit();
+    } catch (Throwable $e) {
+        $db->rollback();
+        throw $e;
+    }
+    responderJson([
+        'status' => 'ok',
         'id_arreador_postulante' => $idAsignacion,
         'saldo' => number_format($saldoCentavos / 100, 2, '.', ''),
     ]);

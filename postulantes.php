@@ -116,9 +116,25 @@ include 'menu.php';
 
 <dialog class="modal modal-medium" id="modalHistorialPagos">
     <div class="modal-header"><div><span class="eyebrow">Trazabilidad</span><h2 id="tituloHistorialPagos">Historial de pagos</h2></div><button class="icon-button" type="button" onclick="modalHistorialPagos.close()" aria-label="Cerrar">×</button></div>
-    <div class="modal-body"><div class="table-wrap"><table class="data-table"><thead><tr><th>Fecha</th><th>Método</th><th>Importe</th><th>Saldo</th><th>Registró / observación</th></tr></thead><tbody id="tablaHistorialPagos"></tbody></table></div></div>
+    <div class="modal-body"><div class="table-wrap"><table class="data-table"><thead><tr><th>Fecha</th><th>Método</th><th>Importe</th><th>Saldo</th><th>Registró / observación</th><?php if ($puedeEditar): ?><th></th><?php endif; ?></tr></thead><tbody id="tablaHistorialPagos"></tbody></table></div></div>
     <div class="modal-footer"><button type="button" class="btn-secondary" onclick="modalHistorialPagos.close()">Cerrar</button></div>
 </dialog>
+<?php if ($puedeEditar): ?>
+<dialog class="modal" id="modalEditarPago">
+    <div class="modal-header"><div><span class="eyebrow">Corregir pago</span><h2 id="tituloEditarPago">Editar pago</h2></div><button class="icon-button" type="button" onclick="modalEditarPago.close()" aria-label="Cerrar">×</button></div>
+    <form id="formEditarPago" autocomplete="off">
+        <div class="modal-body">
+            <div class="field-grid">
+                <div class="campo"><label for="editarPagoMetodo">Método</label><select id="editarPagoMetodo" required></select></div>
+                <div class="campo"><label for="editarPagoMonto">Importe</label><input id="editarPagoMonto" class="money-input" inputmode="numeric" placeholder="0"><small>Puede ser 0.</small></div>
+                <div class="campo full"><label for="editarPagoObservacion">Observación</label><input id="editarPagoObservacion" maxlength="500" placeholder="Opcional"></div>
+            </div>
+            <div id="mensajeEditarPago" class="mensaje"></div>
+        </div>
+        <div class="modal-footer"><button class="btn-secondary" type="button" onclick="modalEditarPago.close()">Cancelar</button>&nbsp;<button type="submit">Guardar cambios</button></div>
+    </form>
+</dialog>
+<?php endif; ?>
 
 <script>
 const puedeEditarPacientes = <?= $puedeEditar ? 'true' : 'false' ?>;
@@ -252,7 +268,7 @@ function abrirMenuAcciones(event,idPaciente,idAsignacion,conSaldo){
     const boton=event.currentTarget;
     if(!menuAcciones.hidden&&menuAcciones.dataset.origen===String(idPaciente)){cerrarMenuAcciones();return;}
     const opciones=[
-        puedeEditarPacientes&&conSaldo?['Pagar',()=>abrirPagos(idPaciente),'']:null,
+        puedeEditarPacientes?['Pagar',()=>abrirPagos(idPaciente),'']:null,
         ['Historial de pagos',()=>verHistorialPagos(idAsignacion),''],
         puedeEditarPacientes?['Editar datos',()=>editar(idPaciente),'']:null,
         puedeEditarPacientes?['Desactivar',()=>eliminar(idPaciente),'peligro']:null
@@ -284,7 +300,6 @@ function abrirPagos(idPaciente){
     const convenio=a?(finanzas.convenios||[]).find(c=>Number(c.id_arreador_escuela)===Number(a.id_arreador_escuela)):convenioContexto();
     if(!convenio){Salus.toast('Seleccione la escuela y el convenio en la barra superior.','warn');selectorEscuelaCobro.focus();return;}
     const tarifa=tarifaPara(p,convenio),pagado=Number(a?.pagado||0),saldo=Math.max(0,tarifa-pagado);
-    if(a&&saldo<=0){Salus.toast('Este postulante ya no tiene saldo pendiente.');return;}
     cobro={paciente:p,convenio,tarifa,pagado,saldo,registrado:Boolean(a)};
     tituloPagos.textContent=`${a?'Pagos':'Registro y pago'} de ${p.nombre}`;
     resumenCobro.textContent=`${convenio.escuela} · ${convenio.arreador} · ${Number(p.es_femenino)?'Tarifa mujer':'Tarifa hombre'}`;
@@ -351,8 +366,38 @@ async function verHistorialPagos(idAsignacion){
     tablaHistorialPagos.innerHTML='<tr><td colspan="5" class="empty-state">Cargando…</td></tr>';modalHistorialPagos.showModal();
     try{
         const r=await Salus.json(`backend/postulantesFinanzasDAO.php?q=pagos&id=${Number(idAsignacion)}`);
-        tablaHistorialPagos.innerHTML=r.pagos.length?r.pagos.map(p=>`<tr><td>${fechaHora(p.fecha)}<br><small>${Salus.escape(String(p.fecha).split(' ')[1]||'')}</small></td><td>${Salus.escape(p.metodo_pago)}</td><td class="finance-money">${dinero(p.monto)}</td><td class="finance-money">${dinero(p.saldo)}</td><td>${Salus.escape(p.registrado_por)}${p.observacion?`<br><small>${Salus.escape(p.observacion)}</small>`:''}</td></tr>`).join(''):'<tr><td colspan="5" class="empty-state">Todavía no se registraron pagos.</td></tr>';
+        historialPagos={idAsignacion,pagos:r.pagos};
+        tablaHistorialPagos.innerHTML=r.pagos.length?r.pagos.map(p=>`<tr><td>${fechaHora(p.fecha)}<br><small>${Salus.escape(String(p.fecha).split(' ')[1]||'')}</small></td><td>${Salus.escape(p.metodo_pago)}</td><td class="finance-money">${dinero(p.monto)}</td><td class="finance-money">${dinero(p.saldo)}</td><td>${Salus.escape(p.registrado_por)}${p.observacion?`<br><small>${Salus.escape(p.observacion)}</small>`:''}${p.modificado_en?`<br><small>Modificado por ${Salus.escape(p.modificado_por||'—')} · ${fechaHora(p.modificado_en)}</small>`:''}</td>${puedeEditarPacientes?`<td><button type="button" class="btn-small btn-secondary" onclick="abrirEditarPago(${Number(p.id_pago)})">Editar</button></td>`:''}</tr>`).join(''):`<tr><td colspan="${puedeEditarPacientes?6:5}" class="empty-state">Todavía no se registraron pagos.</td></tr>`;
     }catch(error){tablaHistorialPagos.innerHTML=`<tr><td colspan="5" class="empty-state">${Salus.escape(error.message)}</td></tr>`;}
+}
+
+let historialPagos=null;
+function abrirEditarPago(idPago){
+    const pago=historialPagos?.pagos.find(p=>Number(p.id_pago)===Number(idPago));if(!pago)return;
+    const metodos=[...(finanzas.metodos_pago||[])];
+    if(!metodos.some(m=>Number(m.id_metodo_pago)===Number(pago.id_metodo_pago)))metodos.push({id_metodo_pago:pago.id_metodo_pago,nombre:pago.metodo_pago});
+    editarPagoMetodo.innerHTML=metodos.map(m=>`<option value="${Number(m.id_metodo_pago)}">${Salus.escape(m.nombre)}</option>`).join('');
+    editarPagoMetodo.value=String(Number(pago.id_metodo_pago));
+    editarPagoMonto.value=formatearMiles(Math.round(Number(pago.monto)));
+    editarPagoObservacion.value=pago.observacion||'';
+    tituloEditarPago.textContent=`Pago del ${fechaHora(pago.fecha)}`;
+    formEditarPago.dataset.idPago=String(Number(pago.id_pago));mensajeEditarPago.textContent='';
+    modalEditarPago.showModal();editarPagoMonto.focus();
+}
+if(puedeEditarPacientes){
+    editarPagoMonto.addEventListener('input',event=>{event.target.value=formatearMiles(event.target.value);});
+    formEditarPago.addEventListener('submit',async event=>{
+        event.preventDefault();mensajeEditarPago.textContent='';
+        const boton=formEditarPago.querySelector('button[type="submit"]');boton.disabled=true;
+        try{
+            const r=await Salus.json('backend/postulantesFinanzasDAO.php?q=editar_pago',{method:'POST',body:Salus.form({
+                id_pago:formEditarPago.dataset.idPago,id_metodo_pago:editarPagoMetodo.value,
+                monto:String(numeroMonto(editarPagoMonto.value)),observacion:editarPagoObservacion.value.trim()})});
+            modalEditarPago.close();Salus.toast(`Pago actualizado. Saldo: ${dinero(r.saldo)}.`);
+            await Promise.all([cargar(),cargarFinanzas()]);verHistorialPagos(historialPagos.idAsignacion);
+        }catch(error){mensajeEditarPago.textContent=error.message;}
+        finally{boton.disabled=false;}
+    });
 }
 
 /* ---------- Formulario del postulante ---------- */
@@ -463,7 +508,7 @@ if (puedeEditarPacientes) {
         if(!cobro)return;
         if(!validarMetodosRepetidos()){formCobro.reportValidity();return;}
         const filas=leerFilasPago().filter(f=>f.metodo||f.monto);
-        if(filas.some(f=>!f.metodo||f.monto<=0)){mensajeCobro.textContent='Complete cada método con un importe mayor que cero, o quite la fila.';return;}
+        if(filas.some(f=>!f.metodo||f.monto<0)){mensajeCobro.textContent='Seleccione el método de cada fila con importe, o quite la fila.';return;}
         if(!filas.length&&cobro.registrado){mensajeCobro.textContent='Cargue al menos un pago.';return;}
         cambioEnCobro();if(cobro.saldoFinal<0){mensajeCobro.textContent='La suma de los pagos supera el saldo pendiente.';return;}
         const pagos=filas.map(f=>({id_metodo_pago:f.metodo,monto:String(f.monto),observacion:f.observacion}));

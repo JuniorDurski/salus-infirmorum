@@ -125,7 +125,7 @@ function renderRotulos() {
         const id = Number(postulante.id_postulante);
         return `<tr>
             <td class="rotulos-check"><input type="checkbox" data-rotulo-id="${id}" aria-label="Seleccionar a ${Salus.escape(postulante.nombre)}"></td>
-            <td><strong>${Salus.escape(postulante.nombre)}</strong></td>
+            <td><strong>${Salus.escape(Salus.ordenNombre(postulante))}</strong></td>
             <td>${Salus.escape(formatearCedulaRotulo(postulante.cedula))}</td>
             <td>${Salus.escape(postulante.escuela || '—')}</td>
             <td>${Salus.escape(formatearFechaRotulo(postulante.fecha_alta))}</td>

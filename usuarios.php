@@ -34,6 +34,13 @@ include 'menu.php';
         </table></div>
     </section>
 </main>
+<dialog class="modal modal-small" id="modalRolesUsuario">
+    <div class="modal-header">
+        <div><span class="eyebrow">Roles asignados</span><h2 id="tituloRolesUsuario">Usuario</h2></div>
+        <button class="icon-button" type="button" onclick="modalRolesUsuario.close()" aria-label="Cerrar">×</button>
+    </div>
+    <div class="modal-body"><ul class="role-list" id="listaRolesUsuario"></ul></div>
+</dialog>
 <?php if ($puedeEditar): ?>
 <dialog class="modal" id="modalRestablecerClave">
     <div class="modal-header">
@@ -80,12 +87,25 @@ function renderUsuarios() {
     tablaUsuarios.innerHTML = datos.length ? datos.map(u => `<tr>
         <td>${esc(u.usuario)}</td><td>${esc(u.nombre)}</td>
         <td>${esc(u.ci)}<br><small>${esc(u.correo || '')}</small></td>
-        <td>${esc(u.roles || '')}</td>
+        <td>${celdaRoles(u)}</td>
         <td>${Number(u.activo) ? '<span class="badge badge-success">Activo</span>' : '<span class="badge badge-danger">Inactivo</span>'}${Number(u.clave_predeterminada) ? '<br><small>Clave temporal</small>' : ''}</td>
         <td><div class="table-actions">${puedeEditarUsuarios ? `<button class="btn-small btn-secondary" onclick="editarUsuario(${u.id_usuario})">Editar</button><button class="btn-small ${Number(u.activo) ? 'btn-danger' : 'btn-secondary'}" onclick="estadoUsuario(${u.id_usuario}, ${Number(u.activo) ? 0 : 1})">${Number(u.activo) ? 'Desactivar' : 'Activar'}</button><button class="btn-small btn-secondary" onclick="resetClave(${u.id_usuario})">Restablecer clave</button>` : ''}</div></td>
     </tr>`).join('') : '<tr><td colspan="6" class="empty-state">No se encontraron usuarios.</td></tr>';
 }
 
+function rolesDe(u) { return String(u.roles || '').split(', ').filter(Boolean); }
+function celdaRoles(u) {
+    const roles = rolesDe(u);
+    if (roles.length <= 1) return roles.length ? esc(roles[0]) : '<small>Sin rol</small>';
+    return `<button class="btn-small btn-secondary" type="button" onclick="verRoles(${Number(u.id_usuario)})">Ver ${roles.length} roles</button>`;
+}
+function verRoles(id) {
+    const u = usuariosDatos.find(x => Number(x.id_usuario) === Number(id));
+    if (!u) return;
+    tituloRolesUsuario.textContent = u.nombre || u.usuario;
+    listaRolesUsuario.innerHTML = rolesDe(u).map(r => `<li>${esc(r)}</li>`).join('');
+    modalRolesUsuario.showModal();
+}
 function editarUsuario(id) {
     const u = usuariosDatos.find(x => Number(x.id_usuario) === Number(id));
     id_usuario.value = u.id_usuario; usuario.value = u.usuario; nombre.value = u.nombre;

@@ -43,8 +43,10 @@ include 'menu.php';
                     <input name="url" id="url" maxlength="255" placeholder="usuarios.php">
                 </div>
                 <div class="campo">
-                    <label for="icono">Icono o emoji (opcional)</label>
-                    <input name="icono" id="icono" maxlength="100" placeholder="👥">
+                    <label for="icono">Icono (opcional)</label>
+                    <input name="icono" id="icono" maxlength="100" placeholder="usuarios" list="iconosDisponibles">
+                    <datalist id="iconosDisponibles"><?php foreach (array_keys(catalogoIconos()) as $claveIcono): ?><option value="<?= htmlspecialchars($claveIcono, ENT_QUOTES, 'UTF-8') ?>"><?php endforeach; ?></datalist>
+                    <small>Elija una clave de la lista para usar un icono minimalista.</small>
                 </div>
                 <div class="campo">
                     <label for="orden">Orden</label>

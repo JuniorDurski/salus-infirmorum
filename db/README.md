@@ -203,3 +203,9 @@ de registro (el día en que ingresaron a `postulantes_arreador_postulante`, o su
 alta si nunca ingresaron) y se recalcula desde `backend/codigos_pacientes.php`.
 `pacientes.codigo` solo se guarda si se carga a mano; los informes siguen
 mostrando `NNN-ID` cuando está vacío.
+
+Desde `V33` el orden ya no está en `pacientes`: se guarda en
+`postulantes_arreador_postulante.orden`, numerado por convenio y día de registro
+desde el `orden_inicio` del convenio. Se recalcula al registrar un postulante,
+al activarlo o desactivarlo y al cambiar el `orden_inicio`. Los informes usan el
+orden del último registro del paciente para el código `NNN-ID`.
