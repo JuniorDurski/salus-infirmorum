@@ -64,7 +64,7 @@ function resumenFinanciero(mysqli $db): void
     )->fetch_all(MYSQLI_ASSOC);
 
     $stmt = $db->prepare(
-        'SELECT ae.id_arreador_escuela, ae.id_arreador, ae.id_escuela, ae.anio,
+        'SELECT ae.id_arreador_escuela, ae.id_arreador, ae.id_escuela, ae.anio, ae.orden_inicio,
                 ae.monto_total_hombre, ae.monto_total_mujer,
                 ae.comision_arreador, ae.monto_clinica, ae.activo,
                 a.nombre AS arreador, e.nombre AS escuela
@@ -82,6 +82,8 @@ function resumenFinanciero(mysqli $db): void
         'SELECT ap.id_arreador_postulante, ap.id_paciente, ap.id_arreador,
                 ap.id_arreador_escuela, ap.derivado_en, ap.observacion,
                 p.nombre AS postulante, p.documento, p.id_escuela,
+                ae.id_escuela AS id_escuela_convenio,
+                DATE(ap.derivado_en) AS fecha_registro,
                 a.nombre AS arreador, e.nombre AS escuela,
                 ae.anio, p.es_femenino,
                 CASE WHEN p.es_femenino = 1
@@ -102,11 +104,11 @@ function resumenFinanciero(mysqli $db): void
          INNER JOIN escuelas e ON e.id_escuela = ae.id_escuela
          LEFT JOIN postulantes_pago pg
                 ON pg.id_arreador_postulante = ap.id_arreador_postulante
-         WHERE ae.anio = ?
+         WHERE ae.anio = ? AND p.activo = 1
          GROUP BY ap.id_arreador_postulante, ap.id_paciente, ap.id_arreador,
                   ap.id_arreador_escuela, ap.derivado_en, ap.observacion,
                   p.nombre, p.documento, p.id_escuela, a.nombre, e.nombre,
-                  ae.anio, p.es_femenino, ae.monto_total_hombre,
+                  ae.id_escuela, ae.anio, p.es_femenino, ae.monto_total_hombre,
                   ae.monto_total_mujer, ae.comision_arreador, ae.monto_clinica
          ORDER BY p.nombre'
     );
@@ -157,7 +159,7 @@ function configuracionFinanciera(mysqli $db): void
          ORDER BY a.activo DESC, a.nombre'
     )->fetch_all(MYSQLI_ASSOC);
     $convenios = $db->query(
-        'SELECT ae.id_arreador_escuela, ae.id_arreador, ae.id_escuela, ae.anio,
+        'SELECT ae.id_arreador_escuela, ae.id_arreador, ae.id_escuela, ae.anio, ae.orden_inicio,
                 ae.monto_total_hombre, ae.monto_total_mujer,
                 ae.comision_arreador, ae.monto_clinica, ae.activo,
                 a.nombre AS arreador, e.nombre AS escuela
@@ -231,15 +233,22 @@ function guardarConvenio(mysqli $db): void
     $totalMujer = montoValido($_POST['monto_total_mujer'] ?? '', 'El cobro para mujeres');
     $comision = montoValido($_POST['comision_arreador'] ?? '', 'La comisión', true);
     $clinica = montoValido($_POST['monto_clinica'] ?? '', 'El importe para la clínica', true);
+    $ordenInicio = trim((string) ($_POST['orden_inicio'] ?? '1'));
     $anio = anioActualDb($db);
 
+    if (!preg_match('/^\d{1,5}$/', $ordenInicio) || (int) $ordenInicio < 1 || (int) $ordenInicio > 60000) {
+        errorFinanzas('El orden de inicio debe ser un número entre 1 y 60000.');
+    }
+    $ordenInicio = (int) $ordenInicio;
     if (montoCentavos($comision) > montoCentavos($totalHombre)
         || montoCentavos($comision) > montoCentavos($totalMujer)) {
         errorFinanzas('La comisión no puede superar el cobro de hombres ni el de mujeres.');
     }
+    $cambiaOrden = true;
     if ($id > 0) {
         $stmt = $db->prepare(
-            'SELECT ae.id_arreador, ae.id_escuela,
+            'SELECT ae.id_arreador, ae.id_escuela, ae.orden_inicio,
+                    ae.monto_total_hombre, ae.monto_total_mujer, ae.comision_arreador, ae.monto_clinica,
                     COUNT(DISTINCT ap.id_arreador_postulante) AS asignaciones,
                     COUNT(pg.id_pago) AS pagos
              FROM postulantes_arreador_escuela ae
@@ -248,7 +257,8 @@ function guardarConvenio(mysqli $db): void
              LEFT JOIN postulantes_pago pg
                     ON pg.id_arreador_postulante = ap.id_arreador_postulante
              WHERE ae.id_arreador_escuela = ?
-             GROUP BY ae.id_arreador_escuela, ae.id_arreador, ae.id_escuela'
+             GROUP BY ae.id_arreador_escuela, ae.id_arreador, ae.id_escuela, ae.orden_inicio,
+                      ae.monto_total_hombre, ae.monto_total_mujer, ae.comision_arreador, ae.monto_clinica'
         );
         $stmt->bind_param('i', $id);
         $stmt->execute();
@@ -256,38 +266,49 @@ function guardarConvenio(mysqli $db): void
         if ($actual === null) {
             errorFinanzas('No se encontró el convenio.');
         }
-        if ((int) $actual['pagos'] > 0) {
+        $cambiaImportes = montoCentavos($actual['monto_total_hombre']) !== montoCentavos($totalHombre)
+            || montoCentavos($actual['monto_total_mujer']) !== montoCentavos($totalMujer)
+            || montoCentavos($actual['comision_arreador']) !== montoCentavos($comision)
+            || montoCentavos($actual['monto_clinica']) !== montoCentavos($clinica);
+        // Con pagos ya registrados solo se puede cambiar el orden de inicio.
+        if ((int) $actual['pagos'] > 0 && $cambiaImportes) {
             errorFinanzas('El convenio ya tiene pagos y sus importes no pueden modificarse.');
         }
         if ((int) $actual['asignaciones'] > 0
             && ((int) $actual['id_arreador'] !== $idArreador || (int) $actual['id_escuela'] !== $idEscuela)) {
             errorFinanzas('Un convenio con postulantes asignados no puede cambiar de arreador ni de escuela.');
         }
+        $cambiaOrden = (int) $actual['orden_inicio'] !== $ordenInicio && (int) $actual['asignaciones'] > 0;
         $stmt = $db->prepare(
             'UPDATE postulantes_arreador_escuela
-             SET id_arreador = ?, id_escuela = ?, monto_total_hombre = ?,
+             SET id_arreador = ?, id_escuela = ?, orden_inicio = ?, monto_total_hombre = ?,
                  monto_total_mujer = ?, comision_arreador = ?, monto_clinica = ?
              WHERE id_arreador_escuela = ? AND anio = ?'
         );
         $stmt->bind_param(
-            'iissssii',
-            $idArreador, $idEscuela, $totalHombre, $totalMujer,
+            'iiissssii',
+            $idArreador, $idEscuela, $ordenInicio, $totalHombre, $totalMujer,
             $comision, $clinica, $id, $anio
         );
     } else {
+        $cambiaOrden = false;
         $stmt = $db->prepare(
             'INSERT INTO postulantes_arreador_escuela
-                (id_arreador, id_escuela, anio, monto_total_hombre,
+                (id_arreador, id_escuela, anio, orden_inicio, monto_total_hombre,
                  monto_total_mujer, comision_arreador, monto_clinica)
-             VALUES (?, ?, ?, ?, ?, ?, ?)'
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
         );
         $stmt->bind_param(
-            'iiissss',
-            $idArreador, $idEscuela, $anio, $totalHombre,
+            'iiiissss',
+            $idArreador, $idEscuela, $anio, $ordenInicio, $totalHombre,
             $totalMujer, $comision, $clinica
         );
     }
     $stmt->execute();
+    if ($cambiaOrden) {
+        require_once __DIR__ . '/codigos_pacientes.php';
+        recalcularOrdenPacientes($db);
+    }
     responderJson(['status' => 'ok']);
 }
 
@@ -448,22 +469,19 @@ function registrarCobroCompleto(mysqli $db): void
 {
     $idPaciente = enteroPositivo($_POST['id_paciente'] ?? 0, 'Seleccione un postulante.');
     $idConvenio = enteroPositivo($_POST['id_arreador_escuela'] ?? 0, 'Seleccione un convenio.');
-    $fechaRecibida = trim((string) ($_POST['fecha'] ?? ''));
-    $pagosRecibidos = json_decode((string) ($_POST['pagos'] ?? ''), true);
+    $pagosRecibidos = json_decode((string) ($_POST['pagos'] ?? '[]'), true);
     $actor = usuarioSesionId();
     $anio = anioActualDb($db);
+    $hoy = fechaActualDb($db);
 
-    $fecha = DateTimeImmutable::createFromFormat('!Y-m-d', $fechaRecibida);
-    if ($fecha === false || $fecha->format('Y-m-d') !== $fechaRecibida || $fechaRecibida > fechaActualDb($db)) {
-        errorFinanzas('La fecha de pago no es válida ni puede estar en el futuro.');
-    }
-    if (!is_array($pagosRecibidos) || $pagosRecibidos === [] || count($pagosRecibidos) > 20) {
-        errorFinanzas('Agregue entre uno y veinte métodos de pago.');
+    // Sin pagos se permite: el postulante queda registrado con el saldo total.
+    if (!is_array($pagosRecibidos) || count($pagosRecibidos) > 20) {
+        errorFinanzas('Agregue como máximo veinte métodos de pago.');
     }
 
     $pagos = [];
     $metodosUsados = [];
-    foreach ($pagosRecibidos as $posicion => $pago) {
+    foreach (array_values($pagosRecibidos) as $posicion => $pago) {
         if (!is_array($pago)) {
             errorFinanzas('Los datos de pago no son válidos.');
         }
@@ -481,6 +499,7 @@ function registrarCobroCompleto(mysqli $db): void
 
     $db->begin_transaction();
     try {
+        // El convenio define la escuela del postulante.
         $stmt = $db->prepare(
             'SELECT ae.id_arreador, ae.id_escuela,
                     CASE WHEN p.es_femenino = 1
@@ -488,7 +507,7 @@ function registrarCobroCompleto(mysqli $db): void
              FROM postulantes_arreador_escuela ae
              INNER JOIN postulantes_arreadores a ON a.id_arreador = ae.id_arreador
              INNER JOIN escuelas e ON e.id_escuela = ae.id_escuela
-             INNER JOIN pacientes p ON p.id_paciente = ? AND p.id_escuela = ae.id_escuela
+             INNER JOIN pacientes p ON p.id_paciente = ?
              WHERE ae.id_arreador_escuela = ? AND ae.anio = ?
                AND ae.activo = 1 AND a.activo = 1 AND e.activo = 1 AND p.activo = 1
              FOR UPDATE'
@@ -497,7 +516,7 @@ function registrarCobroCompleto(mysqli $db): void
         $stmt->execute();
         $convenio = $stmt->get_result()->fetch_assoc();
         if ($convenio === null) {
-            errorFinanzas('El convenio debe estar activo, ser del año actual y corresponder a la escuela del postulante.');
+            errorFinanzas('El convenio debe estar activo y ser del año actual.');
         }
 
         $stmt = $db->prepare(
@@ -515,20 +534,17 @@ function registrarCobroCompleto(mysqli $db): void
         $stmt->bind_param('ii', $idPaciente, $anio);
         $stmt->execute();
         $asignacion = $stmt->get_result()->fetch_assoc();
-        $pagadoCentavos = $asignacion === null ? 0 : montoCentavos($asignacion['pagado']);
+        $nuevo = $asignacion === null;
 
-        if ($asignacion !== null) {
-            if ((int) $asignacion['id_arreador_escuela'] !== $idConvenio && $pagadoCentavos > 0) {
-                errorFinanzas('El postulante ya tiene pagos en otro convenio y no puede cambiarse.');
+        if (!$nuevo) {
+            if ($pagos === []) {
+                errorFinanzas('El postulante ya está registrado en postulantes este año. No hay pagos para guardar.');
+            }
+            if ((int) $asignacion['id_arreador_escuela'] !== $idConvenio) {
+                errorFinanzas('El postulante ya está registrado con otro convenio este año.');
             }
             $idAsignacion = (int) $asignacion['id_arreador_postulante'];
-            $stmt = $db->prepare(
-                'UPDATE postulantes_arreador_postulante
-                 SET id_arreador = ?, id_arreador_escuela = ?, registrado_por = ?
-                 WHERE id_arreador_postulante = ?'
-            );
-            $stmt->bind_param('iiii', $convenio['id_arreador'], $idConvenio, $actor, $idAsignacion);
-            $stmt->execute();
+            $pagadoCentavos = montoCentavos($asignacion['pagado']);
         } else {
             $stmt = $db->prepare(
                 'INSERT INTO postulantes_arreador_postulante
@@ -538,6 +554,11 @@ function registrarCobroCompleto(mysqli $db): void
             $stmt->bind_param('iiii', $convenio['id_arreador'], $idConvenio, $idPaciente, $actor);
             $stmt->execute();
             $idAsignacion = (int) $db->insert_id;
+            $pagadoCentavos = 0;
+
+            $stmt = $db->prepare('UPDATE pacientes SET id_escuela = ? WHERE id_paciente = ?');
+            $stmt->bind_param('ii', $convenio['id_escuela'], $idPaciente);
+            $stmt->execute();
         }
 
         $saldoCentavos = montoCentavos($convenio['monto_total']) - $pagadoCentavos;
@@ -566,21 +587,27 @@ function registrarCobroCompleto(mysqli $db): void
             $observacion = $pago['observacion'];
             $stmtPago->bind_param(
                 'iissssi',
-                $idAsignacion, $idMetodo, $fechaRecibida, $monto, $saldo, $observacion, $actor
+                $idAsignacion, $idMetodo, $hoy, $monto, $saldo, $observacion, $actor
             );
             $stmtPago->execute();
         }
 
         $db->commit();
-        responderJson([
-            'status' => 'ok',
-            'id_arreador_postulante' => $idAsignacion,
-            'saldo' => number_format($saldoCentavos / 100, 2, '.', ''),
-        ]);
     } catch (Throwable $e) {
         $db->rollback();
         throw $e;
     }
+
+    if ($nuevo) {
+        require_once __DIR__ . '/codigos_pacientes.php';
+        recalcularOrdenPacientes($db);
+    }
+    responderJson([
+        'status' => 'ok',
+        'nuevo' => $nuevo,
+        'id_arreador_postulante' => $idAsignacion,
+        'saldo' => number_format($saldoCentavos / 100, 2, '.', ''),
+    ]);
 }
 
 function montoValido($valor, string $campo, bool $permiteCero = false): string

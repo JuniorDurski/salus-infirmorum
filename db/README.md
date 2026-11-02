@@ -196,3 +196,10 @@ El alta financiera se procesa de forma atómica: primero se valida el convenio y
 el saldo, luego se crea o actualiza `postulantes_arreador_postulante` y finalmente
 se insertan todos los registros de `postulantes_pago`. Si falla cualquier método
 o importe, la transacción completa se revierte.
+
+La migración `V29` agrega `pacientes.orden`, separado del id y del código. El
+orden numera desde 1 a los pacientes activos de la misma escuela y el mismo día
+de registro (el día en que ingresaron a `postulantes_arreador_postulante`, o su
+alta si nunca ingresaron) y se recalcula desde `backend/codigos_pacientes.php`.
+`pacientes.codigo` solo se guarda si se carga a mano; los informes siguen
+mostrando `NNN-ID` cuando está vacío.

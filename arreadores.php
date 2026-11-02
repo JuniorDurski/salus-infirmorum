@@ -35,8 +35,8 @@ include 'menu.php';
 <section class="card postulantes-finanzas">
     <div class="card-header"><div><h2>Convenios</h2><p class="help-text" id="resumenConvenios">Cargando…</p></div></div>
     <div class="table-wrap"><table class="data-table">
-        <thead><tr><th>Escuela / arreador</th><th>Hombres</th><th>Mujeres</th><th>Comisión</th><th>Clínica</th><th>Acciones</th></tr></thead>
-        <tbody id="tablaConvenios"><tr><td colspan="6" class="empty-state">Cargando…</td></tr></tbody>
+        <thead><tr><th>Escuela / arreador</th><th>Orden desde</th><th>Hombres</th><th>Mujeres</th><th>Comisión</th><th>Clínica</th><th>Acciones</th></tr></thead>
+        <tbody id="tablaConvenios"><tr><td colspan="7" class="empty-state">Cargando…</td></tr></tbody>
     </table></div>
 </section>
 
@@ -78,6 +78,7 @@ include 'menu.php';
             <p class="notice">El convenio corresponde a <?= $anioActual ?>. Todos los importes se cargan manualmente y corresponden a cada postulante.</p>
             <div class="campo"><label for="convenioArreador">Arreador *</label><select id="convenioArreador" name="id_arreador" required></select></div>
             <div class="campo"><label for="convenioEscuela">Escuela *</label><select id="convenioEscuela" name="id_escuela" required></select></div>
+            <div class="campo"><label for="ordenInicio">Orden de inicio *</label><input id="ordenInicio" name="orden_inicio" type="number" min="1" max="60000" step="1" value="1" inputmode="numeric" required><small>Los postulantes de este convenio se numeran cada día desde este número.</small></div>
             <div class="field-grid">
                 <div class="campo"><label for="montoHombre">Cobro a hombres *</label><input id="montoHombre" name="monto_total_hombre" class="money-input" inputmode="numeric" autocomplete="off" required></div>
                 <div class="campo"><label for="montoMujer">Cobro a mujeres *</label><input id="montoMujer" name="monto_total_mujer" class="money-input" inputmode="numeric" autocomplete="off" required></div>
@@ -113,7 +114,7 @@ async function iniciarArreadores(){
         renderArreadores();
     }catch(error){
         tablaArreadores.innerHTML=`<tr><td colspan="4" class="empty-state">${Salus.escape(error.message)}</td></tr>`;
-        tablaConvenios.innerHTML='<tr><td colspan="6" class="empty-state">No se pudieron cargar los convenios.</td></tr>';
+        tablaConvenios.innerHTML='<tr><td colspan="7" class="empty-state">No se pudieron cargar los convenios.</td></tr>';
         Salus.toast(error.message,'error');
     }
 }
@@ -150,12 +151,13 @@ function renderArreadores(){
     resumenConvenios.textContent=`${filtrados.length} de ${convenios.length} convenio(s)`;
     tablaConvenios.innerHTML=filtrados.length?filtrados.map(c=>`<tr>
         <td><strong>${Salus.escape(c.escuela)}</strong><br><small>${Salus.escape(c.arreador)} · ${Number(c.anio)}</small>${Number(c.activo)?'':'<br><span class="badge badge-danger">Inactivo</span>'}</td>
+        <td class="finance-money">${String(Number(c.orden_inicio)||1).padStart(3,'0')}</td>
         <td class="finance-money">${dinero(c.monto_total_hombre)}</td>
         <td class="finance-money">${dinero(c.monto_total_mujer)}</td>
         <td class="finance-money">${dinero(c.comision_arreador)}</td>
         <td class="finance-money"><strong>${dinero(c.monto_clinica)}</strong></td>
         <td><div class="table-actions">${puedeEditarArreadores&&Number(c.anio)===Number(finanzas.anio)?`<button class="btn-small btn-secondary" onclick="editarConvenio(${Number(c.id_arreador_escuela)})">Editar</button><button class="btn-small ${Number(c.activo)?'btn-danger':'btn-secondary'}" onclick="estadoConvenio(${Number(c.id_arreador_escuela)},${Number(c.activo)?0:1})">${Number(c.activo)?'Desactivar':'Activar'}</button>`:'<span class="badge badge-muted">Histórico</span>'}</div></td>
-    </tr>`).join(''):'<tr><td colspan="6" class="empty-state">No hay convenios para estos filtros.</td></tr>';
+    </tr>`).join(''):'<tr><td colspan="7" class="empty-state">No hay convenios para estos filtros.</td></tr>';
 }
 function verArreadores(){modalListaArreadores.showModal();}
 function opcionesArreadores(seleccion=''){
@@ -188,7 +190,7 @@ function editarConvenio(id){
     const c=finanzas.convenios.find(item=>Number(item.id_arreador_escuela)===Number(id));if(!c)return;
     formConvenio.reset();idConvenio.value=c.id_arreador_escuela;tituloConvenio.textContent=`Editar convenio ${c.anio}`;
     convenioArreador.innerHTML=opcionesArreadores(c.id_arreador);convenioEscuela.innerHTML=opcionesEscuelas(c.id_escuela);
-    montoHombre.value=formatearMiles(c.monto_total_hombre);montoMujer.value=formatearMiles(c.monto_total_mujer);comisionArreador.value=formatearMiles(c.comision_arreador);montoClinica.value=formatearMiles(c.monto_clinica);
+    montoHombre.value=formatearMiles(c.monto_total_hombre);montoMujer.value=formatearMiles(c.monto_total_mujer);comisionArreador.value=formatearMiles(c.comision_arreador);montoClinica.value=formatearMiles(c.monto_clinica);ordenInicio.value=Number(c.orden_inicio)||1;
     mensajeConvenio.textContent='';modalConvenio.showModal();
 }
 async function estadoConvenio(id,activo){

@@ -45,6 +45,9 @@ include 'menu.php';
         <form id="frmPersona">
             <input type="hidden" name="id_paciente" id="id_paciente">
             <input type="hidden" name="url_foto" id="url_foto">
+            <!-- País y teléfono no se piden: vacío = Paraguay y sin teléfono. Al editar se conservan los que ya tenga. -->
+            <input type="hidden" name="id_pais" id="id_pais">
+            <input type="hidden" name="telefono" id="telefono">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(tokenCsrf(), ENT_QUOTES, 'UTF-8') ?>">
             <div class="campo"><label for="ci">Documento *</label>
                 <div style="display:flex; gap:6px">
@@ -53,14 +56,12 @@ include 'menu.php';
                 </div>
             </div>
             <div class="campo"><label for="nombre">Nombre y apellido *</label><input name="nombre" id="nombre" data-uppercase maxlength="250" required></div>
-            <div class="campo"><label for="codigo">Código</label><input name="codigo" id="codigo" maxlength="20" placeholder="Automático: orden-id"></div>
+            <div class="campo"><label for="codigo">Código</label><input name="codigo" id="codigo" maxlength="20" placeholder="Opcional"></div>
             <div class="field-grid">
                 <div class="campo"><label for="fecha_nacimiento">Fecha de nacimiento *</label><input type="date" name="fecha_nacimiento" id="fecha_nacimiento" max="<?= htmlspecialchars($hoyAplicacion, ENT_QUOTES, 'UTF-8') ?>" required></div>
                 <div class="campo"><label for="es_femenino">Sexo *</label><select name="es_femenino" id="es_femenino" required><option value="">Seleccione</option><option value="0">Masculino</option><option value="1">Femenino</option></select></div>
                 <div class="campo"><label for="id_escuela">Escuela</label><select name="id_escuela" id="id_escuela"><option value="">Cargando…</option></select></div>
                 <div class="campo"><label for="grupo_sanguineo">Grupo sanguíneo</label><select name="grupo_sanguineo" id="grupo_sanguineo"><option value="">Sin especificar</option><option>A Rh Positivo</option><option>A Rh Negativo</option><option>B Rh Positivo</option><option>B Rh Negativo</option><option>AB Rh Positivo</option><option>AB Rh Negativo</option><option>O Rh Positivo</option><option>O Rh Negativo</option></select></div>
-                <div class="campo"><label for="id_pais">País</label><select name="id_pais" id="id_pais"><option value="">Cargando…</option></select></div>
-                <div class="campo"><label for="telefono">Teléfono internacional</label><input type="tel" name="telefono" id="telefono" placeholder="+595981123456" pattern="\+[1-9][0-9]{7,14}"></div>
             </div>
             <!--
                 Foto del postulante oculta por ahora (solo en pantalla). El backend sigue soportándola
@@ -74,11 +75,11 @@ include 'menu.php';
     </section>
 <?php endif; ?>
 
-    <section class="card postulantes-finanzas">
+    <section class="card">
         <div class="card-header" style="flex-wrap:wrap">
             <div><h2 id="tituloEscuela">Todas las escuelas</h2><p class="help-text" id="resumen">Cargando registros…</p></div>
             <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center">
-                <input id="filtroFecha" type="date" title="Fecha de alta" aria-label="Filtrar por fecha de alta" style="width:auto">
+                <input id="filtroFecha" type="date" title="Fecha de registro en postulantes" aria-label="Filtrar por fecha de registro" style="width:auto">
                 <button type="button" class="btn-secondary btn-small" onclick="filtroFecha.value=''; renderTabla()">Todas las fechas</button>
             </div>
         </div>
@@ -99,17 +100,16 @@ include 'menu.php';
             <div><span>Ya pagado</span><strong id="cobroPagado">Gs. 0</strong></div>
             <div><span>Saldo pendiente</span><strong id="cobroSaldoInicial">Gs. 0</strong></div>
         </div>
-        <div class="campo payment-date"><label for="cobroFecha">Fecha *</label><input id="cobroFecha" type="date" max="<?= htmlspecialchars($hoyAplicacion, ENT_QUOTES, 'UTF-8') ?>" value="<?= htmlspecialchars($hoyAplicacion, ENT_QUOTES, 'UTF-8') ?>" required></div>
         <div id="filasPago" class="payment-method-list"></div>
         <button type="button" class="btn-secondary btn-small" id="btnAgregarMetodo">+ Agregar otro método</button>
         <div class="payment-final-balance"><span>Saldo después de estos pagos</span><strong id="cobroSaldoFinal">Gs. 0</strong></div>
-        <small class="help-text">Si cierra esta ventana, lo cargado queda guardado como borrador hasta confirmar o descartar.</small>
+        <small class="help-text">Los pagos se registran con la fecha de hoy. Puede confirmar sin pagos: el postulante queda registrado con el saldo total. Si cierra esta ventana, lo cargado queda como borrador.</small>
         <div id="mensajeCobro" class="mensaje"></div>
     </form>
     <div class="modal-footer" style="gap:10px">
         <button type="button" class="btn-secondary" onclick="descartarBorrador()">Descartar borrador</button>
         <button type="button" class="btn-secondary" onclick="cerrarPagos()">Cerrar</button>
-        <button type="submit" form="formCobro">Confirmar pagos</button>
+        <button type="submit" form="formCobro" id="btnConfirmarCobro">Confirmar</button>
     </div>
 </dialog>
 <?php endif; ?>
@@ -124,7 +124,7 @@ include 'menu.php';
 const puedeEditarPacientes = <?= $puedeEditar ? 'true' : 'false' ?>;
 const moduloPersonas = <?= json_encode($moduloPersonas) ?>;
 const hoyAplicacion = <?= json_encode($hoyAplicacion) ?>;
-let pacientes = [], escuelas = [], paises = [];
+let pacientes = [], escuelas = [];
 let finanzas = {anio:<?= $anioAplicacion ?>, arreadores:[], convenios:[], asignaciones:[], metodos_pago:[]};
 let filasVisibles = []; // lo que se ve en la tabla con los filtros aplicados
 let cobro = null; // {paciente, convenio, tarifa, pagado, saldo}
@@ -152,21 +152,10 @@ function fechaHora(valor){
 
 /* ---------- Carga de datos ---------- */
 async function cargarCatalogos() {
-    [escuelas, paises] = await Promise.all([
-        Salus.json('backend/designacionesDAO.php?q=listar'), Salus.json('backend/referencialesDAO.php?q=paises')
-    ]);
+    escuelas = await Salus.json('backend/designacionesDAO.php?q=listar');
     const opcionesEscuela=escuelas.map(d=>`<option value="${Number(d.id_escuela)}">${Salus.escape(d.nombre)} · ${Salus.escape(d.periodo)}</option>`).join('');
     selectorEscuelaCobro.innerHTML='<option value="">Todas las escuelas</option>'+opcionesEscuela;
-    if (puedeEditarPacientes) {
-        id_escuela.innerHTML='<option value="">Sin especificar</option>'+opcionesEscuela;
-        id_pais.innerHTML=paises.map(p=>`<option value="${p.id_pais}">${Salus.escape(p.nombre)} (${Salus.escape(p.prefijo_telefonico)})</option>`).join('');
-        seleccionarParaguay();
-    }
-}
-// El país siempre arranca en Paraguay (también al limpiar el formulario).
-function seleccionarParaguay(){
-    const paraguay=paises.find(p=>p.codigo_iso2==='PY');
-    if(paraguay) id_pais.value=paraguay.id_pais;
+    if (puedeEditarPacientes) id_escuela.innerHTML='<option value="">Sin especificar</option>'+opcionesEscuela;
 }
 async function cargar(){
     try{pacientes=await Salus.json('backend/postulantesDAO.php?q=listar');renderTabla();}
@@ -191,7 +180,7 @@ function cargarConveniosContexto(idSeleccionado=''){
     const disponibles=conveniosDeEscuela(selectorEscuelaCobro.value);
     selectorConvenioCobro.disabled=!selectorEscuelaCobro.value;
     selectorConvenioCobro.innerHTML=(selectorEscuelaCobro.value?'<option value="">Seleccione un convenio</option>':'<option value="">Seleccione primero una escuela</option>')
-        +disponibles.map(c=>`<option value="${Number(c.id_arreador_escuela)}">${Salus.escape(c.arreador)} · H ${dinero(c.monto_total_hombre)} · M ${dinero(c.monto_total_mujer)}</option>`).join('');
+        +disponibles.map(c=>`<option value="${Number(c.id_arreador_escuela)}">${Salus.escape(c.arreador)} · orden desde ${String(Number(c.orden_inicio)||1).padStart(3,"0")} · H ${dinero(c.monto_total_hombre)} · M ${dinero(c.monto_total_mujer)}</option>`).join('');
     if(disponibles.some(c=>String(c.id_arreador_escuela)===String(idSeleccionado)))selectorConvenioCobro.value=String(idSeleccionado);
     else if(disponibles.length===1)selectorConvenioCobro.value=String(disponibles[0].id_arreador_escuela);
     guardarContexto();
@@ -214,73 +203,65 @@ function borrarContexto(){
     renderTabla();
 }
 
-/* ---------- Tabla de postulantes con saldos ---------- */
+/* ---------- Tabla: postulantes registrados (postulantes_arreador_postulante) ---------- */
 function asignacionDe(idPaciente){return (finanzas.asignaciones||[]).find(a=>Number(a.id_paciente)===Number(idPaciente));}
 function tarifaPara(p,convenio){return Number(p.es_femenino)?Number(convenio.monto_total_mujer):Number(convenio.monto_total_hombre);}
-// Calcula total, pagado y saldo; si aún no pagó nada se usa el convenio seleccionado.
-function estadoCuenta(p){
-    const a=asignacionDe(p.id_paciente);
-    if(a)return {asignacion:a,total:Number(a.monto_total),pagado:Number(a.pagado),saldo:Number(a.saldo)};
-    const c=convenioContexto();
-    if(c&&Number(c.id_escuela)===Number(p.id_escuela)){const total=tarifaPara(p,c);return {asignacion:null,total,pagado:0,saldo:total};}
-    return {asignacion:null,total:null,pagado:0,saldo:null};
-}
 function renderTabla(){
     const termino=(filtroPacientes.value||'').trim().toLowerCase();
     const fecha=filtroFecha.value;
     const idEscuela=selectorEscuelaCobro.value;
+    const convenio=convenioContexto(); // null si no hay convenio elegido (o sin permiso de edición)
     const escuela=escuelaContexto();
-    tituloEscuela.textContent=escuela?`${escuela.nombre} · ${escuela.periodo}`:'Todas las escuelas';
-    filasVisibles=pacientes.filter(p=>(!idEscuela||Number(p.id_escuela)===Number(idEscuela))
-        &&(!fecha||p.fecha_alta===fecha)
+    tituloEscuela.textContent=(escuela?`${escuela.nombre} · ${escuela.periodo}`:'Todas las escuelas')+(convenio?` · ${convenio.arreador}`:'');
+    const porId=new Map(pacientes.map(p=>[Number(p.id_paciente),p]));
+    // La fecha de la tabla es la del registro en postulantes, no la del alta del paciente.
+    const filas=(finanzas.asignaciones||[]).map(a=>({a,p:porId.get(Number(a.id_paciente))})).filter(({a,p})=>p
+        &&(!idEscuela||Number(a.id_escuela_convenio)===Number(idEscuela))
+        &&(!convenio||Number(a.id_arreador_escuela)===Number(convenio.id_arreador_escuela))
+        &&(!fecha||a.fecha_registro===fecha)
         &&(!termino||`${p.nombre} ${p.ci} ${p.codigo_generado||''}`.toLowerCase().includes(termino)));
+    filas.sort((x,y)=>String(y.a.derivado_en).localeCompare(String(x.a.derivado_en))||Number(y.p.id_paciente)-Number(x.p.id_paciente));
+    filasVisibles=filas.map(f=>f.p);
     let sumaTotal=0,sumaPagado=0,sumaSaldo=0;
-    tabla.innerHTML=filasVisibles.length?filasVisibles.map(p=>{
-        const e=estadoCuenta(p);
-        sumaTotal+=e.total||0;sumaPagado+=e.pagado;sumaSaldo+=e.saldo||0;
-        const estado=e.total===null?'<span class="badge badge-muted">Sin convenio</span>'
-            :e.saldo<=0?'<span class="badge badge-success">Pagado</span>'
-            :e.pagado>0?'<span class="badge badge-warn">Parcial</span>':'<span class="badge badge-muted">Pendiente</span>';
+    tabla.innerHTML=filas.length?filas.map(({a,p})=>{
+        const total=Number(a.monto_total),pagado=Number(a.pagado),saldo=Number(a.saldo);
+        sumaTotal+=total;sumaPagado+=pagado;sumaSaldo+=saldo;
+        const estado=saldo<=0?'<span class="badge badge-success">Pagado</span>'
+            :pagado>0?'<span class="badge badge-warn">Parcial</span>':'<span class="badge badge-muted">Pendiente</span>';
         const borrador=puedeEditarPacientes&&almacen.get(claveBorrador(p.id_paciente))?' <span class="badge badge-warn">Borrador</span>':'';
+        const codigo=p.codigo?` · Cód. ${Salus.escape(p.codigo)}`:'';
         const acciones=[
-            puedeEditarPacientes&&(e.saldo===null||e.saldo>0)?`<button class="btn-small" onclick="abrirPagos(${Number(p.id_paciente)})">Pagar</button>`:'',
-            e.asignacion?`<button class="btn-small btn-secondary" onclick="verHistorialPagos(${Number(e.asignacion.id_arreador_postulante)})">Historial</button>`:'',
+            puedeEditarPacientes&&saldo>0?`<button class="btn-small" onclick="abrirPagos(${Number(p.id_paciente)})">Pagar</button>`:'',
+            `<button class="btn-small btn-secondary" onclick="verHistorialPagos(${Number(a.id_arreador_postulante)})">Historial</button>`,
             puedeEditarPacientes?`<button class="btn-small btn-secondary" onclick="editar(${Number(p.id_paciente)})">Editar</button><button class="btn-small btn-danger" onclick="eliminar(${Number(p.id_paciente)})">Desactivar</button>`:''
         ].join('');
         return `<tr>
-            <td><strong>${Salus.escape(p.nombre)}</strong><br><small>${Salus.escape(p.ci)} · ${Salus.escape(p.codigo_generado||'')} · ${Salus.escape(p.sexo)}${idEscuela?'':' · '+Salus.escape(p.escuela||'Sin escuela')}</small><br>${estado}${borrador}</td>
-            <td class="finance-money">${e.total===null?'—':dinero(e.total)}</td>
-            <td class="finance-money">${dinero(e.pagado)}</td>
-            <td class="finance-money"><strong class="${e.saldo===0?'estado-activo':''}">${e.saldo===null?'—':dinero(e.saldo)}</strong></td>
+            <td><strong>${Salus.escape(p.nombre)}</strong><br><small>ID ${Number(p.id_paciente)} · Orden ${Salus.escape(p.orden_dia)}${codigo} · ${Salus.escape(p.ci)} · ${Salus.escape(p.sexo)} · ${fechaHora(a.fecha_registro)}${idEscuela?'':' · '+Salus.escape(a.escuela)}</small><br>${estado}${borrador}</td>
+            <td class="finance-money">${dinero(total)}</td>
+            <td class="finance-money">${dinero(pagado)}</td>
+            <td class="finance-money"><strong class="${saldo<=0?'estado-activo':''}">${dinero(saldo)}</strong></td>
             <td><div class="table-actions">${acciones}</div></td>
         </tr>`;
     }).join(''):'<tr><td colspan="5" class="empty-state">No se encontraron postulantes.</td></tr>';
-    resumen.textContent=`${filasVisibles.length} postulante(s) · Total ${dinero(sumaTotal)} · Pagado ${dinero(sumaPagado)} · Saldo ${dinero(sumaSaldo)}`;
+    resumen.textContent=`${filas.length} postulante(s) · Total ${dinero(sumaTotal)} · Pagado ${dinero(sumaPagado)} · Saldo ${dinero(sumaSaldo)}`;
 }
 
 /* ---------- Modal de pagos con borrador ---------- */
+// Sin registro previo usa el convenio de la barra superior; con registro, el suyo.
 function abrirPagos(idPaciente){
     const p=pacientes.find(item=>Number(item.id_paciente)===Number(idPaciente));if(!p)return;
-    if(!p.id_escuela){Salus.toast('El postulante debe tener una escuela para poder cobrar.','warn');return;}
     const a=asignacionDe(p.id_paciente);
-    let convenio=a?(finanzas.convenios||[]).find(c=>Number(c.id_arreador_escuela)===Number(a.id_arreador_escuela)):null;
-    if(!convenio){
-        if(Number(selectorEscuelaCobro.value)!==Number(p.id_escuela)){selectorEscuelaCobro.value=String(p.id_escuela);cargarConveniosContexto(selectorConvenioCobro.value);renderTabla();}
-        convenio=convenioContexto();
-    }
-    if(!convenio||Number(convenio.id_escuela)!==Number(p.id_escuela)){
-        Salus.toast('Seleccione un convenio activo para la escuela del postulante.','warn');selectorConvenioCobro.focus();return;
-    }
+    const convenio=a?(finanzas.convenios||[]).find(c=>Number(c.id_arreador_escuela)===Number(a.id_arreador_escuela)):convenioContexto();
+    if(!convenio){Salus.toast('Seleccione la escuela y el convenio en la barra superior.','warn');selectorEscuelaCobro.focus();return;}
     const tarifa=tarifaPara(p,convenio),pagado=Number(a?.pagado||0),saldo=Math.max(0,tarifa-pagado);
-    if(saldo<=0){Salus.toast('Este postulante ya no tiene saldo pendiente.');return;}
-    cobro={paciente:p,convenio,tarifa,pagado,saldo};
-    tituloPagos.textContent=`Pagos de ${p.nombre}`;
+    if(a&&saldo<=0){Salus.toast('Este postulante ya no tiene saldo pendiente.');return;}
+    cobro={paciente:p,convenio,tarifa,pagado,saldo,registrado:Boolean(a)};
+    tituloPagos.textContent=`${a?'Pagos':'Registro y pago'} de ${p.nombre}`;
     resumenCobro.textContent=`${convenio.escuela} · ${convenio.arreador} · ${Number(p.es_femenino)?'Tarifa mujer':'Tarifa hombre'}`;
     cobroPostulante.textContent=`${p.nombre} · ${p.ci}`;
     cobroTarifa.textContent=dinero(tarifa);cobroPagado.textContent=dinero(pagado);cobroSaldoInicial.textContent=dinero(saldo);
     mensajeCobro.textContent='';filasPago.innerHTML='';
     let borrador=null;try{borrador=JSON.parse(almacen.get(claveBorrador(p.id_paciente))||'null');}catch(e){}
-    cobroFecha.value=borrador?.fecha&&borrador.fecha<=hoyAplicacion?borrador.fecha:hoyAplicacion;
     const filas=Array.isArray(borrador?.filas)&&borrador.filas.length?borrador.filas:[{}];
     filas.forEach(f=>agregarFilaPago(f));
     almacen.set(storagePagoAbierto,String(p.id_paciente));
@@ -288,8 +269,8 @@ function abrirPagos(idPaciente){
 }
 function agregarFilaPago(datos={}){
     const fila=document.createElement('div');fila.className='payment-method-row';
-    fila.innerHTML=`<div class="campo"><label>Método *</label><select class="pago-metodo" required><option value="">Seleccione</option>${(finanzas.metodos_pago||[]).map(m=>`<option value="${Number(m.id_metodo_pago)}">${Salus.escape(m.nombre)}</option>`).join('')}</select></div>
-        <div class="campo"><label>Importe *</label><input class="pago-monto" inputmode="numeric" autocomplete="off" required placeholder="0"></div>
+    fila.innerHTML=`<div class="campo"><label>Método</label><select class="pago-metodo"><option value="">Seleccione</option>${(finanzas.metodos_pago||[]).map(m=>`<option value="${Number(m.id_metodo_pago)}">${Salus.escape(m.nombre)}</option>`).join('')}</select></div>
+        <div class="campo"><label>Importe</label><input class="pago-monto" inputmode="numeric" autocomplete="off" placeholder="0"></div>
         <div class="campo"><label>Observación</label><input class="pago-observacion" maxlength="500" placeholder="Opcional"></div>
         <div class="payment-row-balance"><span>Saldo después</span><strong class="pago-saldo">Gs. 0</strong></div>
         <button type="button" class="btn-danger btn-small pago-quitar" aria-label="Quitar método">Quitar</button>`;
@@ -319,7 +300,9 @@ function cambioEnCobro(){
     cobroSaldoFinal.textContent=saldo<0?`Excede en ${dinero(-saldo)}`:dinero(saldo);cobroSaldoFinal.classList.toggle('estado-inactivo',saldo<0);
     cobro.saldoFinal=saldo;
     const filas=leerFilasPago();
-    if(filas.some(f=>f.metodo||f.monto||f.observacion))almacen.set(claveBorrador(cobro.paciente.id_paciente),JSON.stringify({fecha:cobroFecha.value,filas}));
+    const conPago=filas.some(f=>f.metodo||f.monto);
+    btnConfirmarCobro.textContent=conPago?'Confirmar pagos':(cobro.registrado?'Confirmar pagos':'Registrar sin pago');
+    if(filas.some(f=>f.metodo||f.monto||f.observacion))almacen.set(claveBorrador(cobro.paciente.id_paciente),JSON.stringify({filas}));
     else almacen.del(claveBorrador(cobro.paciente.id_paciente));
 }
 function validarMetodosRepetidos(){
@@ -347,13 +330,11 @@ function editar(id) {
     const p=pacientes.find(item=>Number(item.id_paciente)===Number(id)); if(!p)return;
     id_paciente.value=p.id_paciente; nombre.value=p.nombre; codigo.value=p.codigo||''; ci.value=p.ci;
     fecha_nacimiento.value=p.fecha_nacimiento; es_femenino.value=p.es_femenino; grupo_sanguineo.value=p.grupo_sanguineo||'';
-    id_escuela.value=p.id_escuela||''; telefono.value=p.telefono||''; url_foto.value=p.url_foto||'';
-    if(p.id_pais) id_pais.value=p.id_pais; else seleccionarParaguay();
+    id_escuela.value=p.id_escuela||''; telefono.value=p.telefono||''; url_foto.value=p.url_foto||''; id_pais.value=p.id_pais||'';
     nombre.focus();
 }
 function limpiar(){
-    frmPersona.reset();id_paciente.value='';url_foto.value='';mensaje.textContent='';
-    seleccionarParaguay();
+    frmPersona.reset();id_paciente.value='';url_foto.value='';id_pais.value='';telefono.value='';mensaje.textContent='';
     if(selectorEscuelaCobro.value)id_escuela.value=selectorEscuelaCobro.value;
 }
 // Exporta a Excel o PDF exactamente los postulantes que se ven en la tabla.
@@ -362,8 +343,10 @@ function exportarLista(formato){
     const filtros=[];
     const escuela=escuelaContexto();
     if(escuela) filtros.push('escuela '+escuela.nombre);
+    const convenio=convenioContexto();
+    if(convenio) filtros.push('convenio '+convenio.arreador);
     if(filtroPacientes.value.trim()) filtros.push('búsqueda "'+filtroPacientes.value.trim()+'"');
-    if(filtroFecha.value) filtros.push('fecha de alta '+filtroFecha.value.split('-').reverse().join('/'));
+    if(filtroFecha.value) filtros.push('fecha de registro '+filtroFecha.value.split('-').reverse().join('/'));
     const form=document.createElement('form');
     form.method='POST'; form.action='backend/pacientesExportar.php';
     if(formato==='pdf') form.target='_blank';
@@ -385,7 +368,8 @@ async function buscarCedula(){
         if(r.fuente==='sistema'){
             if(r.activo&&pacientes.some(p=>Number(p.id_paciente)===r.id_paciente)){
                 editar(r.id_paciente);
-                Salus.toast(`Este postulante ya está registrado (ID ${r.id_paciente}).`,'warn');
+                const a=asignacionDe(r.id_paciente);
+                if(a){Salus.toast(`Ya está registrado en postulantes desde el ${fechaHora(a.fecha_registro)} (${a.escuela} · ${a.arreador}). Use “Pagar” en la tabla para cobrar el saldo.`,'warn');return;}
                 abrirPagos(r.id_paciente);
             }else{
                 id_paciente.value='';
@@ -434,7 +418,7 @@ if (puedeEditarPacientes) {
             Salus.toast('Postulante guardado.');
             await Promise.all([cargar(),cargarFinanzas()]);limpiar();
             const p=pacientes.find(item=>Number(item.id_paciente)===Number(resultado.id_paciente));
-            if(p){const e=estadoCuenta(p);if(e.saldo===null||e.saldo>0)abrirPagos(p.id_paciente);}
+            if(p&&!asignacionDe(p.id_paciente))abrirPagos(p.id_paciente);
         }catch(error){mensaje.textContent=error.message;}
     });
     // Enter en Documento busca en el padrón en vez de guardar el formulario.
@@ -447,18 +431,19 @@ if (puedeEditarPacientes) {
     formCobro.addEventListener('submit',async event=>{
         event.preventDefault();mensajeCobro.textContent='';
         if(!cobro)return;
-        if(!validarMetodosRepetidos()||!formCobro.reportValidity())return;
-        const filas=leerFilasPago();
-        if(filas.some(f=>!f.metodo||f.monto<=0)){mensajeCobro.textContent='Complete cada método con un importe mayor que cero.';return;}
+        if(!validarMetodosRepetidos()){formCobro.reportValidity();return;}
+        const filas=leerFilasPago().filter(f=>f.metodo||f.monto);
+        if(filas.some(f=>!f.metodo||f.monto<=0)){mensajeCobro.textContent='Complete cada método con un importe mayor que cero, o quite la fila.';return;}
+        if(!filas.length&&cobro.registrado){mensajeCobro.textContent='Cargue al menos un pago.';return;}
         cambioEnCobro();if(cobro.saldoFinal<0){mensajeCobro.textContent='La suma de los pagos supera el saldo pendiente.';return;}
         const pagos=filas.map(f=>({id_metodo_pago:f.metodo,monto:String(f.monto),observacion:f.observacion}));
-        const cuerpo=Salus.form({id_paciente:cobro.paciente.id_paciente,id_arreador_escuela:cobro.convenio.id_arreador_escuela,fecha:cobroFecha.value,pagos:JSON.stringify(pagos)});
+        const cuerpo=Salus.form({id_paciente:cobro.paciente.id_paciente,id_arreador_escuela:cobro.convenio.id_arreador_escuela,pagos:JSON.stringify(pagos)});
         const boton=document.querySelector('button[form="formCobro"]');boton.disabled=true;
         try{
             const resultado=await Salus.json('backend/postulantesFinanzasDAO.php?q=registrar_cobro',{method:'POST',body:cuerpo});
             almacen.del(claveBorrador(cobro.paciente.id_paciente));
-            Salus.toast(`Pagos registrados. Saldo: ${dinero(resultado.saldo)}.`);
-            cerrarPagos();await cargarFinanzas();
+            Salus.toast(pagos.length?`Pagos registrados. Saldo: ${dinero(resultado.saldo)}.`:`Postulante registrado. Saldo: ${dinero(resultado.saldo)}.`);
+            cerrarPagos();await Promise.all([cargar(),cargarFinanzas()]);
         }catch(error){mensajeCobro.textContent=error.message;}
         finally{boton.disabled=false;}
     });
