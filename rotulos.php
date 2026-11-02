@@ -34,7 +34,7 @@ include 'menu.php';
             <select id="rotuloEscuela"><option value="">Cargando…</option></select>
         </div>
         <div class="campo">
-            <label for="rotuloFecha">Fecha de alta</label>
+            <label for="rotuloFecha">Fecha de registro</label>
             <input type="date" id="rotuloFecha">
         </div>
         <div class="campo">
@@ -66,7 +66,7 @@ include 'menu.php';
                     <th>Postulante</th>
                     <th>Cédula</th>
                     <th>Escuela</th>
-                    <th>Fecha de alta</th>
+                    <th>Fecha de registro</th>
                 </tr>
             </thead>
             <tbody id="rotuloTabla"><tr><td colspan="5" class="empty-state">No se realizó ninguna búsqueda.</td></tr></tbody>

@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . "/codigos_pacientes.php";
+
 function idsEnteros($valor): array
 {
     $valores = is_array($valor) ? $valor : ($valor === null || $valor === '' ? [] : [$valor]);
@@ -88,7 +90,7 @@ function sincronizarAsignacion(mysqli $db, int $idAsignacion): int
          WHERE a.id_asignar_atencion = ?
            AND a.activo = 1
            AND p.activo = 1
-           AND DATE(p.creado_en) = a.fecha"
+           AND " . sqlFechaRegistroPaciente('p') . " = a.fecha"
     );
     $stmt->bind_param('i', $idAsignacion);
     $stmt->execute();

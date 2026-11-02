@@ -153,7 +153,7 @@ function fechaHora(valor){
 /* ---------- Carga de datos ---------- */
 async function cargarCatalogos() {
     escuelas = await Salus.json('backend/designacionesDAO.php?q=listar');
-    const opcionesEscuela=escuelas.map(d=>`<option value="${Number(d.id_escuela)}">${Salus.escape(d.nombre)} · ${Salus.escape(d.periodo)}</option>`).join('');
+    const opcionesEscuela=escuelas.map(d=>`<option value="${Number(d.id_escuela)}">${Salus.escape(d.nombre)}</option>`).join('');
     selectorEscuelaCobro.innerHTML='<option value="">Todas las escuelas</option>'+opcionesEscuela;
     if (puedeEditarPacientes) id_escuela.innerHTML='<option value="">Sin especificar</option>'+opcionesEscuela;
 }
@@ -212,7 +212,7 @@ function renderTabla(){
     const idEscuela=selectorEscuelaCobro.value;
     const convenio=convenioContexto(); // null si no hay convenio elegido (o sin permiso de edición)
     const escuela=escuelaContexto();
-    tituloEscuela.textContent=(escuela?`${escuela.nombre} · ${escuela.periodo}`:'Todas las escuelas')+(convenio?` · ${convenio.arreador}`:'');
+    tituloEscuela.textContent=(escuela?`${escuela.nombre} · ${finanzas.anio}`:`Todas las escuelas · ${finanzas.anio}`)+(convenio?` · ${convenio.arreador}`:'');
     const porId=new Map(pacientes.map(p=>[Number(p.id_paciente),p]));
     // La fecha de la tabla es la del registro en postulantes, no la del alta del paciente.
     const filas=(finanzas.asignaciones||[]).map(a=>({a,p:porId.get(Number(a.id_paciente))})).filter(({a,p})=>p
@@ -350,7 +350,7 @@ function exportarLista(formato){
     const form=document.createElement('form');
     form.method='POST'; form.action='backend/pacientesExportar.php';
     if(formato==='pdf') form.target='_blank';
-    const campos={formato, entidad:moduloPersonas, reporte:tipoExportacion.value, ids:filasVisibles.map(p=>p.id_paciente).join(','), filtro:filtros.join(', '), csrf_token:Salus.csrf};
+    const campos={formato, entidad:moduloPersonas, reporte:tipoExportacion.value, ids:filasVisibles.map(p=>p.id_paciente).join(','), filtro:filtros.join(', '), id_convenio:convenio?convenio.id_arreador_escuela:'', fecha_registro:filtroFecha.value?filtroFecha.value.split('-').reverse().join('/'):'', csrf_token:Salus.csrf};
     Object.entries(campos).forEach(([name,value])=>{
         const input=document.createElement('input'); input.type='hidden'; input.name=name; input.value=value; form.appendChild(input);
     });

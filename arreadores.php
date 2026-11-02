@@ -130,7 +130,7 @@ function actualizarFiltros(){
     const anios=[...new Set([Number(finanzas.anio),...(finanzas.convenios||[]).map(c=>Number(c.anio))])].sort((a,b)=>b-a);
     filtroAnioConvenio.innerHTML=anios.map(a=>`<option value="${a}">${a}</option>`).join('');
     filtroAnioConvenio.value=anios.includes(Number(anioSeleccionado))?anioSeleccionado:String(finanzas.anio);
-    filtroEscuelaConvenio.innerHTML='<option value="">Todas</option>'+escuelas.map(e=>`<option value="${Number(e.id_escuela)}">${Salus.escape(e.nombre)} · ${Salus.escape(e.periodo)}</option>`).join('');
+    filtroEscuelaConvenio.innerHTML='<option value="">Todas</option>'+escuelas.map(e=>`<option value="${Number(e.id_escuela)}">${Salus.escape(e.nombre)}</option>`).join('');
     filtroEscuelaConvenio.value=escuelaSeleccionada;
     filtroArreadorConvenio.innerHTML='<option value="">Todos</option>'+(finanzas.arreadores||[]).map(a=>`<option value="${Number(a.id_arreador)}">${Salus.escape(a.nombre)}</option>`).join('');
     filtroArreadorConvenio.value=arreadorSeleccionado;
@@ -164,7 +164,7 @@ function opcionesArreadores(seleccion=''){
     return '<option value="">Seleccione</option>'+(finanzas.arreadores||[]).map(a=>`<option value="${Number(a.id_arreador)}" ${String(a.id_arreador)===String(seleccion)?'selected':''}>${Salus.escape(a.nombre)}${Number(a.activo)?'':' (INACTIVO)'}</option>`).join('');
 }
 function opcionesEscuelas(seleccion=''){
-    return '<option value="">Seleccione</option>'+escuelas.map(e=>`<option value="${Number(e.id_escuela)}" ${String(e.id_escuela)===String(seleccion)?'selected':''}>${Salus.escape(e.nombre)} · ${Salus.escape(e.periodo)}</option>`).join('');
+    return '<option value="">Seleccione</option>'+escuelas.map(e=>`<option value="${Number(e.id_escuela)}" ${String(e.id_escuela)===String(seleccion)?'selected':''}>${Salus.escape(e.nombre)}</option>`).join('');
 }
 function nuevoArreador(){
     formArreador.reset();idArreador.value='';tituloArreador.textContent='Nuevo arreador';mensajeArreador.textContent='';

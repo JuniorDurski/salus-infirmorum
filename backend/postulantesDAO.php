@@ -67,7 +67,7 @@ function camposPacienteSql(): string
             p.grupo_sanguineo,
             p.telefono,
             p.url_foto,
-            DATE_FORMAT(p.creado_en, 'Dia:%d-%m-%Y Hora:%H:%i') AS fecha,
+            DATE_FORMAT(" . sqlMomentoRegistroPaciente('p') . ", 'Dia:%d-%m-%Y Hora:%H:%i') AS fecha,
             CONCAT(
                 e.nombre,
                 ' <br> ',

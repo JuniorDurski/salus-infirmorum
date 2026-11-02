@@ -51,7 +51,7 @@ include 'menu.php';
             <select id="f_designacion"><option value="">Cargando…</option></select>
         </div>
         <div class="campo">
-            <label for="f_fecha">Fecha de alta</label>
+            <label for="f_fecha">Fecha de registro</label>
             <input type="date" id="f_fecha">
         </div>
     </div>

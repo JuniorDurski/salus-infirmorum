@@ -49,10 +49,19 @@ function celdaVacia(string $ref, int $estilo): string
 /** Celda con "Etiqueta:" en negrita y el valor normal. */
 function celdaEtiqueta(string $ref, string $etiqueta, string $valor, int $estilo): string
 {
-    return '<c r="' . $ref . '" s="' . $estilo . '" t="inlineStr"><is>'
-        . '<r><rPr><b/><sz val="10"/><rFont val="Arial"/></rPr><t xml:space="preserve">' . xmlTexto($etiqueta) . ': </t></r>'
-        . '<r><rPr><sz val="10"/><rFont val="Arial"/></rPr><t xml:space="preserve">' . xmlTexto($valor) . '</t></r>'
-        . '</is></c>';
+    return celdaEtiquetas($ref, [[$etiqueta, $valor]], $estilo);
+}
+
+/** Varias parejas "Etiqueta: valor" en una misma celda, separadas por espacios. */
+function celdaEtiquetas(string $ref, array $pares, int $estilo): string
+{
+    $partes = '';
+    foreach (array_values($pares) as $i => [$etiqueta, $valor]) {
+        $separador = $i > 0 ? '     ' : '';
+        $partes .= '<r><rPr><b/><sz val="10"/><rFont val="Arial"/></rPr><t xml:space="preserve">' . $separador . xmlTexto($etiqueta) . ': </t></r>'
+            . '<r><rPr><sz val="10"/><rFont val="Arial"/></rPr><t xml:space="preserve">' . xmlTexto($valor) . '</t></r>';
+    }
+    return '<c r="' . $ref . '" s="' . $estilo . '" t="inlineStr"><is>' . $partes . '</is></c>';
 }
 
 function relacionesXml(string $contenido): string
@@ -152,15 +161,21 @@ function exportarExcel(
         ? '<row r="1" ht="56" customHeight="1"/>'
         : '<row r="1">' . celdaTexto('A1', 'CLÍNICA MÉDICA FLORENTÍN', 0) . '</row>';
 
-    // Filas siguientes: informe / escuela a la izquierda, generación a la derecha.
+    // Filas siguientes: informe y convenio a la izquierda; fecha de generación
+    // y, debajo, fecha de registro a la derecha.
     $izquierdas = [['Informe', $titulo]];
+    $fechaDerecha = [];
     foreach ($datosCabecera as $etiqueta => $valor) {
-        $izquierdas[] = [(string) $etiqueta, (string) $valor];
+        if ($etiqueta === 'Fecha de registro') {
+            $fechaDerecha[] = [$etiqueta, (string) $valor];
+        } else {
+            $izquierdas[] = [(string) $etiqueta, (string) $valor];
+        }
     }
-    $derechas = [
-        ['Generado', $generado],
-        ['Registros', count($filas) . ($filtro !== '' ? ' · ' . $filtro : '')],
-    ];
+    $derechas = [[['Generado', $generado]]];
+    if ($fechaDerecha !== []) {
+        $derechas[] = $fechaDerecha;
+    }
     $fila = 2;
     $cantidadInfo = max(count($izquierdas), count($derechas));
     for ($i = 0; $i < $cantidadInfo; $i++, $fila++) {
@@ -170,7 +185,7 @@ function exportarExcel(
             if ($c === 0 && isset($izquierdas[$i])) {
                 $xml .= celdaEtiqueta($ref, $izquierdas[$i][0], $izquierdas[$i][1], $sInfoIzq);
             } elseif ($c === $mitad && isset($derechas[$i])) {
-                $xml .= celdaEtiqueta($ref, $derechas[$i][0], $derechas[$i][1], $sInfoDer);
+                $xml .= celdaEtiquetas($ref, $derechas[$i], $sInfoDer);
             } else {
                 $xml .= celdaVacia($ref, $c < $mitad ? $sInfoIzq : $sInfoDer);
             }

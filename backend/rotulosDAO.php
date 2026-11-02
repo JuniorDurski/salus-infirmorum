@@ -4,6 +4,7 @@ header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/conexion.php';
 require_once __DIR__ . '/seguridad.php';
 require_once __DIR__ . '/rotulos_service.php';
+require_once __DIR__ . '/codigos_pacientes.php';
 
 requerirAutenticacion($conexion, 'reportes.rotulos.imprimir', true);
 
@@ -64,7 +65,7 @@ function buscarPostulantesRotulos(mysqli $db): void
         $types .= 'i';
     }
     if ($fecha !== '') {
-        $where[] = 'DATE(p.creado_en) = ?';
+        $where[] = sqlFechaRegistroPaciente('p') . ' = ?';
         $params[] = $fecha;
         $types .= 's';
     }
@@ -78,7 +79,7 @@ function buscarPostulantesRotulos(mysqli $db): void
     $sql = 'SELECT p.id_paciente AS id_postulante,
                    p.nombre,
                    p.documento AS cedula,
-                   DATE_FORMAT(p.creado_en, \'%Y-%m-%d\') AS fecha_alta,
+                   DATE_FORMAT(' . sqlMomentoRegistroPaciente('p') . ', \'%Y-%m-%d\') AS fecha_alta,
                    e.nombre AS escuela
             FROM pacientes p
             LEFT JOIN escuelas e ON e.id_escuela = p.id_escuela

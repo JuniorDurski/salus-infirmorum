@@ -68,11 +68,12 @@ $sql = 'SELECT p.id_paciente,
                p.orden,
                finanzas.comision_arreador,
                finanzas.monto_clinica,
-               finanzas.arreador
+               finanzas.arreador,
+               finanzas.id_arreador_escuela
           FROM pacientes p
           LEFT JOIN escuelas e ON e.id_escuela = p.id_escuela
           LEFT JOIN (
-              SELECT ap.id_paciente, ae.comision_arreador, ae.monto_clinica, a.nombre AS arreador
+              SELECT ap.id_paciente, ap.id_arreador_escuela, ae.comision_arreador, ae.monto_clinica, a.nombre AS arreador
               FROM postulantes_arreador_postulante ap
               INNER JOIN postulantes_arreadores a ON a.id_arreador = ap.id_arreador
               INNER JOIN postulantes_arreador_escuela ae
@@ -92,12 +93,14 @@ foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $fila) {
 // Mismo orden que la lista en pantalla
 $filas = [];
 $escuelasReporte = [];
+$conveniosReporte = [];
 foreach ($ids as $id) {
     if (!isset($porId[$id])) {
         continue;
     }
     $p = $porId[$id];
     if (!empty($p['escuela'])) $escuelasReporte[$p['escuela']] = true;
+    if (!empty($p['id_arreador_escuela'])) $conveniosReporte[(int) $p['id_arreador_escuela']] = true;
     $filas[] = [
         'N°' => count($filas) + 1,
         'ID' => $p['id_paciente'],
@@ -139,7 +142,39 @@ if ($esPostulantes) {
 }
 
 if ($formato === 'xls') {
-    exportarExcel($filas, $base, $tituloReporte, $columnaTotal, $totalReporte, $reloj['generado'], $datosCabecera, $filtro);
+    // El Excel ya muestra la escuela en la lista: en la cabecera van convenio y fecha de registro.
+    $datosExcel = [];
+    // Convenio como "ARREADOR - INSTITUCIÓN - ESCUELA" (sin institución si no tiene).
+    $convenioFiltro = '';
+    $idConvenio = (int) ($_POST['id_convenio'] ?? 0);
+    // Sin convenio elegido: si toda la lista es de un mismo convenio, se usa ese.
+    if ($idConvenio <= 0 && count($conveniosReporte) === 1) {
+        $idConvenio = (int) array_key_first($conveniosReporte);
+    }
+    if ($idConvenio > 0) {
+        $stmt = $conexion->prepare(
+            'SELECT a.nombre AS arreador, a.institucion, e.nombre AS escuela
+             FROM postulantes_arreador_escuela ae
+             INNER JOIN postulantes_arreadores a ON a.id_arreador = ae.id_arreador
+             INNER JOIN escuelas e ON e.id_escuela = ae.id_escuela
+             WHERE ae.id_arreador_escuela = ?'
+        );
+        $stmt->bind_param('i', $idConvenio);
+        $stmt->execute();
+        $convenioDatos = $stmt->get_result()->fetch_assoc();
+        if ($convenioDatos !== null) {
+            $convenioFiltro = implode(' - ', array_filter(
+                [$convenioDatos['arreador'], $convenioDatos['institucion'], $convenioDatos['escuela']],
+                static fn($parte): bool => trim((string) $parte) !== ''
+            ));
+        }
+    }
+    $fechaFiltro = trim((string) ($_POST['fecha_registro'] ?? ''));
+    if ($esPostulantes) {
+        $datosExcel['Convenio'] = $convenioFiltro !== '' ? $convenioFiltro : (count($conveniosReporte) > 1 ? 'Varios' : 'Sin convenio');
+        $datosExcel['Fecha de registro'] = preg_match('#^\d{2}/\d{2}/\d{4}$#', $fechaFiltro) ? $fechaFiltro : 'Todas';
+    }
+    exportarExcel($filas, $base, $tituloReporte, $columnaTotal, $totalReporte, $reloj['generado'], $datosExcel, $filtro);
 } else {
     exportarPdf($filas, $base, $filtro, $tituloReporte, $columnaTotal, $totalReporte, $reloj['generado'], $datosCabecera);
 }
