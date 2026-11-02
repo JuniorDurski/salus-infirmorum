@@ -28,7 +28,7 @@ include 'menu.php';
 </div>
 
 <section class="card">
-    <div class="field-grid rotulos-filtros">
+    <div class="field-grid filtros-informe">
         <div class="campo">
             <label for="rotuloTexto">Nombre o documento</label>
             <input type="search" id="rotuloTexto" placeholder="Escriba para buscar…">
@@ -41,9 +41,9 @@ include 'menu.php';
             <label for="rotuloFecha">Fecha de registro</label>
             <input type="date" id="rotuloFecha" value="<?= htmlspecialchars((string) $conexion->query('SELECT CURDATE() AS hoy')->fetch_assoc()['hoy'], ENT_QUOTES, 'UTF-8') ?>">
         </div>
+        <div class="campo campo-boton"><button type="button" class="btn-secondary" data-ver-todos>Ver todos</button></div>
     </div>
     <div class="form-actions rotulos-print-actions">
-        <button type="button" id="rotuloBuscar">Buscar postulantes</button>
         <span class="rotulos-formato-etiqueta">Imprimir formato:</span>
         <span class="rotulos-formatos" id="rotuloBotonesFormatos">Cargando formatos…</span>
         <small>Si no selecciona postulantes, se imprimirá toda la tabla.</small>
@@ -104,7 +104,6 @@ async function buscarRotulos() {
         fecha: rotuloFecha.value,
         texto: rotuloTexto.value.trim()
     });
-    rotuloBuscar.disabled = true;
     try {
         postulantesRotulos = await Salus.json('backend/rotulosDAO.php?' + params);
         idsRotulosSeleccionados.clear();
@@ -114,8 +113,6 @@ async function buscarRotulos() {
         idsRotulosSeleccionados.clear();
         renderRotulos();
         Salus.toast(error.message, 'error');
-    } finally {
-        rotuloBuscar.disabled = false;
     }
 }
 
@@ -137,7 +134,7 @@ function renderRotulos() {
 function botonesFormatosRotulo() {
     if (!formatosRotulos.length) return '<small>No hay formatos disponibles.</small>';
     return formatosRotulos.map(formato =>
-        `<button type="button" class="btn-secondary btn-small" data-formato-rotulo="${Salus.escape(formato.codigo)}">${Salus.escape(formato.nombre)}</button>`
+        `<button type="button" class="btn-secondary btn-small btn-print" data-formato-rotulo="${Salus.escape(formato.codigo)}">${Salus.escape(formato.nombre)}</button>`
     ).join('');
 }
 
@@ -210,7 +207,6 @@ rotuloSeleccionarTodos.addEventListener('change', () => {
     actualizarSeleccionRotulos();
 });
 
-rotuloBuscar.addEventListener('click', buscarRotulos);
 rotuloBotonesFormatos.addEventListener('click', event => {
     const boton = event.target.closest('[data-formato-rotulo]');
     if (!boton) return;
@@ -221,8 +217,8 @@ rotuloBotonesFormatos.addEventListener('click', event => {
         : postulantesRotulos.map(postulante => postulante.id_postulante);
     imprimirRotulos(ids, boton.dataset.formatoRotulo);
 });
-rotuloTexto.addEventListener('keydown', event => { if (event.key === 'Enter') buscarRotulos(); });
+Salus.filtrosAutomaticos([rotuloTexto, rotuloEscuela, rotuloFecha], buscarRotulos);
 
-iniciarRotulos();
+iniciarRotulos().then(buscarRotulos);
 </script>
 <?php include 'footer.php'; ?>

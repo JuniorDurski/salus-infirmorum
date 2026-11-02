@@ -22,7 +22,7 @@ include 'menu.php';
 </div>
 
 <section class="card">
-    <div class="field-grid" style="grid-template-columns:1.5fr 1.2fr 1fr">
+    <div class="field-grid filtros-informe">
         <div class="campo">
             <label for="txtBuscar">Nombre o documento</label>
             <input type="search" id="txtBuscar" placeholder="Escriba para buscar…">
@@ -35,10 +35,10 @@ include 'menu.php';
             <label for="f_fecha">Fecha de registro</label>
             <input type="date" id="f_fecha" value="<?= htmlspecialchars((string) $conexion->query('SELECT CURDATE() AS hoy')->fetch_assoc()['hoy'], ENT_QUOTES, 'UTF-8') ?>">
         </div>
+        <div class="campo campo-boton"><button type="button" class="btn-secondary" data-ver-todos>Ver todos</button></div>
     </div>
     <div class="form-actions">
-        <button type="button" onclick="buscar()">Buscar postulantes</button>
-        <button type="button" class="btn-secondary" onclick="imprimirTodosAudiometria()">Imprimir todos</button>
+        <button type="button" class="btn-secondary btn-print" onclick="imprimirTodosAudiometria()">Imprimir todos</button>
     </div>
 </section>
 
@@ -131,11 +131,11 @@ function renderAudiometria() {
             : '';
         return `<tr>
             <td><strong>${Salus.escape(Salus.ordenNombre(paciente))}</strong><br><small>${Salus.escape(paciente.codigo_informe || '')}</small></td>
-            <td>${Salus.escape(paciente.ci)}</td>
+            <td>${Salus.escape(Salus.cedula(paciente.ci))}</td>
             <td>${Salus.escape(paciente.edad)} años<br><small>${Salus.escape(paciente.sexo)}</small></td>
             <td>${Salus.escape(paciente.escuela || '—')}</td>
             <td>${estado}</td>
-            <td><div class="table-actions">${editar}<button class="btn-small btn-secondary" type="button" onclick="enviarInformeAudiometria([${id}])">Imprimir individualmente</button></div></td>
+            <td><div class="table-actions">${editar}<button class="btn-small btn-secondary btn-print" type="button" onclick="enviarInformeAudiometria([${id}])">Imprimir individualmente</button></div></td>
         </tr>`;
     }).join('');
 }
@@ -202,7 +202,7 @@ function imprimirTodosAudiometria() {
     enviarInformeAudiometria(pacientesAudiometria.map(paciente => Number(paciente.id_postulante)));
 }
 
-txtBuscar.addEventListener('keydown', event => { if (event.key === 'Enter') buscar(); });
-iniciarAudiometria();
+Salus.filtrosAutomaticos([txtBuscar, f_designacion, f_fecha], buscar);
+iniciarAudiometria().then(buscar);
 </script>
 <?php include 'footer.php'; ?>

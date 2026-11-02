@@ -9,8 +9,8 @@ $fechaHoy = (string) $conexion->query('SELECT CURDATE()')->fetch_row()[0];
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Consulta de estudios | Salus Infirmorum</title>
-    <link rel="stylesheet" href="assets/css/app.css">
-    <script src="assets/js/app.js"></script>
+    <link rel="stylesheet" href="assets/css/app.css?v=<?= (int) @filemtime(__DIR__ . '/assets/css/app.css') ?>">
+    <script src="assets/js/app.js?v=<?= (int) @filemtime(__DIR__ . '/assets/js/app.js') ?>"></script>
 </head>
 <body class="public-query-page">
 <main class="public-query-shell">

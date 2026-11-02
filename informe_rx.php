@@ -14,7 +14,7 @@ include 'menu.php';
 </div>
 
 <section class="card">
-    <div class="field-grid" style="grid-template-columns:2fr 1.4fr 1fr">
+    <div class="field-grid filtros-informe">
         <div class="campo">
             <label for="txtBuscar">Nombre o documento</label>
             <input type="search" id="txtBuscar" placeholder="Escriba para buscar…">
@@ -27,10 +27,10 @@ include 'menu.php';
             <label for="f_fecha">Fecha de registro</label>
             <input type="date" id="f_fecha" value="<?= htmlspecialchars((string) $conexion->query('SELECT CURDATE() AS hoy')->fetch_assoc()['hoy'], ENT_QUOTES, 'UTF-8') ?>">
         </div>
+        <div class="campo campo-boton"><button type="button" class="btn-secondary" data-ver-todos>Ver todos</button></div>
     </div>
     <div class="form-actions">
-        <button type="button" onclick="buscar()">Buscar postulantes</button>
-        <button type="button" class="btn-secondary" onclick="imprimirTodos()">Imprimir todos</button>
+        <button type="button" class="btn-secondary btn-print" onclick="imprimirTodos()">Imprimir todos</button>
     </div>
 </section>
 
@@ -81,10 +81,10 @@ async function buscar() {
         resumen.textContent = `${data.length} postulante(s) encontrado(s)`;
         tabla.innerHTML = data.length ? data.map(postulante => `<tr>
             <td><strong>${Salus.escape(Salus.ordenNombre(postulante))}</strong><br><small>${Salus.escape(postulante.codigo_informe || '')}</small></td>
-            <td>${Salus.escape(postulante.ci)}</td>
+            <td>${Salus.escape(Salus.cedula(postulante.ci))}</td>
             <td>${Salus.escape(postulante.edad)} años<br><small>${Salus.escape(postulante.sexo)}</small></td>
             <td>${Salus.escape(postulante.escuela || '—')}</td>
-            <td><button class="btn-small btn-secondary" type="button" onclick="imprimirUno(${Number(postulante.id_postulante)})">Imprimir individualmente</button></td>
+            <td><button class="btn-small btn-secondary btn-print" type="button" onclick="imprimirUno(${Number(postulante.id_postulante)})">Imprimir individualmente</button></td>
         </tr>`).join('') : '<tr><td colspan="5" class="empty-state">No hay coincidencias para esos filtros.</td></tr>';
     } catch (error) {
         idsActuales = [];
@@ -126,10 +126,7 @@ function imprimirUno(id) {
     enviarInforme([id]);
 }
 
-txtBuscar.addEventListener('keydown', event => {
-    if (event.key === 'Enter') buscar();
-});
-
-cargarEscuelas();
+Salus.filtrosAutomaticos([txtBuscar, f_designacion, f_fecha], buscar);
+cargarEscuelas().then(buscar);
 </script>
 <?php include 'footer.php'; ?>

@@ -83,8 +83,9 @@ $tituloActual = $tituloPagina ?? ($titulosRuta[$rutaActual] ?? 'Salus Infirmorum
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <title><?= htmlspecialchars($tituloActual, ENT_QUOTES, 'UTF-8') ?> | Salus Infirmorum</title>
-    <link rel="stylesheet" href="assets/css/app.css">
-    <script src="assets/js/app.js"></script>
+    <?php // La versión cambia con cada modificación del archivo: evita que el navegador use una copia vieja. ?>
+    <link rel="stylesheet" href="assets/css/app.css?v=<?= (int) @filemtime(__DIR__ . '/assets/css/app.css') ?>">
+    <script src="assets/js/app.js?v=<?= (int) @filemtime(__DIR__ . '/assets/js/app.js') ?>"></script>
 </head>
 <body class="<?= $temaOscuro ? 'theme-dark' : '' ?>">
 <div class="app-shell">

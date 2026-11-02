@@ -10,15 +10,15 @@ include 'menu.php';
 </div>
 
 <section class="card">
-    <div class="field-grid" style="grid-template-columns:2fr 1.4fr 1fr">
+    <div class="field-grid filtros-informe">
         <div class="campo"><label for="txtBuscar">Nombre o documento</label><input type="search" id="txtBuscar" placeholder="Escriba para buscar…"></div>
         <div class="campo"><label for="f_designacion">Escuela</label><select id="f_designacion"><option value="">Cargando…</option></select></div>
         <div class="campo"><label for="f_fecha">Fecha de registro</label><input type="date" id="f_fecha" value="<?= htmlspecialchars((string) $conexion->query('SELECT CURDATE() AS hoy')->fetch_assoc()['hoy'], ENT_QUOTES, 'UTF-8') ?>"></div>
+        <div class="campo campo-boton"><button type="button" class="btn-secondary" data-ver-todos>Ver todos</button></div>
     </div>
     <div class="form-actions">
-        <button type="button" onclick="buscar()">Buscar postulantes</button>
-        <button type="button" class="btn-secondary" onclick="imprimirTodo()">Imprimir selección</button>
-        <button type="button" class="btn-secondary" onclick="imprimirTarjeta()">Tarjetas Rh</button>
+        <button type="button" class="btn-secondary btn-print" onclick="imprimirTodo()">Imprimir selección</button>
+        <button type="button" class="btn-secondary btn-print" onclick="imprimirTarjeta()">Tarjetas Rh</button>
     </div>
 </section>
 
@@ -41,10 +41,10 @@ async function buscar(){
     try{
         const data=await Salus.json('backend/postulantesDAO.php?'+params);idsActuales=data.map(p=>p.id_postulante);resumen.textContent=`${data.length} postulante(s) encontrado(s)`;
         tabla.innerHTML=data.length?data.map(p=>`<tr>
-            <td><strong>${Salus.escape(Salus.ordenNombre(p))}</strong><br><small>${Salus.escape(p.codigo_informe || '')}</small></td><td>${Salus.escape(p.ci)}</td>
+            <td><strong>${Salus.escape(Salus.ordenNombre(p))}</strong><br><small>${Salus.escape(p.codigo_informe || '')}</small></td><td>${Salus.escape(Salus.cedula(p.ci))}</td>
             <td>${Salus.escape(p.edad)} años<br><small>${Salus.escape(p.sexo)}</small></td><td>${Salus.escape(p.escuela||'—')}</td>
             <td><span class="badge badge-muted">${Salus.escape(formatoGrupoSanguineo(p.grupo_sanguineo)||'—')}</span></td>
-            <td><button class="btn-small btn-secondary" onclick="imprimirUno(${Number(p.id_postulante)})">Imprimir individualmente</button></td>
+            <td><button class="btn-small btn-secondary btn-print" onclick="imprimirUno(${Number(p.id_postulante)})">Imprimir individualmente</button></td>
         </tr>`).join(''):'<tr><td colspan="6" class="empty-state">No hay coincidencias para esos filtros.</td></tr>';
     }catch(error){Salus.toast(error.message,'error');}
 }
@@ -60,7 +60,7 @@ function enviarInforme(action,ids,exigirEscuela=true){
 function imprimirTodo(){enviarInforme('reportes/index.php',idsActuales);}
 function imprimirTarjeta(){enviarInforme('reportes/informe_tipi.php',idsActuales);}
 function imprimirUno(id){enviarInforme('reportes/index.php',[id],false);}
-txtBuscar.addEventListener('keydown',event=>{if(event.key==='Enter')buscar();});
-cargarEscuelas();
+Salus.filtrosAutomaticos([txtBuscar,f_designacion,f_fecha],buscar);
+cargarEscuelas().then(buscar);
 </script>
 <?php include 'footer.php'; ?>

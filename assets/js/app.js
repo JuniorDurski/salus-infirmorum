@@ -31,6 +31,31 @@
             const nombre = persona?.nombre ?? '';
             return orden ? `${orden} · ${nombre}` : nombre;
         },
+        // Cédula con separador de miles para mostrar en pantalla ("5860649" -> "5.860.649").
+        // Solo para tablas: los PDF siguen usando el valor original.
+        cedula(valor) {
+            const texto = String(valor ?? '').trim();
+            return /^\d+$/.test(texto) ? texto.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : texto;
+        },
+        // Filtros que se aplican solos al cambiar: el texto espera una breve pausa al
+        // escribir; selects y fechas buscan al instante. El botón [data-ver-todos]
+        // de la misma tarjeta limpia todos los filtros y muestra todo.
+        filtrosAutomaticos(campos, buscar) {
+            let espera = null;
+            const ejecutar = () => { clearTimeout(espera); buscar(); };
+            campos.forEach(campo => {
+                if (campo.tagName === 'SELECT' || campo.type === 'date') {
+                    campo.addEventListener('change', ejecutar);
+                } else {
+                    campo.addEventListener('input', () => { clearTimeout(espera); espera = setTimeout(buscar, 350); });
+                    campo.addEventListener('keydown', evento => { if (evento.key === 'Enter') { evento.preventDefault(); ejecutar(); } });
+                }
+            });
+            campos[0]?.closest('section, .card')?.querySelector('[data-ver-todos]')?.addEventListener('click', () => {
+                campos.forEach(campo => { campo.value = ''; });
+                ejecutar();
+            });
+        },
         toast(message, type = 'ok') {
             let region = document.querySelector('.toast-region');
             if (!region) {

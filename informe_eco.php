@@ -41,7 +41,7 @@ include 'menu.php';
 </div>
 
 <section class="card">
-    <div class="field-grid" style="grid-template-columns:1.5fr 1.2fr 1fr">
+    <div class="field-grid filtros-informe">
         <div class="campo">
             <label for="txtBuscar">Nombre o documento</label>
             <input type="search" id="txtBuscar" placeholder="Escriba para buscar…">
@@ -54,9 +54,9 @@ include 'menu.php';
             <label for="f_fecha">Fecha de registro</label>
             <input type="date" id="f_fecha" value="<?= htmlspecialchars((string) $conexion->query('SELECT CURDATE() AS hoy')->fetch_assoc()['hoy'], ENT_QUOTES, 'UTF-8') ?>">
         </div>
+        <div class="campo campo-boton"><button type="button" class="btn-secondary" data-ver-todos>Ver todos</button></div>
     </div>
     <div class="form-actions eco-print-actions">
-        <button type="button" onclick="buscar()">Buscar postulantes</button>
         <span class="eco-print-label">Imprimir todos:</span>
         <span id="botonesImpresionEco"></span>
     </div>
@@ -99,7 +99,7 @@ include 'menu.php';
     </div>
     <div class="modal-footer">
         <button class="btn-secondary" type="button" onclick="modalImpresionEco.close()">Cancelar</button>
-        <button type="button" onclick="confirmarImpresionEco()">Imprimir</button>
+        <button type="button" class="btn-print" onclick="confirmarImpresionEco()">Imprimir</button>
     </div>
 </dialog>
 
@@ -161,7 +161,7 @@ async function iniciarEco() {
         ).join('');
         plantillasEco = respuestaPlantillas.plantillas || [];
         botonesImpresionEco.innerHTML = plantillasEco.map(plantilla =>
-            `<button type="button" class="btn-secondary btn-small" data-eco-masivo="${Salus.escape(plantilla.codigo)}">${Salus.escape(plantilla.nombre)}</button>`
+            `<button type="button" class="btn-secondary btn-small btn-print" data-eco-masivo="${Salus.escape(plantilla.codigo)}">${Salus.escape(plantilla.nombre)}</button>`
         ).join(' ');
         botonesImpresionEco.querySelectorAll('[data-eco-masivo]').forEach(boton => {
             boton.addEventListener('click', () => imprimirTodos(boton.dataset.ecoMasivo));
@@ -197,10 +197,10 @@ function renderEco() {
             : '';
         return `<tr>
             <td><strong>${Salus.escape(Salus.ordenNombre(paciente))}</strong><br><small>${Salus.escape(paciente.codigo_informe || '')}</small></td>
-            <td>${Salus.escape(paciente.ci)}</td>
+            <td>${Salus.escape(Salus.cedula(paciente.ci))}</td>
             <td>${Salus.escape(paciente.edad)} años<br><small>${Salus.escape(paciente.sexo)}</small></td>
             <td>${Salus.escape(paciente.escuela || '—')}</td>
-            <td><div class="table-actions">${editar}<button class="btn-small btn-secondary" type="button" onclick="abrirSeleccionEco(${id}, 'imprimir')">Imprimir individualmente</button></div></td>
+            <td><div class="table-actions">${editar}<button class="btn-small btn-secondary btn-print" type="button" onclick="abrirSeleccionEco(${id}, 'imprimir')">Imprimir individualmente</button></div></td>
         </tr>`;
     }).join('');
 }
@@ -458,7 +458,7 @@ function imprimirTodos(codigo) {
 }
 
 modalImagenesEco.addEventListener('close', liberarVistasImagenEco);
-txtBuscar.addEventListener('keydown', event => { if (event.key === 'Enter') buscar(); });
-iniciarEco();
+Salus.filtrosAutomaticos([txtBuscar, f_designacion, f_fecha], buscar);
+iniciarEco().then(buscar);
 </script>
 <?php include 'footer.php'; ?>

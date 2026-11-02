@@ -257,7 +257,7 @@ function renderTabla(){
         const codigo=p.codigo?` · Cód. ${Salus.escape(p.codigo)}`:'';
         const acciones=`<button type="button" class="btn-small btn-secondary" aria-haspopup="menu" onclick="abrirMenuAcciones(event,${Number(p.id_paciente)},${Number(a.id_arreador_postulante)},${saldo>0?1:0})">Acciones ▾</button>`;
         return `<tr>
-            <td><strong>${Salus.escape(p.orden_dia)} · ${Salus.escape(p.nombre)}</strong><br><small>ID ${Number(p.id_paciente)}${codigo} · ${Salus.escape(p.ci)} · ${Salus.escape(p.sexo)} · ${fechaHora(a.fecha_registro)}${idEscuela?'':' · '+Salus.escape(a.escuela)}</small><br>${estado}${borrador}${notas}</td>
+            <td><strong>${Salus.escape(p.orden_dia)} · ${Salus.escape(p.nombre)}</strong><br><small>ID ${Number(p.id_paciente)}${codigo} · ${Salus.escape(Salus.cedula(p.ci))} · ${Salus.escape(p.sexo)} · ${fechaHora(a.fecha_registro)}${idEscuela?'':' · '+Salus.escape(a.escuela)}</small><br>${estado}${borrador}${notas}</td>
             <td class="finance-money">${dinero(total)}</td>
             <td class="finance-money">${dinero(pagado)}</td>
             <td class="finance-money"><strong class="${saldo<=0?'estado-activo':''}">${dinero(saldo)}</strong></td>
@@ -352,7 +352,7 @@ function abrirPagos(idPaciente,opciones={}){
     cobro={paciente:p,convenio,tarifa,pagado,saldo,registrado:Boolean(a),idAsignacion:a?Number(a.id_arreador_postulante):null,codigo:codigoRegistro};
     tituloPagos.textContent=Salus.ordenNombre(p);
     resumenCobro.textContent=`${a?'':'Registro nuevo · '}${codigoRegistro?`Código ${codigoRegistro} · `:''}${convenio.escuela} · ${convenio.arreador} · ${Number(p.es_femenino)?'Tarifa mujer':'Tarifa hombre'}`;
-    cobroPostulante.textContent=`CI ${p.ci}`;
+    cobroPostulante.textContent=`CI ${Salus.cedula(p.ci)}`;
     cobroTarifa.textContent=dinero(tarifa);cobroPagado.textContent=dinero(pagado);cobroSaldoInicial.textContent=dinero(saldo);
     cobroSaldoInicial.classList.toggle('estado-activo',saldo<=0);
     cargarHistorialPagos();

@@ -10,8 +10,8 @@ $identidad = requerirAutenticacion($conexion, null, false, true);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Cambiar contraseña | Salus Infirmorum</title>
-    <link rel="stylesheet" href="assets/css/app.css">
-    <script src="assets/js/app.js"></script>
+    <link rel="stylesheet" href="assets/css/app.css?v=<?= (int) @filemtime(__DIR__ . '/assets/css/app.css') ?>">
+    <script src="assets/js/app.js?v=<?= (int) @filemtime(__DIR__ . '/assets/js/app.js') ?>"></script>
 </head>
 <body class="auth-page">
 <main class="auth-contenedor">
