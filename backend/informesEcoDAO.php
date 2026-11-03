@@ -16,6 +16,9 @@ try {
         case 'resultados':
             listarResultadosEco($conexion);
             break;
+        case 'estado_imagenes':
+            estadoImagenesEco($conexion);
+            break;
         case 'detalle':
             obtenerDetalleEco($conexion);
             break;
@@ -80,6 +83,30 @@ function listarResultadosEco(mysqli $db): void
         $resultado[(string) $fila['id_postulante']] = ['actualizado_en' => $fila['actualizado_en']];
     }
     responderJson(['status' => 'ok', 'resultados' => $resultado ?: new stdClass()]);
+}
+
+/**
+ * Estudios ECO que tienen al menos una imagen cargada, por postulante:
+ *   {"58": ["ABDOMINAL_URGENCIA", "TESTICULAR"], ...}
+ */
+function estadoImagenesEco(mysqli $db): void
+{
+    $ids = idsInformeEco($_GET['ids'] ?? []);
+    if ($ids === []) responderJson(['status' => 'ok', 'imagenes' => new stdClass()]);
+    $marcas = implode(',', array_fill(0, count($ids), '?'));
+    $stmt = $db->prepare(
+        "SELECT id_postulante, codigo_estudio
+         FROM postulantes_informes_eco
+         WHERE id_postulante IN ({$marcas})
+           AND (NULLIF(imagen_1, '') IS NOT NULL OR NULLIF(imagen_2, '') IS NOT NULL)"
+    );
+    $stmt->bind_param(str_repeat('i', count($ids)), ...$ids);
+    $stmt->execute();
+    $imagenes = [];
+    foreach ($stmt->get_result()->fetch_all(MYSQLI_ASSOC) as $fila) {
+        $imagenes[(string) $fila['id_postulante']][] = $fila['codigo_estudio'];
+    }
+    responderJson(['status' => 'ok', 'imagenes' => $imagenes ?: new stdClass()]);
 }
 
 function obtenerDetalleEco(mysqli $db): void

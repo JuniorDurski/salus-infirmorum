@@ -14,7 +14,8 @@ include 'menu.php';
 .eco-modal { width: min(880px, calc(100vw - 30px)); max-height: 92vh; }
 .eco-selection-modal { width: min(540px, calc(100vw - 30px)); }
 .eco-study-options { display: grid; gap: 10px; }
-.eco-study-options button { text-align: left; width: 100%; }
+.eco-study-options button { text-align: left; width: 100%; justify-content: space-between; }
+.eco-estado-imagen { font-size: .72rem; }
 .eco-print-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; }
 .eco-print-label { color: var(--text-muted, #64748b); font-size: .9rem; font-weight: 600; }
 .eco-image-editor { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -67,8 +68,8 @@ include 'menu.php';
         </div>
     </div>
     <div class="table-wrap"><table class="data-table">
-        <thead><tr><th>Postulante</th><th>Documento</th><th>Edad / sexo</th><th>Escuela</th><th></th></tr></thead>
-        <tbody id="tabla"><tr><td colspan="5" class="empty-state">No se realizó ninguna búsqueda.</td></tr></tbody>
+        <thead><tr><th>Postulante</th><th>Documento</th><th>Edad / sexo</th><th>Escuela</th><th title="Estudios con al menos una imagen cargada">Cant.</th><th></th></tr></thead>
+        <tbody id="tabla"><tr><td colspan="6" class="empty-state">No se realizó ninguna búsqueda.</td></tr></tbody>
     </table></div>
 </section>
 
@@ -142,6 +143,7 @@ include 'menu.php';
 <script>
 const puedeEditarEco = <?= $puedeEditarEco ? 'true' : 'false' ?>;
 let pacientesEco = [];
+let imagenesEco = {}; // id_postulante -> Set de estudios con al menos una imagen
 let plantillasEco = [];
 let postulanteEcoActual = null;
 let estudioEcoActual = '';
@@ -175,18 +177,45 @@ async function buscar() {
     const params = new URLSearchParams({q:'buscar', texto:txtBuscar.value, designacion:f_designacion.value, fecha:f_fecha.value});
     try {
         pacientesEco = await Salus.json('backend/postulantesDAO.php?' + params);
+        await cargarImagenesEco();
         renderEco();
     } catch (error) {
         pacientesEco = [];
-        tabla.innerHTML = '<tr><td colspan="5" class="empty-state">No fue posible cargar los resultados.</td></tr>';
+        tabla.innerHTML = '<tr><td colspan="6" class="empty-state">No fue posible cargar los resultados.</td></tr>';
         Salus.toast(error.message, 'error');
     }
+}
+
+// Qué estudios de cada postulante ya tienen imagen (con una sola alcanza).
+async function cargarImagenesEco() {
+    imagenesEco = {};
+    if (!pacientesEco.length) return;
+    const params = new URLSearchParams({q:'estado_imagenes'});
+    pacientesEco.forEach(paciente => params.append('ids[]', paciente.id_postulante));
+    try {
+        const respuesta = await Salus.json('backend/informesEcoDAO.php?' + params);
+        Object.entries(respuesta.imagenes || {}).forEach(([id, codigos]) => { imagenesEco[id] = new Set(codigos); });
+    } catch (error) {
+        Salus.toast(error.message, 'error');
+    }
+}
+
+function tieneImagenEco(id, codigo) {
+    return Boolean(imagenesEco[String(Number(id))]?.has(codigo));
+}
+
+// "Cant.": estudios con imagen sobre estudios que le corresponden (mujeres 3, hombres 2).
+function cantidadImagenesEco(paciente) {
+    const estudios = estudiosCompatiblesEco(paciente);
+    const cargados = estudios.filter(plantilla => tieneImagenEco(paciente.id_postulante, plantilla.codigo)).length;
+    const clase = cargados === estudios.length ? 'badge-success' : cargados > 0 ? 'badge-warn' : 'badge-muted';
+    return `<span class="badge ${clase}">${cargados}/${estudios.length}</span>`;
 }
 
 function renderEco() {
     resumen.textContent = `${pacientesEco.length} postulante(s) encontrado(s)`;
     if (!pacientesEco.length) {
-        tabla.innerHTML = '<tr><td colspan="5" class="empty-state">No hay coincidencias para esos filtros.</td></tr>';
+        tabla.innerHTML = '<tr><td colspan="6" class="empty-state">No hay coincidencias para esos filtros.</td></tr>';
         return;
     }
     tabla.innerHTML = pacientesEco.map(paciente => {
@@ -200,6 +229,7 @@ function renderEco() {
             <td>${Salus.escape(Salus.cedula(paciente.ci))}</td>
             <td>${Salus.escape(paciente.edad)} años<br><small>${Salus.escape(paciente.sexo)}</small></td>
             <td>${Salus.escape(paciente.escuela || '—')}</td>
+            <td>${cantidadImagenesEco(paciente)}</td>
             <td><div class="table-actions">${editar}<button class="btn-small btn-secondary btn-print" type="button" onclick="abrirSeleccionEco(${id}, 'imprimir')">Imprimir individualmente</button></div></td>
         </tr>`;
     }).join('');
@@ -222,9 +252,13 @@ function abrirSeleccionEco(id, accion) {
         imagenes: 'Imágenes del informe ECO',
     }[accion] || 'Imprimir informe ECO';
     seleccionPostulanteEco.textContent = Salus.ordenNombre(paciente);
-    seleccionEstudiosEco.innerHTML = estudios.map(plantilla =>
-        `<button type="button" class="btn-secondary" data-eco-estudio="${Salus.escape(plantilla.codigo)}">${Salus.escape(plantilla.nombre)}</button>`
-    ).join('');
+    seleccionEstudiosEco.innerHTML = estudios.map(plantilla => {
+        const estado = accion !== 'imagenes' ? ''
+            : tieneImagenEco(id, plantilla.codigo)
+                ? '<span class="badge badge-success eco-estado-imagen">Imagen cargada</span>'
+                : '<span class="badge badge-muted eco-estado-imagen">Sin imagen</span>';
+        return `<button type="button" class="btn-secondary" data-eco-estudio="${Salus.escape(plantilla.codigo)}"><span>${Salus.escape(plantilla.nombre)}</span>${estado}</button>`;
+    }).join('');
     seleccionEstudiosEco.querySelectorAll('[data-eco-estudio]').forEach(boton => {
         boton.addEventListener('click', () => seleccionarEstudioEco(boton.dataset.ecoEstudio));
     });
@@ -386,6 +420,8 @@ frmImagenesEco.addEventListener('submit', async event => {
         await Salus.json('backend/informesEcoDAO.php?q=imagenes', {method:'POST', body:cuerpo});
         modalImagenesEco.close();
         Salus.toast('Imágenes guardadas.');
+        await cargarImagenesEco();
+        renderEco();
     } catch (error) {
         Salus.toast(error.message, 'error');
     } finally {
