@@ -1,5 +1,8 @@
 <?php
 
+// Hora de Paraguay, sin depender del php.ini de cada equipo.
+date_default_timezone_set('America/Asuncion');
+
 $configDb = require __DIR__ . '/config.php';
 require_once __DIR__ . '/sesion.php';
 

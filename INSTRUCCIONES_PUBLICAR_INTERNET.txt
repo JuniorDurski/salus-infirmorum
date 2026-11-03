@@ -1,0 +1,276 @@
+SALUS INFIRMORUM - PUBLICAR EL SISTEMA EN INTERNET (TUNEL DE CLOUDFLARE)
+=========================================================================
+
+OBJETIVO
+--------
+Permitir que el sistema se use desde cualquier lugar (datos moviles, otra
+red WiFi, otra ciudad), no solamente desde el WiFi del laboratorio.
+
+Direccion publica:
+https://salus.isidorustech.com/
+
+Como funciona:
+- Esta computadora abre una conexion de salida hacia Cloudflare (el "tunel").
+- Cloudflare recibe las visitas en https://salus.isidorustech.com y las
+  envia por ese tunel hasta el Apache de esta computadora.
+- No hace falta abrir puertos en el router ni tener IP fija.
+- La conexion es HTTPS (con candado) automaticamente.
+
+Datos del tunel ya creado:
+- Nombre del tunel: salus
+- ID del tunel:     4951be8c-7895-4748-9eb3-b90dff184889
+- Dominio:          isidorustech.com (cuenta de Cloudflare)
+- Puerto interno:   127.0.0.1:8090 (sitio de Apache solo para el tunel)
+
+
+USO DIARIO (CUANDO TODO YA ESTA CONFIGURADO)
+============================================
+1. Abra el panel de control de XAMPP.
+2. Presione Start en Apache y en MySQL.
+3. Si el tunel esta instalado como servicio (ver PASO 8), ya esta funcionando.
+   Si no lo esta, abra PowerShell y ejecute:
+
+   & "C:\Program Files (x86)\cloudflared\cloudflared.exe" tunnel run salus
+
+   Deje esa ventana abierta. Para detener el tunel presione Ctrl+C.
+4. Entre desde cualquier dispositivo a:
+
+   https://salus.isidorustech.com/
+
+IMPORTANTE:
+- La computadora debe permanecer encendida y con internet.
+- Apache y MySQL deben estar iniciados en XAMPP.
+- Si la computadora se suspende, el sistema deja de responder.
+
+
+CONFIGURACION DESDE CERO
+========================
+Siga estos pasos solamente si hay que armar todo de nuevo (por ejemplo,
+en otra computadora). En esta computadora ya estan hechos los pasos 1 a 7.
+
+
+PASO 1 - INSTALAR CLOUDFLARED
+-----------------------------
+Abra PowerShell y ejecute:
+
+winget install --id Cloudflare.cloudflared -e
+
+Compruebe la instalacion:
+
+& "C:\Program Files (x86)\cloudflared\cloudflared.exe" --version
+
+Debe mostrar algo como: cloudflared version 2026.x.x
+
+
+PASO 2 - INICIAR SESION EN CLOUDFLARE
+-------------------------------------
+& "C:\Program Files (x86)\cloudflared\cloudflared.exe" tunnel login
+
+1. Se abre el navegador en el panel de Cloudflare.
+2. Inicie sesion con la cuenta duena del dominio.
+3. Elija el dominio isidorustech.com y presione "Autorizar".
+4. En PowerShell debe aparecer: "You have successfully logged in."
+
+Esto guarda el archivo:
+C:\Users\AMD RYZEN\.cloudflared\cert.pem
+
+
+PASO 3 - CREAR EL TUNEL
+-----------------------
+& "C:\Program Files (x86)\cloudflared\cloudflared.exe" tunnel create salus
+
+Muestra el ID del tunel y guarda un archivo de credenciales:
+C:\Users\AMD RYZEN\.cloudflared\<ID-DEL-TUNEL>.json
+
+Ese archivo es secreto: no lo comparta ni lo suba a git.
+
+Para ver los tuneles existentes:
+
+& "C:\Program Files (x86)\cloudflared\cloudflared.exe" tunnel list
+
+
+PASO 4 - CONECTAR EL SUBDOMINIO AL TUNEL
+----------------------------------------
+& "C:\Program Files (x86)\cloudflared\cloudflared.exe" tunnel route dns salus salus.isidorustech.com
+
+Esto crea automaticamente en Cloudflare un registro DNS CNAME
+"salus" que apunta al tunel. Se puede ver en el panel de Cloudflare:
+isidorustech.com > DNS > Registros.
+
+
+PASO 5 - ARCHIVO DE CONFIGURACION DEL TUNEL
+-------------------------------------------
+Cree el archivo C:\Users\AMD RYZEN\.cloudflared\config.yml con este
+contenido (cambie el ID si creo un tunel nuevo):
+
+tunnel: 4951be8c-7895-4748-9eb3-b90dff184889
+credentials-file: C:\Users\AMD RYZEN\.cloudflared\4951be8c-7895-4748-9eb3-b90dff184889.json
+
+ingress:
+  - hostname: salus.isidorustech.com
+    service: http://127.0.0.1:8090
+  - service: http_status:404
+
+La ultima linea hace que cualquier otra direccion reciba "404".
+
+
+PASO 6 - SITIO DE APACHE SOLO PARA EL TUNEL
+-------------------------------------------
+El tunel NO apunta al Apache normal (puerto 80), porque ahi tambien estan
+phpMyAdmin y el resto de htdocs. Se usa un sitio aparte en el puerto 8090
+que solamente muestra este proyecto y bloquea las carpetas privadas.
+
+Agregue al final de C:\xampp\apache\conf\extra\httpd-vhosts.conf:
+
+Listen 127.0.0.1:8090
+<VirtualHost 127.0.0.1:8090>
+    ServerName salus.isidorustech.com
+    DocumentRoot "C:/xampp/htdocs/salus-infirmorum"
+    <Directory "C:/xampp/htdocs/salus-infirmorum">
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+
+    # Cloudflare atiende en HTTPS; avisa a PHP para usar cookies seguras.
+    SetEnvIf X-Forwarded-Proto "^https$" HTTPS=on
+
+    # Carpetas que solo usa el servidor: no se sirven por web.
+    RedirectMatch 404 "(?i)^/(\.git|db|doc|mpdf)(/|$)"
+    <FilesMatch "(?i)\.(md|txt|sql|log|mmd|bak|architect~?|gitignore|gitkeep|htaccess)$">
+        Require all denied
+    </FilesMatch>
+</VirtualHost>
+
+Por que se bloquean esas carpetas:
+- db/   tiene copias completas de la base de datos (.sql), incluida la de
+        cedulas. Sin este bloqueo cualquiera podria descargarlas.
+- .git  tiene todo el historial del codigo.
+- doc/  tiene los modelos de informes en Word.
+- mpdf/ es la libreria de PDF; solo la usa PHP internamente.
+
+Compruebe que la configuracion no tenga errores:
+
+C:\xampp\apache\bin\httpd.exe -t
+
+Debe responder: Syntax OK
+
+Hay una copia de la configuracion original en:
+C:\xampp\apache\conf\extra\httpd-vhosts.conf.bak-tunel
+
+
+PASO 7 - REINICIAR APACHE Y PROBAR
+----------------------------------
+1. En el panel de XAMPP presione Stop en Apache y luego Start.
+2. Compruebe que el puerto 8090 esta escuchando:
+
+   Get-NetTCPConnection -State Listen -LocalPort 8090
+
+3. Compruebe el sitio local:
+
+   Invoke-WebRequest http://127.0.0.1:8090/login.php -UseBasicParsing
+
+   StatusCode 200 indica que funciona.
+
+4. Inicie el tunel:
+
+   & "C:\Program Files (x86)\cloudflared\cloudflared.exe" tunnel run salus
+
+   Deben aparecer varias lineas "Registered tunnel connection".
+
+5. Desde un celular CON DATOS MOVILES (sin WiFi) abra:
+
+   https://salus.isidorustech.com/
+
+6. Compruebe que lo privado esta bloqueado (deben dar error 404 o 403):
+
+   https://salus.isidorustech.com/db/db.sql
+   https://salus.isidorustech.com/.git/config
+   https://salus.isidorustech.com/README.md
+
+
+PASO 8 - DEJAR EL TUNEL COMO SERVICIO DE WINDOWS (OPCIONAL)
+-----------------------------------------------------------
+Asi el tunel arranca solo al encender la computadora, sin ventana abierta.
+Apache y MySQL igual hay que iniciarlos en XAMPP (o instalarlos como
+servicio con los botones "Svc" del panel de XAMPP).
+
+1. Abra PowerShell COMO ADMINISTRADOR (clic derecho > Ejecutar como
+   administrador).
+
+2. Copie los archivos del tunel a una carpeta fija:
+
+   New-Item -ItemType Directory -Force C:\cloudflared
+   Copy-Item "C:\Users\AMD RYZEN\.cloudflared\4951be8c-7895-4748-9eb3-b90dff184889.json" C:\cloudflared\
+   Copy-Item "C:\Users\AMD RYZEN\.cloudflared\config.yml" C:\cloudflared\
+
+3. Abra C:\cloudflared\config.yml con el Bloc de notas y cambie la linea
+   credentials-file por:
+
+   credentials-file: C:\cloudflared\4951be8c-7895-4748-9eb3-b90dff184889.json
+
+4. Instale el servicio y digale que use ese archivo:
+
+   & "C:\Program Files (x86)\cloudflared\cloudflared.exe" service install
+   sc.exe config cloudflared binPath= "\"C:\Program Files (x86)\cloudflared\cloudflared.exe\" --config C:\cloudflared\config.yml tunnel run"
+   Restart-Service cloudflared
+
+5. Verifique:
+
+   Get-Service cloudflared
+
+   Status debe ser Running.
+
+Para quitar el servicio (como administrador):
+
+   Stop-Service cloudflared
+   & "C:\Program Files (x86)\cloudflared\cloudflared.exe" service uninstall
+
+
+ARCHIVOS GRANDES
+----------------
+- PHP acepta archivos de hasta 40 MB (php.ini: upload_max_filesize y
+  post_max_size).
+- El plan gratuito de Cloudflare acepta hasta 100 MB por envio.
+- Si se necesita subir algo mas grande que 40 MB, aumente esos dos valores
+  en C:\xampp\php\php.ini y reinicie Apache. Nunca mas de 100 MB.
+
+
+SOLUCION DE PROBLEMAS
+---------------------
+1. Error 1033 de Cloudflare ("Argo Tunnel error"):
+   el tunel no esta corriendo. Inicie el PASO 7.4 o revise el servicio.
+
+2. Error 502 "Bad gateway":
+   el tunel funciona pero Apache no responde en el 8090. Inicie o reinicie
+   Apache en XAMPP y verifique el PASO 7.2.
+
+3. El sistema abre pero se cierra la sesion sola:
+   la sesion vence tras 30 minutos sin uso; es normal.
+
+4. La hora aparece mal:
+   la zona horaria esta fijada a America/Asuncion en db/conexion.php y en
+   C:\xampp\php\php.ini (date.timezone). Reinicie Apache tras cambiarla.
+
+5. Ver el estado del tunel:
+
+   & "C:\Program Files (x86)\cloudflared\cloudflared.exe" tunnel info salus
+
+
+DESACTIVAR LA PUBLICACION EN INTERNET
+-------------------------------------
+- Temporalmente: cierre la ventana del tunel (Ctrl+C) o detenga el
+  servicio:  Stop-Service cloudflared
+- Definitivamente (borra el tunel y su direccion):
+
+  & "C:\Program Files (x86)\cloudflared\cloudflared.exe" tunnel delete salus
+
+  Luego borre el registro DNS "salus" en el panel de Cloudflare.
+
+
+SEGURIDAD
+---------
+- Cualquier persona con la direccion puede ver la pantalla de login.
+  Use contrasenas fuertes y no deje usuarios con la clave predeterminada.
+- Los archivos de C:\Users\AMD RYZEN\.cloudflared\ (cert.pem y el .json)
+  permiten controlar el tunel: no los comparta ni los suba a git.
