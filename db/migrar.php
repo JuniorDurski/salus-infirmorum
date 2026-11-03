@@ -117,7 +117,9 @@ function descubrirMigraciones(string $directorio): array
             'description' => str_replace('_', ' ', $partes[2]),
             'script' => $archivo,
             'path' => $ruta,
-            'checksum' => hash_file('sha256', $ruta),
+            // Se normalizan los saltos de línea: Git en Windows (core.autocrlf) puede
+            // reescribir LF como CRLF sin cambiar el contenido de la migración.
+            'checksum' => hash('sha256', str_replace("\r\n", "\n", (string) file_get_contents($ruta))),
         ];
     }
 

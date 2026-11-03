@@ -142,6 +142,7 @@ function guardarPaciente(mysqli $conexion): void
         $stmt->bind_param('is', $idPais, $documento);
         $stmt->execute();
         $id = (int) ($stmt->get_result()->fetch_assoc()['id_paciente'] ?? 0);
+        $reingreso = $id > 0;
     }
 
     if ($id > 0) {
@@ -171,6 +172,13 @@ function guardarPaciente(mysqli $conexion): void
 
     $stmt->execute();
     $idGuardado = $id > 0 ? $id : (int) $conexion->insert_id;
+    // Re-ingreso: vuelve a aparecer como pendiente desde hoy y sigue el flujo normal.
+    // El registro desactivado anterior no se toca.
+    if ($reingreso ?? false) {
+        $stmt = $conexion->prepare('UPDATE pacientes SET reingresado_en = NOW() WHERE id_paciente = ?');
+        $stmt->bind_param('i', $idGuardado);
+        $stmt->execute();
+    }
     // El código vive en el registro de postulantes. Si todavía no está registrado,
     // la pantalla lo envía junto con el cobro que crea el registro.
     if ($codigo !== null && mb_strlen($codigo, 'UTF-8') > 20) {

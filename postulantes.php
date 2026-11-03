@@ -526,6 +526,12 @@ async function buscarCedula(){
                 const a=asignacionDe(r.id_paciente);
                 if(a){Salus.toast(`Ya está registrado en postulantes desde el ${fechaHora(a.fecha_registro)} (${a.escuela} · ${a.arreador}). Use “Pagar” en la tabla para cobrar el saldo.`,'warn');return;}
                 abrirPagos(r.id_paciente);
+            }else if(r.activo){
+                // Su registro en postulantes fue desactivado: se puede registrar de nuevo.
+                // Al guardar, el backend reutiliza el mismo paciente.
+                id_paciente.value='';
+                nombre.value=r.nombre||''; fecha_nacimiento.value=r.fecha_nacimiento||''; es_femenino.value=r.sexo==='F'?'1':'0';
+                Salus.toast('Su registro anterior en postulantes fue desactivado. Revise los datos y guarde para registrarlo de nuevo.','warn');
             }else{
                 id_paciente.value='';
                 nombre.value=r.nombre||''; fecha_nacimiento.value=r.fecha_nacimiento||''; es_femenino.value=r.sexo==='F'?'1':'0';

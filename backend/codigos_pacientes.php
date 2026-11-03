@@ -20,7 +20,8 @@ function sqlMomentoRegistroPaciente(string $alias = 'p'): string
 {
     return "COALESCE((SELECT MAX(ap_reg.derivado_en)
                         FROM postulantes_arreador_postulante ap_reg
-                       WHERE ap_reg.id_paciente = {$alias}.id_paciente AND ap_reg.activo = 1), {$alias}.creado_en)";
+                       WHERE ap_reg.id_paciente = {$alias}.id_paciente AND ap_reg.activo = 1),
+                     {$alias}.reingresado_en, {$alias}.creado_en)";
 }
 
 /**
@@ -82,15 +83,19 @@ function sqlCodigoManualPaciente(string $alias = 'p'): string
 
 /**
  * Condición SQL: el paciente se muestra en los módulos de postulantes. Se oculta
- * cuando todos sus registros en postulantes están desactivados; un paciente sin
- * ningún registro todavía se muestra (está en proceso de registrarse).
+ * cuando todos sus registros en postulantes están desactivados. Se muestra si
+ * tiene un registro activo, si nunca se registró (está en proceso de hacerlo) o si
+ * se lo volvió a cargar después de la última desactivación (re-ingreso pendiente).
  */
 function sqlVisibleEnPostulantes(string $alias = 'p'): string
 {
     return "(EXISTS (SELECT 1 FROM postulantes_arreador_postulante ap_vis
                       WHERE ap_vis.id_paciente = {$alias}.id_paciente AND ap_vis.activo = 1)
              OR NOT EXISTS (SELECT 1 FROM postulantes_arreador_postulante ap_vis
-                             WHERE ap_vis.id_paciente = {$alias}.id_paciente))";
+                             WHERE ap_vis.id_paciente = {$alias}.id_paciente)
+             OR COALESCE({$alias}.reingresado_en >= (SELECT MAX(ap_vis.eliminado_en)
+                                                       FROM postulantes_arreador_postulante ap_vis
+                                                      WHERE ap_vis.id_paciente = {$alias}.id_paciente AND ap_vis.activo = 0), 0))";
 }
 
 /** Expresión SQL con el código a mostrar: el cargado a mano o el generado "NNN-ID". */
