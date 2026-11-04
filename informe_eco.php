@@ -30,6 +30,12 @@ include 'menu.php';
 .eco-image-remove { align-items: center; display: flex; font-size: .9rem; gap: 7px; margin-top: 9px; }
 .eco-print-option { align-items: flex-start; border: 1px solid var(--border); border-radius: 12px; display: flex; gap: 10px; padding: 14px; }
 .eco-print-option input { margin-top: 3px; }
+.eco-lote-modal { width: min(1100px, calc(100vw - 30px)); max-height: 94vh; }
+.eco-lote-tabla select { min-width: 260px; width: 100%; }
+.eco-lote-tabla td { vertical-align: middle; }
+.eco-lote-estudios { display: flex; flex-wrap: wrap; gap: 4px; }
+.eco-lote-resumen { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.eco-lote-fila-error { background: var(--danger-soft); }
 @media (max-width: 680px) { .eco-image-editor { grid-template-columns: 1fr; } }
 </style>
 
@@ -63,6 +69,9 @@ include 'menu.php';
     <div class="card-header">
         <div><h2>Resultados</h2><p class="help-text" id="resumen">Use los filtros para buscar postulantes.</p></div>
         <div class="eco-print-actions acciones-impresion">
+            <?php if ($puedeEditarEco): ?>
+            <button type="button" class="btn-small" onclick="abrirLoteEco()" title="Subir el .zip del ecógrafo con una carpeta por postulante">Cargar comprimido</button>
+            <?php endif; ?>
             <span class="eco-print-label">Imprimir todos:</span>
             <span id="botonesImpresionEco"></span>
         </div>
@@ -139,6 +148,44 @@ include 'menu.php';
         </div>
     </form>
 </dialog>
+
+<?php if ($puedeEditarEco): ?>
+<dialog class="modal eco-lote-modal" id="modalLoteEco">
+    <div class="modal-header">
+        <div><span class="eyebrow">Imágenes ECO</span><h2>Cargar comprimido</h2></div>
+        <button class="icon-button" type="button" onclick="modalLoteEco.close()" aria-label="Cerrar">×</button>
+    </div>
+    <div class="modal-body">
+        <div id="loteEcoPaso1">
+            <p class="help-text" style="margin-top:0">
+                Suba el <strong>.zip</strong> del ecógrafo (una carpeta por postulante, nombrada con sus apellidos).
+                Las carpetas se comparan con los <strong id="loteEcoCantidad">0</strong> postulantes de la lista actual,
+                así que primero filtre por fecha o escuela. Las imágenes se asignan en orden:
+                hombres <em>Abdominal → Testicular</em>; mujeres <em>Abdominal → Ginecológica → Mamaria</em>.
+            </p>
+            <div class="campo"><input type="file" id="loteEcoArchivo" accept=".zip,application/zip,application/x-zip-compressed"></div>
+        </div>
+        <div id="loteEcoPaso2" hidden>
+            <div class="eco-lote-resumen" id="loteEcoResumen"></div>
+            <p class="help-text" style="margin-top:0">Revise a quién corresponde cada carpeta. Puede corregir el postulante o elegir «No cargar».</p>
+            <div class="table-wrap"><table class="data-table eco-lote-tabla">
+                <thead><tr><th>Carpeta</th><th>Postulante</th><th>Se cargará como</th></tr></thead>
+                <tbody id="loteEcoFilas"></tbody>
+            </table></div>
+            <label class="eco-print-option" style="margin-top:12px">
+                <input type="checkbox" id="loteEcoReemplazar" checked>
+                <span><strong>Reemplazar imágenes ya cargadas</strong><br><small>Si lo desmarca, los estudios que ya tienen imagen se dejan como están.</small></span>
+            </label>
+            <p class="help-text" id="loteEcoSinCarpeta"></p>
+        </div>
+    </div>
+    <div class="modal-footer">
+        <button class="btn-secondary" type="button" onclick="modalLoteEco.close()">Cancelar</button>
+        <button type="button" id="loteEcoAnalizar" onclick="analizarLoteEco()">Analizar comprimido</button>
+        <button type="button" id="loteEcoAplicar" onclick="aplicarLoteEco()" hidden>Cargar imágenes</button>
+    </div>
+</dialog>
+<?php endif; ?>
 
 <script>
 const puedeEditarEco = <?= $puedeEditarEco ? 'true' : 'false' ?>;
@@ -491,6 +538,158 @@ function imprimirTodos(codigo) {
     if (!plantilla) return;
     const compatibles = pacientesEco.filter(paciente => estudiosCompatiblesEco(paciente).some(item => item.codigo === codigo));
     prepararImpresionEco(compatibles.map(paciente => Number(paciente.id_postulante)), codigo);
+}
+
+// ---- Carga masiva desde un .zip ----
+const ESTUDIOS_LOTE_ECO = {
+    MASCULINO: ['ABDOMINAL_URGENCIA', 'TESTICULAR'],
+    FEMENINO: ['ABDOMINAL_URGENCIA', 'GINECOLOGICA', 'MAMARIA'],
+};
+const ESTADOS_LOTE_ECO = {
+    ok: ['badge-success', 'Coincide'],
+    ambiguo: ['badge-warn', 'Varios posibles'],
+    conflicto: ['badge-warn', 'Repetido'],
+    sin_coincidencia: ['badge-danger', 'Sin coincidencia'],
+};
+let loteEco = null; // {lote, carpetas:[...]}
+
+function abrirLoteEco() {
+    if (!puedeEditarEco) return;
+    loteEco = null;
+    loteEcoArchivo.value = '';
+    loteEcoCantidad.textContent = pacientesEco.length;
+    loteEcoPaso1.hidden = false;
+    loteEcoPaso2.hidden = true;
+    loteEcoAnalizar.hidden = false;
+    loteEcoAplicar.hidden = true;
+    modalLoteEco.showModal();
+}
+
+async function analizarLoteEco() {
+    const archivo = loteEcoArchivo.files[0];
+    if (!archivo) return Salus.toast('Seleccione el archivo .zip.', 'error');
+    if (!/\.zip$/i.test(archivo.name)) return Salus.toast('El archivo debe ser .zip.', 'error');
+    if (archivo.size > 40 * 1024 * 1024) return Salus.toast('El comprimido puede pesar como máximo 40 MB.', 'error');
+    if (!pacientesEco.length) return Salus.toast('No hay postulantes en la lista. Ajuste los filtros.', 'error');
+    const cuerpo = Salus.form();
+    cuerpo.append('comprimido', archivo);
+    pacientesEco.forEach(paciente => cuerpo.append('ids[]', paciente.id_postulante));
+    loteEcoAnalizar.disabled = true;
+    loteEcoAnalizar.textContent = 'Analizando…';
+    try {
+        loteEco = await Salus.json('backend/informesEcoDAO.php?q=lote_analizar', {method:'POST', body:cuerpo});
+        renderLoteEco();
+        loteEcoPaso1.hidden = true;
+        loteEcoPaso2.hidden = false;
+        loteEcoAnalizar.hidden = true;
+        loteEcoAplicar.hidden = false;
+    } catch (error) {
+        Salus.toast(error.message, 'error');
+    } finally {
+        loteEcoAnalizar.disabled = false;
+        loteEcoAnalizar.textContent = 'Analizar comprimido';
+    }
+}
+
+function pacienteEcoPorId(id) {
+    return pacientesEco.find(item => Number(item.id_postulante) === Number(id)) || null;
+}
+
+function renderLoteEco() {
+    const ordenados = [...pacientesEco].sort((a, b) => String(a.nombre).localeCompare(String(b.nombre)));
+    loteEcoFilas.innerHTML = loteEco.carpetas.map((fila, indice) => {
+        const sugeridos = (fila.candidatos || []).map(Number);
+        const opcion = paciente => {
+            const id = Number(paciente.id_postulante);
+            return `<option value="${id}" ${id === Number(fila.id_postulante) ? 'selected' : ''}>${Salus.escape(Salus.ordenNombre(paciente))} · ${Salus.escape(paciente.sexo)}</option>`;
+        };
+        const grupoSugeridos = sugeridos.map(pacienteEcoPorId).filter(Boolean);
+        const resto = ordenados.filter(paciente => !sugeridos.includes(Number(paciente.id_postulante)));
+        const [clase, texto] = ESTADOS_LOTE_ECO[fila.estado] || ESTADOS_LOTE_ECO.sin_coincidencia;
+        return `<tr data-lote-fila="${indice}">
+            <td><strong>${Salus.escape(fila.apellidos || fila.carpeta)}</strong><br>
+                <small>${Number(fila.imagenes)} imagen(es)</small> <span class="badge ${clase}">${texto}</span></td>
+            <td><select data-lote-select="${indice}">
+                <option value="">— No cargar —</option>
+                ${grupoSugeridos.length ? `<optgroup label="Sugeridos">${grupoSugeridos.map(opcion).join('')}</optgroup>` : ''}
+                <optgroup label="Todos los de la lista">${resto.map(opcion).join('')}</optgroup>
+            </select></td>
+            <td class="eco-lote-estudios" data-lote-estudios="${indice}"></td>
+        </tr>`;
+    }).join('');
+    loteEcoFilas.querySelectorAll('[data-lote-select]').forEach(select => select.addEventListener('change', actualizarLoteEco));
+    actualizarLoteEco();
+}
+
+// Recalcula los estudios de cada fila, los repetidos y el resumen al cambiar una asignación.
+function actualizarLoteEco() {
+    const elegidos = [...loteEcoFilas.querySelectorAll('[data-lote-select]')].map(select => select.value);
+    const usos = elegidos.reduce((mapa, id) => (id && (mapa[id] = (mapa[id] || 0) + 1), mapa), {});
+    let listas = 0, imagenes = 0, problemas = 0;
+    loteEco.carpetas.forEach((fila, indice) => {
+        const celda = loteEcoFilas.querySelector(`[data-lote-estudios="${indice}"]`);
+        const tr = celda.closest('tr');
+        const id = elegidos[indice];
+        const paciente = id ? pacienteEcoPorId(id) : null;
+        tr.classList.remove('eco-lote-fila-error');
+        if (!paciente) { celda.innerHTML = '<small class="help-text">No se cargará</small>'; return; }
+        if (usos[id] > 1) {
+            tr.classList.add('eco-lote-fila-error');
+            celda.innerHTML = '<span class="badge badge-danger">Postulante asignado a otra carpeta</span>';
+            problemas++;
+            return;
+        }
+        const codigos = ESTUDIOS_LOTE_ECO[String(paciente.sexo).toUpperCase()] || ESTUDIOS_LOTE_ECO.MASCULINO;
+        const cantidad = Number(fila.imagenes);
+        if (cantidad > codigos.length) {
+            tr.classList.add('eco-lote-fila-error');
+            celda.innerHTML = `<span class="badge badge-danger">${cantidad} imágenes; se esperan ${codigos.length}. No se cargará</span>`;
+            problemas++;
+            return;
+        }
+        celda.innerHTML = codigos.slice(0, cantidad).map(codigo => {
+            const nombre = plantillasEco.find(item => item.codigo === codigo)?.nombre || codigo;
+            const reemplaza = tieneImagenEco(paciente.id_postulante, codigo);
+            return `<span class="badge ${reemplaza ? 'badge-warn' : 'badge-success'}" title="${reemplaza ? 'Ya tiene imagen' : 'Sin imagen todavía'}">${Salus.escape(nombre)}${reemplaza ? ' ↻' : ''}</span>`;
+        }).join('') + (cantidad < codigos.length ? ` <small class="help-text">(faltan ${codigos.length - cantidad})</small>` : '');
+        listas++;
+        imagenes += cantidad;
+    });
+    const sinCarpeta = pacientesEco.filter(paciente => !usos[String(Number(paciente.id_postulante))]);
+    loteEcoResumen.innerHTML = `<span class="badge badge-success">${listas} postulante(s) · ${imagenes} imagen(es)</span>`
+        + (problemas ? `<span class="badge badge-danger">${problemas} con problemas</span>` : '')
+        + `<span class="badge badge-muted">${loteEco.carpetas.length} carpeta(s) en el zip</span>`;
+    loteEcoSinCarpeta.textContent = sinCarpeta.length
+        ? `Postulantes de la lista sin carpeta (${sinCarpeta.length}): ` + sinCarpeta.map(paciente => paciente.nombre).join(', ')
+        : 'Todos los postulantes de la lista tienen carpeta.';
+    loteEcoAplicar.disabled = problemas > 0 || listas === 0;
+    loteEcoAplicar.textContent = `Cargar ${imagenes} imagen(es)`;
+}
+
+async function aplicarLoteEco() {
+    if (!loteEco) return;
+    const asignaciones = loteEco.carpetas.map((fila, indice) => ({
+        carpeta: fila.carpeta,
+        id_postulante: Number(loteEcoFilas.querySelector(`[data-lote-select="${indice}"]`).value) || 0,
+    })).filter(item => item.id_postulante > 0);
+    loteEcoAplicar.disabled = true;
+    loteEcoAplicar.textContent = 'Cargando…';
+    try {
+        const respuesta = await Salus.json('backend/informesEcoDAO.php?q=lote_aplicar', {
+            method:'POST',
+            body:Salus.form({lote:loteEco.lote, asignaciones:JSON.stringify(asignaciones), reemplazar:loteEcoReemplazar.checked ? '1' : '0'}),
+        });
+        modalLoteEco.close();
+        let mensaje = `${respuesta.cargadas} imagen(es) cargadas para ${respuesta.postulantes} postulante(s).`;
+        if (respuesta.omitidas) mensaje += ` ${respuesta.omitidas} omitida(s) porque ya tenían imagen.`;
+        Salus.toast(mensaje, respuesta.errores?.length ? 'error' : undefined);
+        if (respuesta.errores?.length) alert('Algunas imágenes no se cargaron:\n\n' + respuesta.errores.join('\n'));
+        await cargarImagenesEco();
+        renderEco();
+    } catch (error) {
+        Salus.toast(error.message, 'error');
+        actualizarLoteEco();
+    }
 }
 
 modalImagenesEco.addEventListener('close', liberarVistasImagenEco);

@@ -4,6 +4,7 @@ header('Content-Type: application/json; charset=utf-8');
 require_once __DIR__ . '/conexion.php';
 require_once __DIR__ . '/seguridad.php';
 require_once __DIR__ . '/informes_eco_service.php';
+require_once __DIR__ . '/informes_eco_lote.php';
 
 $identidad = requerirAutenticacion($conexion, 'reportes.eco.imprimir', true);
 $q = $_GET['q'] ?? '';
@@ -35,6 +36,18 @@ try {
             }
             validarCsrf();
             guardarImagenesEco($conexion, $identidad);
+            break;
+        case 'lote_analizar':
+        case 'lote_aplicar':
+            if (!tienePermiso($identidad, 'reportes.eco.editar')) {
+                responderJson(['status' => 'error', 'mensaje' => 'No tiene permiso para editar informes ECO.'], 403);
+            }
+            // Si el envío supera post_max_size PHP descarta todo el formulario (incluido el token).
+            if ($_POST === [] && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+                responderJson(['status' => 'error', 'mensaje' => 'El comprimido supera el tamaño máximo permitido por el servidor (' . ini_get('post_max_size') . ').'], 413);
+            }
+            validarCsrf();
+            $q === 'lote_analizar' ? analizarLoteEco($conexion) : aplicarLoteEco($conexion, $identidad);
             break;
         default:
             responderJson(['status' => 'error', 'mensaje' => 'Operación no válida.'], 400);
