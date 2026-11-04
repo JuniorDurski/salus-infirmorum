@@ -72,7 +72,8 @@ async function buscar() {
         q: 'buscar',
         texto: txtBuscar.value,
         designacion: f_designacion.value,
-        fecha: f_fecha.value
+        fecha: f_fecha.value,
+        orden: 'orden_dia'
     });
 
     try {

@@ -114,9 +114,9 @@ foreach ($pacientes as $p) {
         'Rh' => grupoSanguineoCorto($p['grupo_sanguineo']),
     ];
     if ($reporte === 'comision') {
-        $fila['Comisión de gestión'] = importeEntero($p['comision_arreador']);
+        $fila['Comisión'] = importeEntero($p['comision_arreador']);
     } elseif ($reporte === 'clinica') {
-        $fila['Ganancia de la clínica'] = importeEntero($p['monto_clinica']);
+        $fila['Ganancia'] = importeEntero($p['monto_clinica']);
     }
     $filas[] = $fila;
 }
@@ -126,7 +126,7 @@ $titulosReporte = [
     'comision' => 'Postulantes y comisión de gestión',
     'clinica' => 'Postulantes y ganancia de la clínica',
 ];
-$columnasTotales = ['comision' => 'Comisión de gestión', 'clinica' => 'Ganancia de la clínica'];
+$columnasTotales = ['comision' => 'Comisión', 'clinica' => 'Ganancia'];
 $columnaTotal = $columnasTotales[$reporte] ?? null;
 $totalReporte = $columnaTotal === null ? null : array_sum(array_map(
     static fn(array $fila): int => (int) str_replace('.', '', (string) ($fila[$columnaTotal] ?? 0)),
@@ -136,46 +136,60 @@ $reloj = $conexion->query("SELECT DATE_FORMAT(NOW(), '%Y-%m-%d_%H-%i') AS archiv
 $base = $entidad . '-' . $reporte . '-' . $reloj['archivo'];
 $tituloReporte = $esPostulantes ? $titulosReporte[$reporte] : 'Lista de pacientes';
 
-$datosCabecera = [];
-if ($esPostulantes) {
-    $datosCabecera['Escuela'] = $escuelasReporte === [] ? 'Sin escuela' : implode(', ', array_keys($escuelasReporte));
+// Convenio: el elegido en pantalla o, si toda la lista es de un mismo convenio, ese.
+$convenioDatos = null;
+$idConvenio = (int) ($_POST['id_convenio'] ?? 0);
+if ($idConvenio <= 0 && count($conveniosReporte) === 1) {
+    $idConvenio = (int) array_key_first($conveniosReporte);
 }
+if ($idConvenio > 0) {
+    $stmt = $conexion->prepare(
+        'SELECT a.nombre AS arreador, a.institucion, e.nombre AS escuela
+         FROM postulantes_arreador_escuela ae
+         INNER JOIN postulantes_arreadores a ON a.id_arreador = ae.id_arreador
+         INNER JOIN escuelas e ON e.id_escuela = ae.id_escuela
+         WHERE ae.id_arreador_escuela = ?'
+    );
+    $stmt->bind_param('i', $idConvenio);
+    $stmt->execute();
+    $convenioDatos = $stmt->get_result()->fetch_assoc();
+}
+// Une las partes del convenio con " - ", salteando las vacías (p. ej. sin institución).
+$textoConvenio = static function (array $partes) use ($conveniosReporte): string {
+    $texto = implode(' - ', array_filter($partes, static fn($parte): bool => trim((string) $parte) !== ''));
+    return $texto !== '' ? $texto : (count($conveniosReporte) > 1 ? 'Varios' : 'Sin convenio');
+};
+$fechaFiltro = trim((string) ($_POST['fecha_registro'] ?? ''));
+$fechaFiltro = preg_match('#^\d{2}/\d{2}/\d{4}$#', $fechaFiltro) ? $fechaFiltro : 'Todas';
 
 if ($formato === 'xls') {
     // El Excel ya muestra la escuela en la lista: en la cabecera van convenio y fecha de registro.
-    $datosExcel = [];
     // Convenio como "ARREADOR - INSTITUCIÓN - ESCUELA" (sin institución si no tiene).
-    $convenioFiltro = '';
-    $idConvenio = (int) ($_POST['id_convenio'] ?? 0);
-    // Sin convenio elegido: si toda la lista es de un mismo convenio, se usa ese.
-    if ($idConvenio <= 0 && count($conveniosReporte) === 1) {
-        $idConvenio = (int) array_key_first($conveniosReporte);
-    }
-    if ($idConvenio > 0) {
-        $stmt = $conexion->prepare(
-            'SELECT a.nombre AS arreador, a.institucion, e.nombre AS escuela
-             FROM postulantes_arreador_escuela ae
-             INNER JOIN postulantes_arreadores a ON a.id_arreador = ae.id_arreador
-             INNER JOIN escuelas e ON e.id_escuela = ae.id_escuela
-             WHERE ae.id_arreador_escuela = ?'
-        );
-        $stmt->bind_param('i', $idConvenio);
-        $stmt->execute();
-        $convenioDatos = $stmt->get_result()->fetch_assoc();
-        if ($convenioDatos !== null) {
-            $convenioFiltro = implode(' - ', array_filter(
-                [$convenioDatos['arreador'], $convenioDatos['institucion'], $convenioDatos['escuela']],
-                static fn($parte): bool => trim((string) $parte) !== ''
-            ));
-        }
-    }
-    $fechaFiltro = trim((string) ($_POST['fecha_registro'] ?? ''));
+    $datosExcel = [];
     if ($esPostulantes) {
-        $datosExcel['Convenio'] = $convenioFiltro !== '' ? $convenioFiltro : (count($conveniosReporte) > 1 ? 'Varios' : 'Sin convenio');
-        $datosExcel['Fecha de registro'] = preg_match('#^\d{2}/\d{2}/\d{4}$#', $fechaFiltro) ? $fechaFiltro : 'Todas';
+        $datosExcel['Convenio'] = $textoConvenio($convenioDatos === null ? []
+            : [$convenioDatos['arreador'], $convenioDatos['institucion'], $convenioDatos['escuela']]);
+        $datosExcel['Fecha de registro'] = $fechaFiltro;
     }
     exportarExcel($filas, $base, $tituloReporte, $columnaTotal, $totalReporte, $reloj['generado'], $datosExcel, $filtro);
 } else {
+    // Cabecera del PDF de postulantes en dos columnas:
+    //   Escuela            | Fecha de registro
+    //   Arreador - Instit. | Generado
+    $datosCabecera = [];
+    if ($esPostulantes) {
+        $datosCabecera = [
+            [
+                'Escuela' => $escuelasReporte === [] ? 'Sin escuela' : implode(', ', array_keys($escuelasReporte)),
+                'Convenio' => $textoConvenio($convenioDatos === null ? []
+                    : [$convenioDatos['arreador'], $convenioDatos['institucion']]),
+            ],
+            [
+                'Fecha de registro' => $fechaFiltro,
+                'Generado' => $reloj['generado'],
+            ],
+        ];
+    }
     exportarPdf($filas, $base, $filtro, $tituloReporte, $columnaTotal, $totalReporte, $reloj['generado'], $datosCabecera);
 }
 
@@ -206,19 +220,28 @@ function importeEntero($valor): string
     return number_format((float) ($valor ?? 0), 0, ',', '.');
 }
 
+/** Cédula con puntos de miles ("5860649" -> "5.860.649"); si no es solo números, igual. */
+function cedulaConPuntos($valor): string
+{
+    $texto = trim((string) $valor);
+    return preg_match('/^\d+$/', $texto) ? number_format((int) $texto, 0, ',', '.') : $texto;
+}
+
+/** Tabla del PDF: cédulas con puntos de miles e importes alineados a la derecha. */
 function tablaHtml(array $filas, ?string $columnaTotal = null, ?int $total = null): string
 {
+    $importes = ['Comisión', 'Ganancia'];
+    $derecha = ' style="text-align:right"';
     $html = '<table class="lista" border="1"><thead><tr>';
     foreach (array_keys($filas[0]) as $cabecera) {
-        $html .= '<th>' . h($cabecera) . '</th>';
+        $html .= '<th' . (in_array($cabecera, $importes, true) ? $derecha : '') . '>' . h($cabecera) . '</th>';
     }
     $html .= '</tr></thead><tbody>';
     foreach ($filas as $fila) {
         $html .= '<tr>';
         foreach ($fila as $columna => $valor) {
-            // Documento y teléfono como texto para que Excel no los convierta en número
-            $estilo = in_array($columna, ['Documento', 'Teléfono', 'Código'], true) ? ' style="mso-number-format:\'\@\'"' : '';
-            $html .= '<td' . $estilo . '>' . h($valor) . '</td>';
+            if ($columna === 'Documento') $valor = cedulaConPuntos($valor);
+            $html .= '<td' . (in_array($columna, $importes, true) ? $derecha : '') . '>' . h($valor) . '</td>';
         }
         $html .= '</tr>';
     }
@@ -227,7 +250,7 @@ function tablaHtml(array $filas, ?string $columnaTotal = null, ?int $total = nul
     if ($columnaTotal !== null && $total !== null) {
         $cantidadColumnas = count($filas[0]);
         $html .= '<tfoot><tr><th colspan="' . ($cantidadColumnas - 1) . '" style="text-align:right">TOTAL</th>'
-            . '<th>' . h(importeEntero($total)) . '</th></tr></tfoot>';
+            . '<th' . $derecha . '>' . h(importeEntero($total)) . '</th></tr></tfoot>';
     }
 
     return $html . '</table>';
@@ -263,16 +286,38 @@ function exportarPdf(
             body { font-family: sans-serif; font-size: 8.5pt; }
             h1 { font-size: 14pt; margin: 0 0 2px; }
             .meta { color: #555; margin-bottom: 8px; }
+            table.meta { width: 100%; border-collapse: collapse; }
+            table.meta td { padding: 1px 0; vertical-align: top; }
+            /* Etiqueta y valor en celdas separadas para que los valores queden alineados.
+               Anchos fijos (mPDF ignora nowrap); el bloque derecho queda pegado al margen. */
+            table.meta td.meta-etiqueta { font-weight: bold; }
+            table.meta td.izq-etiqueta { width: 17mm; }
+            table.meta td.der-etiqueta { width: 30mm; }
+            table.meta td.der-valor { width: 25mm; }
             table.lista { width: 100%; border-collapse: collapse; }
             table.lista th { background: #e8eeec; font-weight: bold; text-align: left; }
             table.lista th, table.lista td { border: 0.5px solid #999; padding: 3px 4px; }
         </style>
         ' . membreteClinicaHtml() . '
-        <h1>' . h($titulo) . '</h1>
-        <div class="meta">
-            ' . implode('', array_map(static fn($k, $v): string => '<b>' . h($k) . ':</b> ' . h($v) . ' · ', array_keys($datosCabecera), $datosCabecera)) . 'Generado: ' . h($generado) . ' · ' . count($filas) . ' registro(s)'
-            . ($filtro !== '' ? ' · Filtro: ' . h($filtro) : '') . '
-        </div>';
+        <h1>' . h($titulo) . '</h1>';
+    if ($datosCabecera !== []) {
+        // $datosCabecera = [izquierda, derecha], cada una con sus filas "Etiqueta" => valor.
+        // En cada bloque los valores empiezan en la misma columna (en las fechas, sus "/" coinciden).
+        $pares = static fn(array $bloque): array => array_map(null, array_keys($bloque), array_values($bloque));
+        $izquierda = $pares($datosCabecera[0]);
+        $derecha = $pares($datosCabecera[1] ?? []);
+        $celdas = static fn(?array $par, string $lado): string =>
+            '<td class="meta-etiqueta ' . $lado . '-etiqueta">' . ($par ? h($par[0]) . ':' : '') . '</td>'
+            . '<td class="' . $lado . '-valor">' . ($par ? h($par[1]) : '') . '</td>';
+        $html .= '<table class="meta">';
+        for ($fila = 0, $filasMeta = max(count($izquierda), count($derecha)); $fila < $filasMeta; $fila++) {
+            $html .= '<tr>' . $celdas($izquierda[$fila] ?? null, 'izq') . $celdas($derecha[$fila] ?? null, 'der') . '</tr>';
+        }
+        $html .= '</table>';
+    } else {
+        $html .= '<div class="meta">Generado: ' . h($generado) . ' · ' . count($filas) . ' registro(s)'
+            . ($filtro !== '' ? ' · Filtro: ' . h($filtro) : '') . '</div>';
+    }
     $html .= $filas === [] ? '<p>Sin registros.</p>' : tablaHtml($filas, $columnaTotal, $total);
 
     $mpdf->WriteHTML($html);

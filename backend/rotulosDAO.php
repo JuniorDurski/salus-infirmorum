@@ -29,17 +29,10 @@ try {
 function listarEscuelasRotulos(mysqli $db): void
 {
     $rs = $db->query(
-        "SELECT id_escuela, nombre,
-                CONCAT(
-                    JSON_UNQUOTE(JSON_EXTRACT(periodo, '$.anio')),
-                    '-',
-                    LPAD(JSON_UNQUOTE(JSON_EXTRACT(periodo, '$.mes')), 2, '0')
-                ) AS periodo
+        "SELECT id_escuela, nombre
          FROM escuelas
          WHERE activo = 1
-         ORDER BY CAST(JSON_UNQUOTE(JSON_EXTRACT(periodo, '$.anio')) AS UNSIGNED) DESC,
-                  CAST(JSON_UNQUOTE(JSON_EXTRACT(periodo, '$.mes')) AS UNSIGNED) DESC,
-                  nombre"
+         ORDER BY nombre"
     );
     echo json_encode($rs->fetch_all(MYSQLI_ASSOC), JSON_UNESCAPED_UNICODE);
     exit;

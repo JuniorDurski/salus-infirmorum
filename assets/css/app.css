@@ -159,6 +159,8 @@ small, .help-text { color: var(--muted); }
 .stat span { display: block; color: var(--muted); font-size: .84rem; }
 .stat strong { display: block; margin-top: 7px; font-size: 1.8rem; }
 .field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 15px; }
+/* Formulario del postulante: los campos ya traen su margen inferior; sin espacio extra entre filas. */
+#frmPersona .field-grid { row-gap: 0; }
 .form-stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
 .campo, .field { display: grid; gap: 7px; margin-bottom: 15px; }
 .field.full, .campo.full { grid-column: 1 / -1; }
@@ -282,7 +284,7 @@ table { border-collapse: collapse; }
 .observation-list:not(:empty) + .observation-compose { border-top: 3px solid var(--primary); }
 .observation-compose textarea { min-height: 110px; }
 .observation-compose[hidden] { display: none; }
-.modal-footer { position: sticky; bottom: 0; display: flex; justify-content: flex-end; padding: 14px 22px; background: var(--surface); border-top: 1px solid var(--border); }
+.modal-footer { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; padding: 14px 22px; background: var(--surface); border-top: 1px solid var(--border); }
 .permission-list { display: grid; gap: 8px; padding: 4px 22px 20px; overflow-y: auto; }
 .permission-item { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
 
@@ -449,15 +451,26 @@ table { border-collapse: collapse; }
 
 /* Botones de impresión en el encabezado de Resultados, a la derecha del título. */
 .card-header > .acciones-impresion { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 7px; margin: 0 0 0 auto; max-width: 680px; }
-.acciones-impresion .eco-print-label, .acciones-impresion .rotulos-formato-etiqueta { margin: 0; font-size: .82rem; }
+.acciones-impresion .eco-print-label, .acciones-impresion .rotulos-formato-etiqueta { margin: 0; color: var(--muted); font-size: .88rem; font-weight: 700; white-space: nowrap; }
 .acciones-impresion #botonesImpresionEco, .acciones-impresion .rotulos-formatos { display: flex; flex-wrap: wrap; gap: 7px; justify-content: flex-end; }
 .acciones-impresion > small { flex-basis: 100%; text-align: right; }
 .card-header > .rotulos-print-actions.acciones-impresion { max-width: 440px; }
-/* Un solo botón de imprimir: verde. Varios: intercalados verde / claro. */
-.acciones-impresion .btn-print:nth-child(odd) { background: var(--btn-bg); border-color: transparent; color: var(--btn-text); }
-.acciones-impresion .btn-print:nth-child(odd):hover { background: var(--btn-bg-hover); color: var(--btn-text); }
+/* Todos los botones de imprimir del encabezado, en verde (mismo color en todos los módulos). */
+.acciones-impresion .btn-print { background: var(--btn-bg); border-color: transparent; color: var(--btn-text); }
+.acciones-impresion .btn-print:hover { background: var(--btn-bg-hover); color: var(--btn-text); }
+.acciones-impresion .btn-print:disabled:hover { background: var(--btn-bg); }
+
+/* Icono de subida (nube con flecha) para botones de carga de archivos. */
+.btn-upload::before {
+    content: ""; flex: 0 0 auto; width: 16px; height: 16px; background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4 4 0 0 1 0 9.5'/%3E%3Cpath d='M12 12v9'/%3E%3Cpath d='m8.5 15.5 3.5-3.5 3.5 3.5'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 18a4.5 4.5 0 0 1-.6-8.96A6 6 0 0 1 18 8.5a4 4 0 0 1 0 9.5'/%3E%3Cpath d='M12 12v9'/%3E%3Cpath d='m8.5 15.5 3.5-3.5 3.5 3.5'/%3E%3C/svg%3E") center / contain no-repeat;
+}
 @media (max-width: 820px) {
     .card-header:has(> .acciones-impresion) { flex-wrap: wrap; }
     .card-header > .acciones-impresion { justify-content: flex-start; margin: 0; }
     .acciones-impresion > small { text-align: left; }
 }
+
+/* El atributo hidden siempre oculta, aunque el elemento tenga display propio (p. ej. botones inline-flex). */
+[hidden] { display: none !important; }

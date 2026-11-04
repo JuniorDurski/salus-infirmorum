@@ -37,6 +37,12 @@ try {
             validarCsrf();
             guardarImagenesEco($conexion, $identidad);
             break;
+        case 'lote_imagen':
+            if (!tienePermiso($identidad, 'reportes.eco.editar')) {
+                responderJson(['status' => 'error', 'mensaje' => 'No tiene permiso para editar informes ECO.'], 403);
+            }
+            servirImagenLoteEco();
+            break;
         case 'lote_analizar':
         case 'lote_aplicar':
             if (!tienePermiso($identidad, 'reportes.eco.editar')) {

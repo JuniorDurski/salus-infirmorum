@@ -16,8 +16,7 @@ include 'menu.php';
 .eco-study-options { display: grid; gap: 10px; }
 .eco-study-options button { text-align: left; width: 100%; justify-content: space-between; }
 .eco-estado-imagen { font-size: .72rem; }
-.eco-print-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; }
-.eco-print-label { color: var(--text-muted, #64748b); font-size: .9rem; font-weight: 600; }
+.eco-resultados-titulo { align-items: center; display: flex; flex-wrap: wrap; gap: 14px; }
 .eco-image-editor { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .eco-image-slot { border: 1px solid var(--border); border-radius: 12px; padding: 12px; }
 .eco-image-slot > strong { display: block; margin-bottom: 8px; }
@@ -33,7 +32,11 @@ include 'menu.php';
 .eco-lote-modal { width: min(1100px, calc(100vw - 30px)); max-height: 94vh; }
 .eco-lote-tabla select { min-width: 260px; width: 100%; }
 .eco-lote-tabla td { vertical-align: middle; }
-.eco-lote-estudios { display: flex; flex-wrap: wrap; gap: 4px; }
+.eco-lote-estudios { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px; }
+.eco-lote-miniatura { display: grid; justify-items: center; gap: 4px; width: 104px; min-height: 0; padding: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: zoom-in; }
+.eco-lote-miniatura:hover { background: var(--surface-2); color: var(--text); border-color: var(--btn-bg); }
+.eco-lote-miniatura img { display: block; width: 94px; height: 70px; object-fit: cover; border-radius: 5px; background: #000; }
+.eco-lote-miniatura .badge { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .72rem; }
 .eco-lote-resumen { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
 .eco-lote-fila-error { background: var(--danger-soft); }
 @media (max-width: 680px) { .eco-image-editor { grid-template-columns: 1fr; } }
@@ -67,11 +70,13 @@ include 'menu.php';
 
 <section class="card" style="margin-top:12px">
     <div class="card-header">
-        <div><h2>Resultados</h2><p class="help-text" id="resumen">Use los filtros para buscar postulantes.</p></div>
-        <div class="eco-print-actions acciones-impresion">
+        <div class="eco-resultados-titulo">
+            <div><h2>Resultados</h2><p class="help-text" id="resumen">Use los filtros para buscar postulantes.</p></div>
             <?php if ($puedeEditarEco): ?>
-            <button type="button" class="btn-small" onclick="abrirLoteEco()" title="Subir el .zip del ecógrafo con una carpeta por postulante">Cargar comprimido</button>
+            <button type="button" class="btn-small btn-secondary btn-upload" onclick="abrirLoteEco()" title="Subir el .zip del ecógrafo con una carpeta por postulante">Cargar comprimido</button>
             <?php endif; ?>
+        </div>
+        <div class="eco-print-actions acciones-impresion">
             <span class="eco-print-label">Imprimir todos:</span>
             <span id="botonesImpresionEco"></span>
         </div>
@@ -221,7 +226,7 @@ async function iniciarEco() {
 }
 
 async function buscar() {
-    const params = new URLSearchParams({q:'buscar', texto:txtBuscar.value, designacion:f_designacion.value, fecha:f_fecha.value});
+    const params = new URLSearchParams({q:'buscar', texto:txtBuscar.value, designacion:f_designacion.value, fecha:f_fecha.value, orden:'orden_dia'});
     try {
         pacientesEco = await Salus.json('backend/postulantesDAO.php?' + params);
         await cargarImagenesEco();
@@ -621,6 +626,19 @@ function renderLoteEco() {
     actualizarLoteEco();
 }
 
+function urlImagenLoteEco(entrada) {
+    return 'backend/informesEcoDAO.php?' + new URLSearchParams({q:'lote_imagen', lote:loteEco.lote, entrada});
+}
+
+// Miniatura de una imagen del zip; al hacer clic se abre en grande.
+function miniaturaLoteEco(entrada, etiqueta) {
+    if (!entrada) return etiqueta;
+    const url = Salus.escape(urlImagenLoteEco(entrada));
+    return `<button type="button" class="eco-lote-miniatura" data-lote-ver="${url}" title="Ver en grande">
+        <img src="${url}" alt="" loading="lazy">${etiqueta}
+    </button>`;
+}
+
 // Recalcula los estudios de cada fila, los repetidos y el resumen al cambiar una asignación.
 function actualizarLoteEco() {
     const elegidos = [...loteEcoFilas.querySelectorAll('[data-lote-select]')].map(select => select.value);
@@ -631,8 +649,11 @@ function actualizarLoteEco() {
         const tr = celda.closest('tr');
         const id = elegidos[indice];
         const paciente = id ? pacienteEcoPorId(id) : null;
+        // Sin estudio asignado igual se muestran las imágenes, para identificar la carpeta.
+        const genericas = () => (fila.entradas || []).map((entrada, posicion) =>
+            miniaturaLoteEco(entrada, `<span class="badge badge-muted">Imagen ${posicion + 1}</span>`)).join('');
         tr.classList.remove('eco-lote-fila-error');
-        if (!paciente) { celda.innerHTML = '<small class="help-text">No se cargará</small>'; return; }
+        if (!paciente) { celda.innerHTML = genericas() + '<small class="help-text">No se cargará</small>'; return; }
         if (usos[id] > 1) {
             tr.classList.add('eco-lote-fila-error');
             celda.innerHTML = '<span class="badge badge-danger">Postulante asignado a otra carpeta</span>';
@@ -643,14 +664,15 @@ function actualizarLoteEco() {
         const cantidad = Number(fila.imagenes);
         if (cantidad > codigos.length) {
             tr.classList.add('eco-lote-fila-error');
-            celda.innerHTML = `<span class="badge badge-danger">${cantidad} imágenes; se esperan ${codigos.length}. No se cargará</span>`;
+            celda.innerHTML = genericas() + `<span class="badge badge-danger">${cantidad} imágenes; se esperan ${codigos.length}. No se cargará</span>`;
             problemas++;
             return;
         }
-        celda.innerHTML = codigos.slice(0, cantidad).map(codigo => {
+        celda.innerHTML = codigos.slice(0, cantidad).map((codigo, posicion) => {
             const nombre = plantillasEco.find(item => item.codigo === codigo)?.nombre || codigo;
             const reemplaza = tieneImagenEco(paciente.id_postulante, codigo);
-            return `<span class="badge ${reemplaza ? 'badge-warn' : 'badge-success'}" title="${reemplaza ? 'Ya tiene imagen' : 'Sin imagen todavía'}">${Salus.escape(nombre)}${reemplaza ? ' ↻' : ''}</span>`;
+            return miniaturaLoteEco(fila.entradas?.[posicion],
+                `<span class="badge ${reemplaza ? 'badge-warn' : 'badge-success'}" title="${reemplaza ? 'Ya tiene imagen' : 'Sin imagen todavía'}">${Salus.escape(nombre)}${reemplaza ? ' ↻' : ''}</span>`);
         }).join('') + (cantidad < codigos.length ? ` <small class="help-text">(faltan ${codigos.length - cantidad})</small>` : '');
         listas++;
         imagenes += cantidad;
@@ -693,6 +715,12 @@ async function aplicarLoteEco() {
 }
 
 modalImagenesEco.addEventListener('close', liberarVistasImagenEco);
+if (puedeEditarEco) {
+    loteEcoFilas.addEventListener('click', event => {
+        const boton = event.target.closest('[data-lote-ver]');
+        if (boton) verImagenEco(boton.dataset.loteVer);
+    });
+}
 Salus.filtrosAutomaticos([txtBuscar, f_designacion, f_fecha], buscar);
 iniciarEco().then(buscar);
 </script>

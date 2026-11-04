@@ -21,7 +21,7 @@ include 'menu.php';
 <section class="card" style="margin-top:12px">
     <div class="card-header"><div><h2>Resultados</h2><p class="help-text" id="resumen">Use los filtros para comenzar.</p></div>
         <div class="acciones-impresion">
-            <button type="button" class="btn-secondary btn-print" onclick="imprimirTodo()">Imprimir selección</button>
+            <button type="button" class="btn-secondary btn-print" onclick="imprimirTodo()">Imprimir todos</button>
             <button type="button" class="btn-secondary btn-print" onclick="imprimirTarjeta()">Tarjetas Rh</button>
         </div>
     </div>
@@ -38,7 +38,7 @@ async function cargarEscuelas(){
     catch(error){Salus.toast(error.message,'error');}
 }
 async function buscar(){
-    const params=new URLSearchParams({q:'buscar',texto:txtBuscar.value,designacion:f_designacion.value,fecha:f_fecha.value});
+    const params=new URLSearchParams({q:'buscar',texto:txtBuscar.value,designacion:f_designacion.value,fecha:f_fecha.value,orden:'orden_dia'});
     try{
         const data=await Salus.json('backend/postulantesDAO.php?'+params);idsActuales=data.map(p=>p.id_postulante);resumen.textContent=`${data.length} postulante(s) encontrado(s)`;
         tabla.innerHTML=data.length?data.map(p=>`<tr>

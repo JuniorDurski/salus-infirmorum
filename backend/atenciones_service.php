@@ -148,9 +148,7 @@ function obtenerDetalleAsignacion(mysqli $db, int $id, array $identidad): array
                        FROM postulantes_asignar_atencion_usuarios au
                        INNER JOIN usuarios u ON u.id_usuario = au.id_usuario
                        WHERE au.id_asignar_atencion = ? ORDER BY u.nombre",
-        'escuelas' => "SELECT e.id_escuela, e.nombre,
-                              CONCAT(JSON_UNQUOTE(JSON_EXTRACT(e.periodo, '$.anio')), '-',
-                                     LPAD(JSON_UNQUOTE(JSON_EXTRACT(e.periodo, '$.mes')), 2, '0')) AS periodo
+        'escuelas' => "SELECT e.id_escuela, e.nombre
                        FROM postulantes_asignar_atencion_escuelas ae
                        INNER JOIN escuelas e ON e.id_escuela = ae.id_escuela
                        WHERE ae.id_asignar_atencion = ? ORDER BY e.nombre",

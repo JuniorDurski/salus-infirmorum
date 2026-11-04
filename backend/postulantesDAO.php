@@ -69,13 +69,7 @@ function camposPacienteSql(): string
             p.telefono,
             p.url_foto,
             DATE_FORMAT(" . sqlMomentoRegistroPaciente('p') . ", 'Dia:%d-%m-%Y Hora:%H:%i') AS fecha,
-            CONCAT(
-                e.nombre,
-                ' <br> ',
-                JSON_UNQUOTE(JSON_EXTRACT(e.periodo, '$.anio')),
-                '-',
-                LPAD(JSON_UNQUOTE(JSON_EXTRACT(e.periodo, '$.mes')), 2, '0')
-            ) AS designacion,
+            e.nombre AS designacion,
             e.nombre AS escuela";
 }
 
@@ -83,6 +77,7 @@ function listarPacientes(mysqli $conexion): void
 {
     // El módulo Pacientes pide todos; los de postulantes ocultan los registros desactivados.
     $filtroPostulantes = ($_GET['todos'] ?? '') === '1' ? '' : ' AND ' . sqlVisibleEnPostulantes('p');
+
     $sql = 'SELECT ' . camposPacienteSql() . '
             FROM pacientes p
             LEFT JOIN escuelas e ON e.id_escuela = ' . sqlIdEscuelaPaciente('p') . '
@@ -252,11 +247,16 @@ function buscarPacientes(mysqli $conexion): void
         $types .= 's';
     }
 
+    // Informes: por día (reciente primero) y dentro del día por número de orden.
+    $orden = ($_GET['orden'] ?? '') === 'orden_dia'
+        ? sqlFechaRegistroPaciente('p') . ' DESC, ' . sqlOrdenDiaPaciente('p') . ' ASC, p.id_paciente ASC'
+        : 'p.id_paciente DESC';
+
     $sql = 'SELECT ' . camposPacienteSql() . '
             FROM pacientes p
             LEFT JOIN escuelas e ON e.id_escuela = ' . sqlIdEscuelaPaciente('p') . '
             WHERE ' . implode(' AND ', $where) . '
-            ORDER BY p.id_paciente DESC';
+            ORDER BY ' . $orden;
     $stmt = $conexion->prepare($sql);
     if ($params !== []) {
         $stmt->bind_param($types, ...$params);

@@ -49,10 +49,7 @@ function exigirPermisoAtencion(array $identidad, string $permiso): void
 function catalogosAtencion(mysqli $db, array $identidad): void
 {
     $escuelas = $db->query(
-        "SELECT id_escuela, nombre,
-                CONCAT(JSON_UNQUOTE(JSON_EXTRACT(periodo, '$.anio')), '-',
-                       LPAD(JSON_UNQUOTE(JSON_EXTRACT(periodo, '$.mes')), 2, '0')) AS periodo
-         FROM escuelas WHERE activo = 1 ORDER BY nombre, periodo DESC"
+        'SELECT id_escuela, nombre FROM escuelas WHERE activo = 1 ORDER BY nombre'
     )->fetch_all(MYSQLI_ASSOC);
     $estudios = $db->query(
         'SELECT id_estudio, estudio_referencial FROM postulantes_estudios_referenciales

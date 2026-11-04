@@ -21,17 +21,10 @@ try {
                         id_pais,
                         id_escuela AS id_designacion,
                         nombre,
-                        nombre AS designacion,
-                        CAST(JSON_UNQUOTE(JSON_EXTRACT(periodo, '$.anio')) AS UNSIGNED) AS periodo_anio,
-                        CAST(JSON_UNQUOTE(JSON_EXTRACT(periodo, '$.mes')) AS UNSIGNED) AS periodo_mes,
-                        CONCAT(
-                            JSON_UNQUOTE(JSON_EXTRACT(periodo, '$.anio')),
-                            '-',
-                            LPAD(JSON_UNQUOTE(JSON_EXTRACT(periodo, '$.mes')), 2, '0')
-                        ) AS periodo
+                        nombre AS designacion
                     FROM escuelas
                     WHERE activo = 1
-                    ORDER BY periodo_anio DESC, periodo_mes DESC, nombre";
+                    ORDER BY nombre";
             $rs = $conexion->query($sql);
             echo json_encode($rs->fetch_all(MYSQLI_ASSOC), JSON_UNESCAPED_UNICODE);
             break;
@@ -39,32 +32,22 @@ try {
         case 'guardar':
             $id = (int) ($_POST['id_escuela'] ?? $_POST['id_designacion'] ?? 0);
             $nombre = mb_strtoupper(trim($_POST['nombre'] ?? $_POST['designacion'] ?? ''), 'UTF-8');
-            $anio = (int) ($_POST['periodo_anio'] ?? 0);
-            $mes = (int) ($_POST['periodo_mes'] ?? 0);
             $idPais = ($_POST['id_pais'] ?? '') !== '' ? (int) $_POST['id_pais'] : null;
 
-            // Compatibilidad con clientes que todavía envían periodo=AAAA-MM.
-            if (($anio === 0 || $mes === 0) && preg_match('/^(\d{4})-(\d{1,2})$/', $_POST['periodo'] ?? '', $partes)) {
-                $anio = (int) $partes[1];
-                $mes = (int) $partes[2];
+            if ($nombre === '') {
+                responderError('Ingrese el nombre de la escuela.');
             }
-
-            if ($nombre === '' || $anio < 1900 || $anio > 2200 || $mes < 1 || $mes > 12) {
-                responderError('Nombre, año o mes no válidos.');
-            }
-
-            $periodo = json_encode(['anio' => $anio, 'mes' => $mes], JSON_UNESCAPED_UNICODE);
 
             if ($id > 0) {
                 $stmt = $conexion->prepare(
-                    'UPDATE escuelas SET nombre = ?, periodo = ?, id_pais = ? WHERE id_escuela = ?'
+                    'UPDATE escuelas SET nombre = ?, id_pais = ? WHERE id_escuela = ?'
                 );
-                $stmt->bind_param('ssii', $nombre, $periodo, $idPais, $id);
+                $stmt->bind_param('sii', $nombre, $idPais, $id);
             } else {
                 $stmt = $conexion->prepare(
-                    'INSERT INTO escuelas (nombre, periodo, id_pais) VALUES (?, ?, ?)'
+                    'INSERT INTO escuelas (nombre, id_pais) VALUES (?, ?)'
                 );
-                $stmt->bind_param('ssi', $nombre, $periodo, $idPais);
+                $stmt->bind_param('si', $nombre, $idPais);
             }
 
             $stmt->execute();

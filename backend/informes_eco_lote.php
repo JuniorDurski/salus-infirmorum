@@ -64,21 +64,57 @@ function analizarLoteEco(mysqli $db): void
     $filas = emparejarLoteEco(array_keys($carpetas), $candidatos);
     foreach ($filas as &$fila) {
         $fila['imagenes'] = count($carpetas[$fila['carpeta']]);
+        $fila['entradas'] = $carpetas[$fila['carpeta']];
     }
     unset($fila);
 
     responderJson(['status' => 'ok', 'lote' => $lote, 'carpetas' => $filas]);
 }
 
-/** Carga las imágenes del lote con las asignaciones confirmadas por el usuario. */
-function aplicarLoteEco(mysqli $db, array $identidad): void
+function rutaZipLoteEco(string $lote): string
 {
-    $lote = (string) ($_POST['lote'] ?? '');
     if (!preg_match('/^[0-9]{8}-[0-9]{6}-[a-f0-9]{32}-[A-Za-z0-9_.-]{1,80}\.zip$/', $lote)) {
         throw new RuntimeException('Comprimido no válido. Vuelva a subirlo.');
     }
     $rutaZip = rutaAbsolutaLoteEco(LOTE_ECO_CARPETA . '/' . $lote);
     if (!is_file($rutaZip)) throw new RuntimeException('No se encontró el comprimido. Vuelva a subirlo.');
+    return $rutaZip;
+}
+
+/** Devuelve una imagen del zip tal cual, para la vista previa antes de cargar. */
+function servirImagenLoteEco(): void
+{
+    $rutaZip = rutaZipLoteEco((string) ($_GET['lote'] ?? ''));
+    $entrada = (string) ($_GET['entrada'] ?? '');
+    $zip = new ZipArchive();
+    if ($zip->open($rutaZip, ZipArchive::RDONLY) !== true) throw new RuntimeException('No se pudo abrir el comprimido.');
+    try {
+        // Solo se sirven las imágenes que el análisis reconoce, nunca otra entrada del zip.
+        $validas = array_merge(...array_values(carpetasLoteEco($zip)));
+        $info = $zip->statName($entrada);
+        if (!in_array($entrada, $validas, true) || $info === false || (int) $info['size'] > LOTE_ECO_MAX_IMAGEN) {
+            throw new RuntimeException('Imagen no encontrada en el comprimido.');
+        }
+        $contenido = $zip->getFromName($entrada);
+    } finally {
+        $zip->close();
+    }
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->buffer((string) $contenido);
+    if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp'], true)) {
+        throw new RuntimeException('El archivo no es una imagen válida.');
+    }
+    header('Content-Type: ' . $mime);
+    header('Content-Length: ' . strlen($contenido));
+    header('Cache-Control: private, max-age=600');
+    header('X-Content-Type-Options: nosniff');
+    echo $contenido;
+    exit;
+}
+
+/** Carga las imágenes del lote con las asignaciones confirmadas por el usuario. */
+function aplicarLoteEco(mysqli $db, array $identidad): void
+{
+    $rutaZip = rutaZipLoteEco((string) ($_POST['lote'] ?? ''));
 
     $asignaciones = json_decode((string) ($_POST['asignaciones'] ?? '[]'), true, 8, JSON_THROW_ON_ERROR);
     if (!is_array($asignaciones)) throw new RuntimeException('Asignaciones no válidas.');

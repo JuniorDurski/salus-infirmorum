@@ -94,7 +94,7 @@ async function iniciarAudiometria() {
 }
 
 async function buscar() {
-    const params = new URLSearchParams({q:'buscar', texto:txtBuscar.value, designacion:f_designacion.value, fecha:f_fecha.value});
+    const params = new URLSearchParams({q:'buscar', texto:txtBuscar.value, designacion:f_designacion.value, fecha:f_fecha.value, orden:'orden_dia'});
     try {
         pacientesAudiometria = await Salus.json('backend/postulantesDAO.php?' + params);
         await cargarEstadosAudiometria();

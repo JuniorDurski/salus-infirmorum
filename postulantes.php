@@ -56,9 +56,11 @@ include 'menu.php';
                 </div>
             </div>
             <div class="campo"><label for="nombre">Nombre y apellido *</label><input name="nombre" id="nombre" data-uppercase maxlength="250" required></div>
-            <div class="campo"><label for="codigo">Código</label><input name="codigo" id="codigo" maxlength="20" placeholder="Opcional"></div>
             <div class="field-grid">
+                <div class="campo"><label for="codigo">Código</label><input name="codigo" id="codigo" maxlength="20" placeholder="Opcional"></div>
                 <div class="campo"><label for="fecha_nacimiento">Fecha de nacimiento *</label><input type="date" name="fecha_nacimiento" id="fecha_nacimiento" max="<?= htmlspecialchars($hoyAplicacion, ENT_QUOTES, 'UTF-8') ?>" required></div>
+            </div>
+            <div class="field-grid">
                 <div class="campo"><label for="es_femenino">Sexo *</label><select name="es_femenino" id="es_femenino" required><option value="">Seleccione</option><option value="0">Masculino</option><option value="1">Femenino</option></select></div>
                 <div class="campo"><label for="grupo_sanguineo">Grupo sanguíneo</label><select name="grupo_sanguineo" id="grupo_sanguineo"><option value="">Sin especificar</option><option>A Rh Positivo</option><option>A Rh Negativo</option><option>B Rh Positivo</option><option>B Rh Negativo</option><option>AB Rh Positivo</option><option>AB Rh Negativo</option><option>O Rh Positivo</option><option>O Rh Negativo</option></select></div>
             </div>
@@ -206,7 +208,7 @@ function cargarConveniosContexto(idSeleccionado=''){
     const disponibles=conveniosDeEscuela(selectorEscuelaCobro.value);
     selectorConvenioCobro.disabled=!selectorEscuelaCobro.value;
     selectorConvenioCobro.innerHTML=(selectorEscuelaCobro.value?'<option value="">Seleccione un convenio</option>':'<option value="">Seleccione primero una escuela</option>')
-        +disponibles.map(c=>`<option value="${Number(c.id_arreador_escuela)}">${Salus.escape(c.arreador)} · orden desde ${String(Number(c.orden_inicio)||1).padStart(3,"0")} · H ${dinero(c.monto_total_hombre)} · M ${dinero(c.monto_total_mujer)}</option>`).join('');
+        +disponibles.map(c=>`<option value="${Number(c.id_arreador_escuela)}">${Salus.escape(c.arreador)} · H ${dinero(c.monto_total_hombre)} · M ${dinero(c.monto_total_mujer)}</option>`).join('');
     if(disponibles.some(c=>String(c.id_arreador_escuela)===String(idSeleccionado)))selectorConvenioCobro.value=String(idSeleccionado);
     else if(disponibles.length===1)selectorConvenioCobro.value=String(disponibles[0].id_arreador_escuela);
     guardarContexto();
