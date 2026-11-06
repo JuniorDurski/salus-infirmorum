@@ -46,6 +46,21 @@ function sqlFechaRegistroPaciente(string $alias = 'p'): string
     return 'DATE(' . sqlMomentoRegistroPaciente($alias) . ')';
 }
 
+/**
+ * Expresión SQL con la edad del paciente el día en que se registró en postulantes
+ * (postulantes_arreador_postulante.derivado_en), no el día de la impresión.
+ * Usa su registro activo; si no tiene, el último que tuvo.
+ */
+function sqlEdadRegistroPaciente(string $alias = 'p'): string
+{
+    return "TIMESTAMPDIFF(YEAR, {$alias}.fecha_nacimiento,
+                (SELECT DATE(ap_edad.derivado_en)
+                   FROM postulantes_arreador_postulante ap_edad
+                  WHERE ap_edad.id_paciente = {$alias}.id_paciente
+                  ORDER BY ap_edad.activo DESC, ap_edad.derivado_en DESC, ap_edad.id_arreador_postulante DESC
+                  LIMIT 1))";
+}
+
 /** Expresión SQL con el orden del paciente: el de su último registro en postulantes. */
 function sqlOrdenDiaPaciente(string $alias = 'p'): string
 {

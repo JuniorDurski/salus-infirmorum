@@ -30,7 +30,7 @@ $sql = "SELECT
             " . sqlCodigoInforme('p') . " AS codigo_paciente,
             p.nombre,
             p.documento,
-            TIMESTAMPDIFF(YEAR, p.fecha_nacimiento, CURDATE()) AS edad,
+            " . sqlEdadRegistroPaciente('p') . " AS edad,
             IF(p.es_femenino = 1, 'FEMENINO', 'MASCULINO') AS sexo,
             p.grupo_sanguineo AS tipi,
             DATE_FORMAT(" . sqlMomentoRegistroPaciente('p') . ", '%d/%m/%Y') AS fecha,

@@ -62,7 +62,7 @@ function camposPacienteSql(): string
             p.documento,
             p.documento AS ci,
             p.fecha_nacimiento,
-            TIMESTAMPDIFF(YEAR, p.fecha_nacimiento, CURDATE()) AS edad,
+            " . sqlEdadRegistroPaciente('p') . " AS edad,
             p.es_femenino,
             IF(p.es_femenino = 1, 'FEMENINO', 'MASCULINO') AS sexo,
             p.grupo_sanguineo,
