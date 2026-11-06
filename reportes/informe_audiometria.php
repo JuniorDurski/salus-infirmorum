@@ -66,6 +66,7 @@ $css = '<style>
     .au-subtitle { font-family: winarial, freesans, sans-serif; font-size: 11.5pt; margin: 8mm 0 4mm; text-align: center; }
     .au-chart { margin: 0 0 18mm; text-align: center; }
     .au-dx { font-family: winarialnarrow, freesans, sans-serif; font-size: 11pt; line-height: 1.45; }
+    .au-firma { font-family: winarial, freesans, sans-serif; font-size: 11pt; margin-top: 14mm; text-align: right; }
 </style>';
 $mpdf->WriteHTML($css);
 
@@ -99,7 +100,8 @@ foreach ($pacientes as $indice => $paciente) {
         . '<div class="au-chart"><img src="' . $audiograma . '" style="width:159.5mm;"></div>'
         . '<div class="au-dx">DX' . $guiaDx . audioHtml(array_shift($lineasDx));
     foreach ($lineasDx as $linea) $html .= '<br>' . audioHtml($linea);
-    $html .= '<br>' . $renglonPuntos . '<br>' . $renglonPuntos . '</div>';
+    $html .= '<br>' . $renglonPuntos . '<br>' . $renglonPuntos . '</div>'
+        . '<div class="au-firma">Certificado por el Dr.: …………………………………………………</div>';
     $mpdf->WriteHTML($html);
 }
 
