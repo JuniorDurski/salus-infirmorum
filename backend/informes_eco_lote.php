@@ -1,7 +1,9 @@
 <?php
 
 /**
- * Carga masiva de imágenes ECO desde un .zip del ecógrafo.
+ * Carga masiva de imágenes ECO desde un comprimido del ecógrafo.
+ * Se acepta zip, rar, 7z, tar, tar.gz, etc.: lo que no es zip se convierte
+ * a zip al subirlo (convertirAZipLoteEco) y el resto trabaja siempre con zip.
  *
  * El zip trae una carpeta por postulante nombrada con sus apellidos
  * ("aguilera_gauto20261102-132226-6BDC/ABD.../*.JPG"). Las imágenes se toman
@@ -33,32 +35,41 @@ function analizarLoteEco(mysqli $db): void
         throw new RuntimeException('El comprimido supera el tamaño máximo permitido por el servidor (' . ini_get('upload_max_filesize') . ').');
     }
     if ($archivo === null || $error !== UPLOAD_ERR_OK || !is_uploaded_file((string) $archivo['tmp_name'])) {
-        throw new RuntimeException('Seleccione un archivo .zip.');
+        throw new RuntimeException('Seleccione un archivo comprimido (.zip, .rar, .7z, .tar…).');
     }
 
-    $zip = new ZipArchive();
-    if ($zip->open($archivo['tmp_name'], ZipArchive::RDONLY) !== true) {
-        throw new RuntimeException('El archivo no es un .zip válido.');
-    }
-    $carpetas = carpetasLoteEco($zip);
-    $zip->close();
-    if ($carpetas === []) {
-        throw new RuntimeException('El comprimido no contiene carpetas con imágenes JPG, PNG o WEBP.');
-    }
+    // RAR, 7z, tar… se convierten a un .zip equivalente; desde aquí todo trabaja sobre zip.
+    $rutaZip = convertirAZipLoteEco((string) $archivo['tmp_name']);
+    $convertido = $rutaZip !== $archivo['tmp_name'];
+    try {
+        $zip = new ZipArchive();
+        if ($zip->open($rutaZip, ZipArchive::RDONLY) !== true) {
+            throw new RuntimeException('El archivo no es un comprimido válido.');
+        }
+        $carpetas = carpetasLoteEco($zip);
+        $zip->close();
+        if ($carpetas === []) {
+            throw new RuntimeException('El comprimido no contiene carpetas con imágenes JPG, PNG o WEBP.');
+        }
 
-    $candidatos = candidatosLoteEco($db, idsInformeEco($_POST['ids'] ?? []));
-    if ($candidatos === []) {
-        throw new RuntimeException('No hay postulantes en la lista para emparejar. Ajuste los filtros de búsqueda.');
-    }
+        $candidatos = candidatosLoteEco($db, idsInformeEco($_POST['ids'] ?? []));
+        if ($candidatos === []) {
+            throw new RuntimeException('No hay postulantes en la lista para emparejar. Ajuste los filtros de búsqueda.');
+        }
 
-    $carpetaAbsoluta = rutaAbsolutaLoteEco(LOTE_ECO_CARPETA);
-    if (!is_dir($carpetaAbsoluta) && !mkdir($carpetaAbsoluta, 0755, true) && !is_dir($carpetaAbsoluta)) {
-        throw new RuntimeException('No se pudo crear la carpeta para guardar los comprimidos.');
-    }
-    $original = preg_replace('/[^A-Za-z0-9_.-]+/', '_', pathinfo((string) $archivo['name'], PATHINFO_FILENAME));
-    $lote = date('Ymd-His') . '-' . bin2hex(random_bytes(16)) . '-' . substr(trim((string) $original, '_.-') ?: 'eco', 0, 80) . '.zip';
-    if (!move_uploaded_file($archivo['tmp_name'], $carpetaAbsoluta . DIRECTORY_SEPARATOR . $lote)) {
-        throw new RuntimeException('No se pudo guardar el comprimido.');
+        $carpetaAbsoluta = rutaAbsolutaLoteEco(LOTE_ECO_CARPETA);
+        if (!is_dir($carpetaAbsoluta) && !mkdir($carpetaAbsoluta, 0755, true) && !is_dir($carpetaAbsoluta)) {
+            throw new RuntimeException('No se pudo crear la carpeta para guardar los comprimidos.');
+        }
+        $original = preg_replace('/[^A-Za-z0-9_.-]+/', '_', preg_replace('/\.tar$/i', '', pathinfo((string) $archivo['name'], PATHINFO_FILENAME)));
+        $lote = date('Ymd-His') . '-' . bin2hex(random_bytes(16)) . '-' . substr(trim((string) $original, '_.-') ?: 'eco', 0, 80) . '.zip';
+        $destino = $carpetaAbsoluta . DIRECTORY_SEPARATOR . $lote;
+        $guardado = $convertido ? rename($rutaZip, $destino) : move_uploaded_file($rutaZip, $destino);
+        if (!$guardado) {
+            throw new RuntimeException('No se pudo guardar el comprimido.');
+        }
+    } finally {
+        if ($convertido && is_file($rutaZip)) @unlink($rutaZip);
     }
 
     $filas = emparejarLoteEco(array_keys($carpetas), $candidatos);
@@ -69,6 +80,121 @@ function analizarLoteEco(mysqli $db): void
     unset($fila);
 
     responderJson(['status' => 'ok', 'lote' => $lote, 'carpetas' => $filas]);
+}
+
+/**
+ * Devuelve la ruta de un .zip con el contenido del comprimido subido.
+ * Si ya es zip se devuelve la misma ruta; si es RAR, 7z, tar, tar.gz, etc. se
+ * extrae con una herramienta del sistema (tar de Windows/libarchive, 7-Zip o
+ * UnRAR) a una carpeta temporal y se vuelve a empaquetar como zip, conservando
+ * la estructura de carpetas y solo las imágenes.
+ */
+function convertirAZipLoteEco(string $ruta): string
+{
+    $firma = (string) file_get_contents($ruta, false, null, 0, 4);
+    if ($firma === "PK\x03\x04" || $firma === "PK\x05\x06") return $ruta;
+
+    $temporal = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'ecolote-' . bin2hex(random_bytes(8));
+    if (!mkdir($temporal, 0700)) throw new RuntimeException('No se pudo preparar la descompresión.');
+    try {
+        if (!extraerComprimidoLoteEco($ruta, $temporal)) {
+            throw new RuntimeException('No se pudo descomprimir el archivo. Formatos admitidos: ZIP, RAR, 7Z, TAR, TAR.GZ, TAR.BZ2, TAR.XZ (sin contraseña).');
+        }
+        $rutaZip = tempnam(sys_get_temp_dir(), 'ecozip');
+        $zip = new ZipArchive();
+        if ($zip->open($rutaZip, ZipArchive::OVERWRITE) !== true) {
+            @unlink($rutaZip);
+            throw new RuntimeException('No se pudo preparar el comprimido.');
+        }
+        $entradas = 0;
+        $base = strlen($temporal) + 1;
+        $iterador = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($temporal, FilesystemIterator::SKIP_DOTS)
+        );
+        foreach ($iterador as $archivo) {
+            /** @var SplFileInfo $archivo */
+            if ($archivo->isLink() || !$archivo->isFile()) continue;
+            if (!preg_match('/\.(jpe?g|png|webp)$/i', $archivo->getFilename())) continue;
+            if ($archivo->getSize() <= 0 || $archivo->getSize() > LOTE_ECO_MAX_IMAGEN) continue;
+            if (++$entradas > LOTE_ECO_MAX_ENTRADAS) {
+                $zip->close();
+                @unlink($rutaZip);
+                throw new RuntimeException('El comprimido tiene demasiados archivos.');
+            }
+            $relativa = str_replace('\\', '/', substr($archivo->getPathname(), $base));
+            $zip->addFile($archivo->getPathname(), $relativa);
+            $zip->setCompressionName($relativa, ZipArchive::CM_STORE); // los JPG ya vienen comprimidos
+        }
+        if (!$zip->close()) {
+            @unlink($rutaZip);
+            throw new RuntimeException('No se pudo preparar el comprimido.');
+        }
+        if ($entradas === 0) {
+            @unlink($rutaZip);
+            throw new RuntimeException('El comprimido no contiene carpetas con imágenes JPG, PNG o WEBP.');
+        }
+        return $rutaZip;
+    } finally {
+        eliminarDirectorioLoteEco($temporal);
+    }
+}
+
+/** Prueba las herramientas de descompresión disponibles hasta que una funcione. */
+function extraerComprimidoLoteEco(string $archivo, string $destino): bool
+{
+    $windows = DIRECTORY_SEPARATOR === '\\';
+    $sistema = getenv('SystemRoot') ?: 'C:\\Windows';
+    $programas = array_filter([getenv('ProgramFiles'), getenv('ProgramFiles(x86)'), getenv('ProgramW6432')]);
+
+    $herramientas = [];
+    // tar de Windows 10/11 es bsdtar (libarchive): lee zip, rar, rar5, 7z, tar.*, cab, iso.
+    foreach ($windows ? [$sistema . '\\System32\\tar.exe'] : ['/usr/bin/bsdtar', '/usr/local/bin/bsdtar'] as $tar) {
+        $herramientas[] = [$tar, ['-x', '-f', $archivo, '-C', $destino]];
+    }
+    foreach ($windows ? array_map(static fn($p) => $p . '\\7-Zip\\7z.exe', $programas) : ['/usr/bin/7z', '/usr/bin/7za', '/usr/bin/7zz'] as $sieteZip) {
+        $herramientas[] = [$sieteZip, ['x', '-y', '-p-', '-o' . $destino, $archivo]];
+    }
+    foreach ($windows ? array_map(static fn($p) => $p . '\\WinRAR\\UnRAR.exe', $programas) : ['/usr/bin/unrar'] as $unrar) {
+        $herramientas[] = [$unrar, ['x', '-y', '-p-', '-o+', $archivo, $destino . DIRECTORY_SEPARATOR]];
+    }
+    if (!$windows) {
+        // GNU tar: al menos tar, tar.gz, tar.bz2 y tar.xz.
+        $herramientas[] = ['/bin/tar', ['-x', '-f', $archivo, '-C', $destino, '--no-same-owner']];
+    }
+
+    foreach ($herramientas as [$ejecutable, $argumentos]) {
+        if (!is_file($ejecutable)) continue;
+        $proceso = proc_open(
+            array_merge([$ejecutable], $argumentos),
+            [0 => ['pipe', 'r'], 1 => ['file', $windows ? 'NUL' : '/dev/null', 'w'], 2 => ['file', $windows ? 'NUL' : '/dev/null', 'w']],
+            $tuberias,
+            null,
+            null,
+            ['bypass_shell' => true]
+        );
+        if (!is_resource($proceso)) continue;
+        fclose($tuberias[0]); // sin entrada: si pide contraseña, falla en vez de quedar esperando
+        $codigo = proc_close($proceso);
+        if ($codigo === 0 && (new FilesystemIterator($destino))->valid()) return true;
+        // Limpia lo que haya quedado a medias antes de probar con la siguiente herramienta.
+        eliminarDirectorioLoteEco($destino);
+        mkdir($destino, 0700);
+    }
+    return false;
+}
+
+function eliminarDirectorioLoteEco(string $directorio): void
+{
+    if (!is_dir($directorio)) return;
+    $iterador = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($directorio, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::CHILD_FIRST
+    );
+    foreach ($iterador as $item) {
+        /** @var SplFileInfo $item */
+        $item->isDir() && !$item->isLink() ? @rmdir($item->getPathname()) : @unlink($item->getPathname());
+    }
+    @rmdir($directorio);
 }
 
 function rutaZipLoteEco(string $lote): string

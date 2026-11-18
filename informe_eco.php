@@ -73,7 +73,7 @@ include 'menu.php';
         <div class="eco-resultados-titulo">
             <div><h2>Resultados</h2><p class="help-text" id="resumen">Use los filtros para buscar postulantes.</p></div>
             <?php if ($puedeEditarEco): ?>
-            <button type="button" class="btn-small btn-secondary btn-upload" onclick="abrirLoteEco()" title="Subir el .zip del ecógrafo con una carpeta por postulante">Cargar comprimido</button>
+            <button type="button" class="btn-small btn-secondary btn-upload" onclick="abrirLoteEco()" title="Subir el comprimido (.zip, .rar, .7z…) del ecógrafo con una carpeta por postulante">Cargar comprimido</button>
             <?php endif; ?>
         </div>
         <div class="eco-print-actions acciones-impresion">
@@ -163,12 +163,12 @@ include 'menu.php';
     <div class="modal-body">
         <div id="loteEcoPaso1">
             <p class="help-text" style="margin-top:0">
-                Suba el <strong>.zip</strong> del ecógrafo (una carpeta por postulante, nombrada con sus apellidos).
+                Suba el comprimido del ecógrafo (<strong>.zip, .rar, .7z, .tar, .tar.gz</strong>…) (una carpeta por postulante, nombrada con sus apellidos).
                 Las carpetas se comparan con los <strong id="loteEcoCantidad">0</strong> postulantes de la lista actual,
                 así que primero filtre por fecha o escuela. Las imágenes se asignan en orden:
                 hombres <em>Abdominal → Testicular</em>; mujeres <em>Abdominal → Ginecológica → Mamaria</em>.
             </p>
-            <div class="campo"><input type="file" id="loteEcoArchivo" accept=".zip,application/zip,application/x-zip-compressed"></div>
+            <div class="campo"><input type="file" id="loteEcoArchivo" accept=".zip,.rar,.7z,.tar,.gz,.tgz,.bz2,.tbz,.tbz2,.xz,.txz,application/zip,application/x-zip-compressed,application/vnd.rar,application/x-rar-compressed,application/x-7z-compressed,application/x-tar,application/gzip"></div>
         </div>
         <div id="loteEcoPaso2" hidden>
             <div class="eco-lote-resumen" id="loteEcoResumen"></div>
@@ -545,7 +545,7 @@ function imprimirTodos(codigo) {
     prepararImpresionEco(compatibles.map(paciente => Number(paciente.id_postulante)), codigo);
 }
 
-// ---- Carga masiva desde un .zip ----
+// ---- Carga masiva desde un comprimido (zip, rar, 7z, tar…) ----
 const ESTUDIOS_LOTE_ECO = {
     MASCULINO: ['ABDOMINAL_URGENCIA', 'TESTICULAR'],
     FEMENINO: ['ABDOMINAL_URGENCIA', 'GINECOLOGICA', 'MAMARIA'],
@@ -572,8 +572,8 @@ function abrirLoteEco() {
 
 async function analizarLoteEco() {
     const archivo = loteEcoArchivo.files[0];
-    if (!archivo) return Salus.toast('Seleccione el archivo .zip.', 'error');
-    if (!/\.zip$/i.test(archivo.name)) return Salus.toast('El archivo debe ser .zip.', 'error');
+    if (!archivo) return Salus.toast('Seleccione el archivo comprimido.', 'error');
+    if (!/\.(zip|rar|7z|tar|gz|tgz|bz2|tbz2?|xz|txz)$/i.test(archivo.name)) return Salus.toast('El archivo debe ser un comprimido: .zip, .rar, .7z, .tar, .tar.gz…', 'error');
     if (archivo.size > 40 * 1024 * 1024) return Salus.toast('El comprimido puede pesar como máximo 40 MB.', 'error');
     if (!pacientesEco.length) return Salus.toast('No hay postulantes en la lista. Ajuste los filtros.', 'error');
     const cuerpo = Salus.form();
@@ -630,7 +630,7 @@ function urlImagenLoteEco(entrada) {
     return 'backend/informesEcoDAO.php?' + new URLSearchParams({q:'lote_imagen', lote:loteEco.lote, entrada});
 }
 
-// Miniatura de una imagen del zip; al hacer clic se abre en grande.
+// Miniatura de una imagen del comprimido; al hacer clic se abre en grande.
 function miniaturaLoteEco(entrada, etiqueta) {
     if (!entrada) return etiqueta;
     const url = Salus.escape(urlImagenLoteEco(entrada));
