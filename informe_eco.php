@@ -39,6 +39,16 @@ include 'menu.php';
 .eco-lote-miniatura .badge { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .72rem; }
 .eco-lote-resumen { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
 .eco-lote-fila-error { background: var(--danger-soft); }
+.eco-lote-origenes { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.eco-lote-origen { border: 1px solid var(--border); border-radius: 12px; display: grid; align-content: start; gap: 8px; padding: 14px; }
+.eco-lote-origen small { color: var(--muted, #64748b); }
+.eco-lote-soltar { border-style: dashed; transition: background .15s, border-color .15s; }
+.eco-lote-soltar.arrastrando { background: var(--surface-2); border-color: var(--btn-bg); }
+.eco-lote-carpetas-acciones { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; }
+.eco-lote-carpetas { display: grid; gap: 6px; list-style: none; margin: 0; max-height: 260px; overflow: auto; padding: 0; }
+.eco-lote-carpetas li { align-items: center; background: var(--surface-2); border-radius: 8px; display: flex; gap: 8px; justify-content: space-between; padding: 5px 6px 5px 10px; }
+.eco-lote-carpetas li label { align-items: center; cursor: pointer; display: flex; gap: 8px; min-width: 0; width: 100%; }
+.eco-lote-carpetas li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 @media (max-width: 680px) { .eco-image-editor { grid-template-columns: 1fr; } }
 </style>
 
@@ -163,12 +173,34 @@ include 'menu.php';
     <div class="modal-body">
         <div id="loteEcoPaso1">
             <p class="help-text" style="margin-top:0">
-                Suba el comprimido del ecógrafo (<strong>.zip, .rar, .7z, .tar, .tar.gz</strong>…) (una carpeta por postulante, nombrada con sus apellidos).
+                Suba el comprimido del ecógrafo o seleccione sus carpetas (una carpeta por postulante, nombrada con sus apellidos).
                 Las carpetas se comparan con los <strong id="loteEcoCantidad">0</strong> postulantes de la lista actual,
                 así que primero filtre por fecha o escuela. Las imágenes se asignan en orden:
                 hombres <em>Abdominal → Testicular</em>; mujeres <em>Abdominal → Ginecológica → Mamaria</em>.
             </p>
-            <div class="campo"><input type="file" id="loteEcoArchivo" accept=".zip,.rar,.7z,.tar,.gz,.tgz,.bz2,.tbz,.tbz2,.xz,.txz,application/zip,application/x-zip-compressed,application/vnd.rar,application/x-rar-compressed,application/x-7z-compressed,application/x-tar,application/gzip"></div>
+            <div class="eco-lote-origenes">
+                <div class="eco-lote-origen">
+                    <strong>Opción 1 · Comprimido</strong>
+                    <small>.zip, .rar, .7z, .tar, .tar.gz…</small>
+                    <input type="file" id="loteEcoArchivo" accept=".zip,.rar,.7z,.tar,.gz,.tgz,.bz2,.tbz,.tbz2,.xz,.txz,application/zip,application/x-zip-compressed,application/vnd.rar,application/x-rar-compressed,application/x-7z-compressed,application/x-tar,application/gzip">
+                </div>
+                <div class="eco-lote-origen eco-lote-soltar" id="loteEcoSoltar">
+                    <strong>Opción 2 · Carpetas</strong>
+                    <small>Elija la carpeta que contiene las carpetas de los postulantes (p. ej. la del día) y marque cuáles analizar.
+                        También puede agregar más carpetas o arrastrar varias juntas aquí desde el Explorador.</small>
+                    <div><button type="button" class="btn-small btn-secondary" onclick="loteEcoCarpetaInput.click()">Elegir carpeta…</button></div>
+                    <input type="file" id="loteEcoCarpetaInput" webkitdirectory directory multiple hidden>
+                    <div class="eco-lote-carpetas-acciones" id="loteEcoCarpetasAcciones" hidden>
+                        <small id="loteEcoCarpetasResumen"></small>
+                        <span>
+                            <button type="button" class="btn-small btn-secondary" onclick="marcarCarpetasLoteEco(true)">Todas</button>
+                            <button type="button" class="btn-small btn-secondary" onclick="marcarCarpetasLoteEco(false)">Ninguna</button>
+                            <button type="button" class="btn-small btn-secondary" onclick="quitarCarpetasLoteEco()">Quitar</button>
+                        </span>
+                    </div>
+                    <ul class="eco-lote-carpetas" id="loteEcoCarpetasLista"></ul>
+                </div>
+            </div>
         </div>
         <div id="loteEcoPaso2" hidden>
             <div class="eco-lote-resumen" id="loteEcoResumen"></div>
@@ -186,7 +218,7 @@ include 'menu.php';
     </div>
     <div class="modal-footer">
         <button class="btn-secondary" type="button" onclick="modalLoteEco.close()">Cancelar</button>
-        <button type="button" id="loteEcoAnalizar" onclick="analizarLoteEco()">Analizar comprimido</button>
+        <button type="button" id="loteEcoAnalizar" onclick="analizarLoteEco()">Analizar imágenes</button>
         <button type="button" id="loteEcoAplicar" onclick="aplicarLoteEco()" hidden>Cargar imágenes</button>
     </div>
 </dialog>
@@ -558,10 +590,18 @@ const ESTADOS_LOTE_ECO = {
 };
 let loteEco = null; // {lote, carpetas:[...]}
 
+const LOTE_ECO_MAX_BYTES = 40 * 1024 * 1024;
+const LOTE_ECO_IMAGEN = /\.(jpe?g|png|webp)$/i;
+let loteEcoCarpetas = new Map(); // ruta relativa "carpeta/sub/imagen.jpg" -> File
+
 function abrirLoteEco() {
     if (!puedeEditarEco) return;
     loteEco = null;
     loteEcoArchivo.value = '';
+    loteEcoCarpetaInput.value = '';
+    loteEcoCarpetas = new Map();
+    loteEcoDesmarcadas = new Set();
+    renderCarpetasLoteEco();
     loteEcoCantidad.textContent = pacientesEco.length;
     loteEcoPaso1.hidden = false;
     loteEcoPaso2.hidden = true;
@@ -570,18 +610,220 @@ function abrirLoteEco() {
     modalLoteEco.showModal();
 }
 
+// ---- Selección de carpetas: se agregan una o varias carpetas (botón o arrastrar) y
+// se listan las carpetas de postulante encontradas, cada una con su casilla. ----
+let loteEcoDesmarcadas = new Set(); // nombres de carpeta de postulante que no se analizarán
+const LOTE_ECO_PATRON_CARPETA = /[a-z]{3,}.*\d{8}-\d{6}/i;
+
+function agregarImagenesLoteEco(lista) {
+    let nuevas = 0;
+    lista.forEach(({ruta, archivo}) => {
+        ruta = String(ruta).replace(/\\/g, '/').replace(/^\/+/, '');
+        if (!LOTE_ECO_IMAGEN.test(ruta) || !ruta.includes('/') || loteEcoCarpetas.has(ruta)) return;
+        if (ruta.split('/').some(parte => parte === '__MACOSX' || parte.startsWith('.'))) return;
+        loteEcoCarpetas.set(ruta, archivo);
+        nuevas++;
+    });
+    if (nuevas) loteEcoArchivo.value = ''; // carpetas y comprimido no se combinan
+    else Salus.toast('No se encontraron imágenes nuevas (JPG, PNG o WEBP) dentro de carpetas.', 'error');
+    renderCarpetasLoteEco();
+}
+
+// Misma regla que el servidor (carpetasLoteEco): ruta de imagen -> carpeta de postulante.
+function carpetaPorRutaLoteEco() {
+    const rutas = [...loteEcoCarpetas.keys()];
+    let directorios = rutas.map(ruta => ruta.split('/').filter(parte => parte && parte !== '.' && parte !== '..').slice(0, -1));
+    while (directorios.length && Math.min(...directorios.map(d => d.length)) > 1
+        && new Set(directorios.map(d => d[0])).size === 1
+        && !LOTE_ECO_PATRON_CARPETA.test(directorios[0][0])) {
+        directorios = directorios.map(d => d.slice(1));
+    }
+    const mapa = new Map();
+    rutas.forEach((ruta, i) => mapa.set(ruta, directorios[i].find(s => LOTE_ECO_PATRON_CARPETA.test(s)) || directorios[i][0]));
+    return mapa;
+}
+
+function rutasSeleccionadasLoteEco() {
+    return [...carpetaPorRutaLoteEco()].filter(([, carpeta]) => !loteEcoDesmarcadas.has(carpeta)).map(([ruta]) => ruta);
+}
+
+function renderCarpetasLoteEco() {
+    const grupos = new Map();
+    carpetaPorRutaLoteEco().forEach((carpeta, ruta) => grupos.set(carpeta, (grupos.get(carpeta) || 0) + 1));
+    const nombres = [...grupos.keys()].sort((a, b) => a.localeCompare(b, 'es', {numeric: true, sensitivity: 'base'}));
+    [...loteEcoDesmarcadas].forEach(nombre => { if (!grupos.has(nombre)) loteEcoDesmarcadas.delete(nombre); });
+    const marcadas = nombres.filter(nombre => !loteEcoDesmarcadas.has(nombre));
+    const imagenes = marcadas.reduce((total, nombre) => total + grupos.get(nombre), 0);
+    loteEcoCarpetasAcciones.hidden = nombres.length === 0;
+    loteEcoCarpetasResumen.textContent = `${marcadas.length} de ${nombres.length} carpeta(s) seleccionada(s) · ${imagenes} imagen(es)`;
+    loteEcoCarpetasLista.innerHTML = nombres.map(nombre => `<li><label>
+        <input type="checkbox" data-carpeta-lote="${Salus.escape(nombre)}" ${loteEcoDesmarcadas.has(nombre) ? '' : 'checked'}>
+        <span title="${Salus.escape(nombre)}">📁 <strong>${Salus.escape(nombre)}</strong> · ${grupos.get(nombre)} imagen(es)</span>
+    </label></li>`).join('');
+}
+
+function marcarCarpetasLoteEco(todas) {
+    loteEcoDesmarcadas = todas ? new Set() : new Set(carpetaPorRutaLoteEco().values());
+    renderCarpetasLoteEco();
+}
+
+function quitarCarpetasLoteEco() {
+    loteEcoCarpetas = new Map();
+    loteEcoDesmarcadas = new Set();
+    renderCarpetasLoteEco();
+}
+
+loteEcoCarpetasLista?.addEventListener('change', evento => {
+    const casilla = evento.target.closest('[data-carpeta-lote]');
+    if (!casilla) return;
+    casilla.checked ? loteEcoDesmarcadas.delete(casilla.dataset.carpetaLote) : loteEcoDesmarcadas.add(casilla.dataset.carpetaLote);
+    renderCarpetasLoteEco();
+});
+
+loteEcoCarpetaInput?.addEventListener('change', () => {
+    agregarImagenesLoteEco([...loteEcoCarpetaInput.files].map(archivo => ({ruta: archivo.webkitRelativePath || archivo.name, archivo})));
+    loteEcoCarpetaInput.value = '';
+});
+
+loteEcoArchivo?.addEventListener('change', () => {
+    if (loteEcoArchivo.files.length && loteEcoCarpetas.size) {
+        loteEcoCarpetas = new Map();
+        renderCarpetasLoteEco();
+    }
+});
+
+// Recorre una carpeta arrastrada (File System Entries API) y devuelve sus archivos con la ruta relativa.
+async function leerEntradaLoteEco(entrada) {
+    if (entrada.isFile) {
+        const archivo = await new Promise((ok, falla) => entrada.file(ok, falla));
+        return [{ruta: entrada.fullPath, archivo}];
+    }
+    if (!entrada.isDirectory) return [];
+    const lector = entrada.createReader();
+    const hijos = [];
+    for (;;) { // readEntries devuelve por tandas hasta que viene vacío
+        const tanda = await new Promise((ok, falla) => lector.readEntries(ok, falla));
+        if (!tanda.length) break;
+        hijos.push(...tanda);
+    }
+    return (await Promise.all(hijos.map(leerEntradaLoteEco))).flat();
+}
+
+if (window.loteEcoSoltar) {
+    ['dragenter', 'dragover'].forEach(tipo => loteEcoSoltar.addEventListener(tipo, evento => {
+        evento.preventDefault();
+        loteEcoSoltar.classList.add('arrastrando');
+    }));
+    ['dragleave', 'drop'].forEach(tipo => loteEcoSoltar.addEventListener(tipo, () => loteEcoSoltar.classList.remove('arrastrando')));
+    loteEcoSoltar.addEventListener('drop', async evento => {
+        evento.preventDefault();
+        const entradas = [...evento.dataTransfer.items].map(item => item.webkitGetAsEntry?.()).filter(Boolean);
+        try {
+            agregarImagenesLoteEco((await Promise.all(entradas.map(leerEntradaLoteEco))).flat());
+        } catch (error) {
+            Salus.toast('No se pudieron leer las carpetas arrastradas.', 'error');
+        }
+    });
+}
+
+// ---- Empaquetado ZIP (sin compresión) de las carpetas elegidas, para reutilizar el análisis del servidor ----
+const CRC_LOTE_ECO = (() => {
+    const tabla = new Uint32Array(256);
+    for (let n = 0; n < 256; n++) {
+        let c = n;
+        for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+        tabla[n] = c >>> 0;
+    }
+    return tabla;
+})();
+
+function crc32LoteEco(bytes) {
+    let crc = 0xFFFFFFFF;
+    for (let i = 0; i < bytes.length; i++) crc = CRC_LOTE_ECO[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+    return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+// Entradas del zip para las carpetas marcadas: "carpeta/0001-imagen.jpg". Se aplana cada
+// carpeta de postulante (numerando en el orden de captura) para que el servidor la
+// reconozca igual, sin importar desde qué nivel se eligió la carpeta.
+function entradasZipLoteEco() {
+    const porCarpeta = new Map();
+    const mapa = carpetaPorRutaLoteEco();
+    rutasSeleccionadasLoteEco().forEach(ruta => {
+        const carpeta = mapa.get(ruta);
+        if (!porCarpeta.has(carpeta)) porCarpeta.set(carpeta, []);
+        porCarpeta.get(carpeta).push(ruta);
+    });
+    const base = ruta => ruta.split('/').pop();
+    const comparar = (a, b) => (base(a) < base(b) ? -1 : base(a) > base(b) ? 1 : a < b ? -1 : a > b ? 1 : 0);
+    const entradas = [];
+    porCarpeta.forEach((rutas, carpeta) => rutas.sort(comparar).forEach((ruta, i) =>
+        entradas.push([`${carpeta}/${String(i + 1).padStart(4, '0')}-${base(ruta)}`, loteEcoCarpetas.get(ruta)])));
+    return entradas;
+}
+
+async function zipCarpetasLoteEco(entradas) {
+    const codificador = new TextEncoder();
+    const partes = [], central = [];
+    let desplazamiento = 0;
+    const ahora = new Date();
+    const hora = (ahora.getHours() << 11) | (ahora.getMinutes() << 5) | (ahora.getSeconds() >> 1);
+    const fecha = ((ahora.getFullYear() - 1980) << 9) | ((ahora.getMonth() + 1) << 5) | ahora.getDate();
+    for (const [ruta, archivo] of entradas) {
+        const nombre = codificador.encode(ruta);
+        const datos = new Uint8Array(await archivo.arrayBuffer());
+        const crc = crc32LoteEco(datos);
+        const cabecera = (firma, extra) => {
+            const b = new DataView(new ArrayBuffer(extra ? 46 : 30));
+            let p = 0;
+            const u32 = v => { b.setUint32(p, v, true); p += 4; };
+            const u16 = v => { b.setUint16(p, v, true); p += 2; };
+            u32(firma);
+            if (extra) u16(20);              // versión que lo creó
+            u16(20); u16(0x0800); u16(0);    // versión mínima, nombres UTF-8, sin compresión
+            u16(hora); u16(fecha); u32(crc); u32(datos.length); u32(datos.length);
+            u16(nombre.length); u16(0);
+            if (extra) { u16(0); u16(0); u16(0); u32(0); u32(desplazamiento); }
+            return new Uint8Array(b.buffer);
+        };
+        central.push(cabecera(0x02014B50, true), nombre);
+        const local = cabecera(0x04034B50, false);
+        partes.push(local, nombre, datos);
+        desplazamiento += local.length + nombre.length + datos.length;
+    }
+    const tamanoCentral = central.reduce((total, parte) => total + parte.length, 0);
+    const fin = new DataView(new ArrayBuffer(22));
+    fin.setUint32(0, 0x06054B50, true);
+    fin.setUint16(8, entradas.length, true);
+    fin.setUint16(10, entradas.length, true);
+    fin.setUint32(12, tamanoCentral, true);
+    fin.setUint32(16, desplazamiento, true);
+    return new File([...partes, ...central, new Uint8Array(fin.buffer)], 'carpetas.zip', {type: 'application/zip'});
+}
+
 async function analizarLoteEco() {
-    const archivo = loteEcoArchivo.files[0];
-    if (!archivo) return Salus.toast('Seleccione el archivo comprimido.', 'error');
-    if (!/\.(zip|rar|7z|tar|gz|tgz|bz2|tbz2?|xz|txz)$/i.test(archivo.name)) return Salus.toast('El archivo debe ser un comprimido: .zip, .rar, .7z, .tar, .tar.gz…', 'error');
-    if (archivo.size > 40 * 1024 * 1024) return Salus.toast('El comprimido puede pesar como máximo 40 MB.', 'error');
+    let archivo = loteEcoArchivo.files[0];
+    if (!archivo && !loteEcoCarpetas.size) return Salus.toast('Seleccione un comprimido o elija carpetas.', 'error');
+    const entradas = archivo ? [] : entradasZipLoteEco();
+    if (!archivo && !entradas.length) return Salus.toast('Marque al menos una carpeta para analizar.', 'error');
+    if (archivo && !/\.(zip|rar|7z|tar|gz|tgz|bz2|tbz2?|xz|txz)$/i.test(archivo.name)) return Salus.toast('El archivo debe ser un comprimido: .zip, .rar, .7z, .tar, .tar.gz…', 'error');
+    if (!archivo) {
+        const total = entradas.reduce((suma, [, item]) => suma + item.size, 0);
+        if (total > LOTE_ECO_MAX_BYTES - 1024 * 1024) return Salus.toast('Las carpetas marcadas superan los 40 MB. Desmarque algunas y cárguelas en otra tanda.', 'error');
+    } else if (archivo.size > LOTE_ECO_MAX_BYTES) {
+        return Salus.toast('El comprimido puede pesar como máximo 40 MB.', 'error');
+    }
     if (!pacientesEco.length) return Salus.toast('No hay postulantes en la lista. Ajuste los filtros.', 'error');
-    const cuerpo = Salus.form();
-    cuerpo.append('comprimido', archivo);
-    pacientesEco.forEach(paciente => cuerpo.append('ids[]', paciente.id_postulante));
     loteEcoAnalizar.disabled = true;
-    loteEcoAnalizar.textContent = 'Analizando…';
+    loteEcoAnalizar.textContent = archivo ? 'Analizando…' : 'Preparando carpetas…';
     try {
+        if (!archivo) {
+            archivo = await zipCarpetasLoteEco(entradas);
+            loteEcoAnalizar.textContent = 'Analizando…';
+        }
+        const cuerpo = Salus.form();
+        cuerpo.append('comprimido', archivo);
+        pacientesEco.forEach(paciente => cuerpo.append('ids[]', paciente.id_postulante));
         loteEco = await Salus.json('backend/informesEcoDAO.php?q=lote_analizar', {method:'POST', body:cuerpo});
         renderLoteEco();
         loteEcoPaso1.hidden = true;
@@ -592,7 +834,7 @@ async function analizarLoteEco() {
         Salus.toast(error.message, 'error');
     } finally {
         loteEcoAnalizar.disabled = false;
-        loteEcoAnalizar.textContent = 'Analizar comprimido';
+        loteEcoAnalizar.textContent = 'Analizar imágenes';
     }
 }
 
@@ -630,7 +872,7 @@ function urlImagenLoteEco(entrada) {
     return 'backend/informesEcoDAO.php?' + new URLSearchParams({q:'lote_imagen', lote:loteEco.lote, entrada});
 }
 
-// Miniatura de una imagen del comprimido; al hacer clic se abre en grande.
+// Miniatura de una imagen del lote; al hacer clic se abre en grande.
 function miniaturaLoteEco(entrada, etiqueta) {
     if (!entrada) return etiqueta;
     const url = Salus.escape(urlImagenLoteEco(entrada));
@@ -680,7 +922,7 @@ function actualizarLoteEco() {
     const sinCarpeta = pacientesEco.filter(paciente => !usos[String(Number(paciente.id_postulante))]);
     loteEcoResumen.innerHTML = `<span class="badge badge-success">${listas} postulante(s) · ${imagenes} imagen(es)</span>`
         + (problemas ? `<span class="badge badge-danger">${problemas} con problemas</span>` : '')
-        + `<span class="badge badge-muted">${loteEco.carpetas.length} carpeta(s) en el zip</span>`;
+        + `<span class="badge badge-muted">${loteEco.carpetas.length} carpeta(s) encontradas</span>`;
     loteEcoSinCarpeta.textContent = sinCarpeta.length
         ? `Postulantes de la lista sin carpeta (${sinCarpeta.length}): ` + sinCarpeta.map(paciente => paciente.nombre).join(', ')
         : 'Todos los postulantes de la lista tienen carpeta.';
