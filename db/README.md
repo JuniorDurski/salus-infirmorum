@@ -209,3 +209,28 @@ Desde `V33` el orden ya no está en `pacientes`: se guarda en
 desde el `orden_inicio` del convenio. Se recalcula al registrar un postulante,
 al activarlo o desactivarlo y al cambiar el `orden_inicio`. Los informes usan el
 orden del último registro del paciente para el código `NNN-ID`.
+
+## Catálogos referenciales para nuevas instalaciones
+
+Escuelas, menús, permisos, roles y sus permisos, convenios y arreadores, estudios
+referenciales, métodos de pago, plantillas y catálogos geográficos/académicos se
+modifican desde la aplicación, así que con el tiempo dejan de coincidir con lo que
+crean las migraciones. Para que una instalación nueva quede igual que la base de
+referencia se genera una migración de sincronización:
+
+```powershell
+C:\xampp\php\php.exe db\generar_migracion_referenciales.php
+C:\xampp\php\php.exe db\migrar.php migrate
+```
+
+El generador lee la base configurada y crea `V<siguiente>__sincronizar_referenciales.sql`
+con esos catálogos, conservando los mismos ids. Al aplicarla, solo corrige filas
+distintas, agrega las faltantes y elimina las que sobran: en la base de referencia
+no produce cambios, y en una instalación nueva deja los catálogos idénticos.
+`V45` es la primera de estas sincronizaciones; conviene generar otra antes de
+cada despliegue nuevo si los catálogos cambiaron.
+
+No se copian datos operativos (pacientes, postulantes, pagos, atenciones, informes,
+auditorías) ni usuarios: la instalación nueva arranca con el usuario `admin` de `V6`
+y su contraseña temporal. Los archivos de `uploads/` (firmas, sellos, imágenes) se
+copian aparte si se necesitan.
